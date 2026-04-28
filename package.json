@@ -4,13 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n client,server -c blue,magenta \"npm:dev:client\" \"npm:dev:server\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "start": "node --import tsx server/index.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
