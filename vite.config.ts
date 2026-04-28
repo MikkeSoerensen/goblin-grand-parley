@@ -8,8 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    hmr: {
-      overlay: false,
+    hmr: { overlay: false },
+    proxy: {
+      "/socket.io": { target: "http://localhost:3001", ws: true, changeOrigin: true },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
