@@ -1,0 +1,153 @@
+import type { Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard, GoUpLevelCard, BadStuffKind, Slot } from "./types";
+
+let _id = 0;
+const uid = () => `c${++_id}`;
+
+// ---------- helpers ----------
+const monster = (
+  cardId: string, name: string, level: number, treasures: number, levelsAwarded: number,
+  badStuff: BadStuffKind, badStuffText: string, copies = 1, flavor?: string,
+): MonsterCard[] => Array.from({ length: copies }, () => ({
+  id: uid(), cardId, name, type: "monster", deck: "door",
+  level, treasures, levelsAwarded, badStuff, badStuffText, flavor,
+}));
+
+const equipment = (
+  cardId: string, name: string, bonus: number, goldValue: number, slot: Slot, isBig = false, copies = 1, flavor?: string,
+): EquipmentCard[] => Array.from({ length: copies }, () => ({
+  id: uid(), cardId, name, type: "equipment", deck: "treasure",
+  bonus, goldValue, slot, isBig, flavor,
+}));
+
+const curse = (cardId: string, name: string, effect: BadStuffKind, effectText: string, copies = 1): CurseCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "curse", deck: "door", effect, effectText,
+  }));
+
+const oneShot = (cardId: string, name: string, bonus: number, goldValue: number, target: OneShotCard["target"], copies = 1): OneShotCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target,
+  }));
+
+const enhancer = (cardId: string, name: string, bonus: number, goldValue: number, copies = 1): EnhancerCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "enhancer", deck: "treasure", bonus, goldValue, target: "monster",
+  }));
+
+const goUp = (copies: number): GoUpLevelCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId: "go-up", name: "Go Up a Level", type: "go-up-a-level", deck: "treasure", goldValue: 0,
+  }));
+
+// ---------- DOOR DECK (~70) ----------
+export const buildDoorDeck = (): Card[] => {
+  _id = 0; // reset between full builds (server calls one)
+  const cards: Card[] = [];
+
+  // Monsters (~50)
+  cards.push(...monster("m-rat", "Plutonium Dragon",  20, 5, 2, { kind: "death" }, "You die. Horribly.", 1));
+  cards.push(...monster("m-king", "King Tut",          16, 4, 2, { kind: "loseAllItems" }, "Lose all items.", 1));
+  cards.push(...monster("m-bull", "The Bullrog",       18, 4, 2, { kind: "death" }, "You are squished. Dead.", 1));
+  cards.push(...monster("m-undead", "Undead Horse",    14, 3, 2, { kind: "loseLevel", amount: 2 }, "Lose 2 levels.", 1));
+  cards.push(...monster("m-wraith", "Wight Brothers",  14, 3, 2, { kind: "loseLevel", amount: 2 }, "Lose 2 levels.", 1));
+  cards.push(...monster("m-shrieker", "Shrieking Geek",12, 3, 2, { kind: "loseItem", slot: "head" }, "Lose your head item.", 1));
+  cards.push(...monster("m-dragon", "Squidzilla",      18, 4, 2, { kind: "death" }, "Dragged to a watery grave.", 1));
+  cards.push(...monster("m-troll", "Stone Golem",      14, 2, 2, { kind: "loseItem", slot: "armor" }, "Your armor crumbles.", 2));
+  cards.push(...monster("m-vamp",  "Vampire",          12, 2, 2, { kind: "loseLevel", amount: 1 }, "Drained. Lose 1 level.", 2));
+  cards.push(...monster("m-mummy", "Mummy",            12, 2, 1, { kind: "loseItem", slot: "biggest" }, "Lose biggest item.", 2));
+  cards.push(...monster("m-troll2","Tongue Demon",     12, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
+  cards.push(...monster("m-flying","Flying Frogs",     10, 2, 1, { kind: "loseItem", slot: "feet" }, "Lose your footgear.", 2));
+  cards.push(...monster("m-orc",   "Hobbits",          10, 2, 1, { kind: "loseItem", slot: "any" }, "Lose any one item.", 2));
+  cards.push(...monster("m-floating","Floating Nose",   10, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
+  cards.push(...monster("m-pit",   "Pit Bull",          8, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your boots off.", 3));
+  cards.push(...monster("m-large", "Large Angry Chicken", 2, 1, 1, { kind: "loseLevel", amount: 1 }, "Pecked. Lose 1 level.", 3));
+  cards.push(...monster("m-net",   "Net Troll",         8, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
+  cards.push(...monster("m-amazon","Amazon",           8, 2, 1, { kind: "loseAllItems" }, "Lose all hand items.", 1));
+  cards.push(...monster("m-leper", "Leperchaun",        4, 1, 1, { kind: "loseItem", slot: "any" }, "Steals one item.", 2));
+  cards.push(...monster("m-snails","Maul Rat",          1, 1, 1, { kind: "loseLevel", amount: 1 }, "Bitten. Lose 1 level.", 3));
+  cards.push(...monster("m-flat",  "Flying Squirrel",   2, 1, 1, { kind: "loseItem", slot: "head" }, "Knocks your hat off.", 2));
+  cards.push(...monster("m-gaze",  "Gazebo",           8, 2, 1, { kind: "loseLevel", amount: 1 }, "Architectural trauma.", 2));
+  cards.push(...monster("m-bigfoot","Bigfoot",         12, 2, 1, { kind: "loseItem", slot: "head" }, "Lose your head item.", 1));
+  cards.push(...monster("m-laser","Laser Spider",       6, 1, 1, { kind: "loseLevel", amount: 1 }, "Pew pew. Lose a level.", 2));
+  cards.push(...monster("m-clown","Clown Prince",      14, 3, 2, { kind: "loseAllItems" }, "Honked to nakedness.", 1));
+  cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
+
+  // Curses (~14)
+  cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
+  cards.push(...curse("c-loseHead", "Curse! Lose Your Headgear", { kind: "loseItem", slot: "head" }, "Discard your head item.", 2));
+  cards.push(...curse("c-loseFeet", "Curse! Lose Your Footgear", { kind: "loseItem", slot: "feet" }, "Discard your foot item.", 1));
+  cards.push(...curse("c-loseHand", "Curse! Lose a Small Item", { kind: "loseItem", slot: "hand" }, "Discard one hand item.", 2));
+  cards.push(...curse("c-loseBig",  "Curse! Lose Your Big Item", { kind: "loseItem", slot: "bigItem" }, "Discard your Big item.", 1));
+  cards.push(...curse("c-level1",   "Curse! Lose a Level", { kind: "loseLevel", amount: 1 }, "Demoted.", 3));
+  cards.push(...curse("c-level2",   "Curse! Income Tax", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
+  cards.push(...curse("c-loseAny",  "Curse! Malign Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
+
+  return cards;
+};
+
+// ---------- TREASURE DECK (~55) ----------
+export const buildTreasureDeck = (): Card[] => {
+  const cards: Card[] = [];
+
+  // Equipment — head
+  cards.push(...equipment("e-helm", "Horny Helmet",        1, 600, "head", false, 2));
+  cards.push(...equipment("e-pointy", "Pointy Hat of Power", 3, 400, "head", false, 1));
+  cards.push(...equipment("e-bandana", "Bandana of Bravery", 1, 300, "head", false, 2));
+  cards.push(...equipment("e-spiky", "Spiky Knees",         1, 200, "head", false, 1));
+
+  // Equipment — armor
+  cards.push(...equipment("e-leather", "Leather Armor",     2, 400, "armor", false, 2));
+  cards.push(...equipment("e-chain",   "Chainmail",         2, 600, "armor", false, 1));
+  cards.push(...equipment("e-platemail","Plate Armor",      4, 1100, "armor", true, 1));
+  cards.push(...equipment("e-flaming", "Flaming Armor",     3, 800, "armor", false, 1));
+
+  // Equipment — feet
+  cards.push(...equipment("e-boots",   "Boots of Butt-Kicking", 2, 400, "feet", false, 2));
+  cards.push(...equipment("e-running", "Boots of Running Really Fast", 0, 400, "feet", false, 1));
+  cards.push(...equipment("e-stomping","Stomping Boots",    3, 700, "feet", true, 1));
+
+  // Equipment — hands (single)
+  cards.push(...equipment("e-sword",   "Singing & Dancing Sword", 2, 400, "hand", false, 2));
+  cards.push(...equipment("e-dagger",  "Sneaky Dagger",     1, 300, "hand", false, 3));
+  cards.push(...equipment("e-mace",    "Mace of Sharpness", 3, 600, "hand", false, 1));
+  cards.push(...equipment("e-shield",  "Pretty Balloons",   2, 0, "hand", false, 1));
+  cards.push(...equipment("e-wand",    "Wand of Dowsing",   2, 300, "hand", false, 1));
+
+  // Equipment — two-handed
+  cards.push(...equipment("e-bow",     "Bow With Ribbons",  4, 800, "twoHands", false, 1));
+  cards.push(...equipment("e-staff",   "Staff of Napalm",   5, 800, "twoHands", true, 1));
+  cards.push(...equipment("e-broad",   "Broad Sword",       3, 400, "twoHands", false, 1));
+
+  // Equipment — big
+  cards.push(...equipment("e-anvil",   "Huge Rock",         3, 0, "bigItem", true, 1));
+  cards.push(...equipment("e-ladder",  "Tuba of Charm",     3, 300, "bigItem", true, 1));
+
+  // One-shots
+  cards.push(...oneShot("o-potion-h", "Potion of Halitosis", 2, 100, "monster", 2));
+  cards.push(...oneShot("o-potion-i", "Instant Wall",        3, 300, "either", 1));
+  cards.push(...oneShot("o-flaming",  "Flaming Poison Potion",3, 100, "monster", 2));
+  cards.push(...oneShot("o-shouting", "Potion of Shouting",  3, 100, "monster", 1));
+  cards.push(...oneShot("o-friendship","Potion of Friendship",2, 200, "ally", 2));
+  cards.push(...oneShot("o-yuppie",   "Yuppie Water",        2, 200, "monster", 1));
+  cards.push(...oneShot("o-magic",    "Magic Missile",       5, 300, "monster", 1));
+  cards.push(...oneShot("o-loaded",   "Loaded Die",          1, 100, "ally", 2));
+
+  // Enhancers (added to monster level — typically negative for player to weaken,
+  //   but stored as positive bonus — opponents play to strengthen monster)
+  cards.push(...enhancer("h-ancient",  "Ancient",  +5, 200, 1));
+  cards.push(...enhancer("h-enraged",  "Enraged",  +5, 100, 1));
+  cards.push(...enhancer("h-humongous","Humongous",+10, 300, 1));
+  cards.push(...enhancer("h-baby",     "Baby",     -5, 100, 1));   // weakens monster (good for attacker)
+  cards.push(...enhancer("h-mate",     "Mate",     +5, 100, 1));
+  cards.push(...enhancer("h-intelligent","Intelligent", +5, 200, 1));
+
+  // Go up a level
+  cards.push(...goUp(5));
+
+  return cards;
+};
+
+export const buildAllDecks = () => ({
+  door: buildDoorDeck(),
+  treasure: buildTreasureDeck(),
+});
