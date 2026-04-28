@@ -2,95 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ============================================================
+   MUNCHKIN — Dark Game-Board Design System
+   All colors HSL. All tokens semantic. No ad-hoc colors.
+   ============================================================ */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Felt table greens & deep wood tones */
+    --background: 150 30% 6%;
+    --foreground: 45 30% 92%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --table-felt: 150 35% 12%;
+    --table-felt-edge: 150 40% 8%;
+    --wood-rim: 25 40% 14%;
+    --wood-rim-light: 30 35% 22%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --card: 45 25% 94%;
+    --card-foreground: 25 30% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --popover: 150 30% 10%;
+    --popover-foreground: 45 30% 92%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Primary = brass / gold (ornate, treasure) */
+    --primary: 42 80% 55%;
+    --primary-foreground: 25 40% 12%;
+    --primary-glow: 48 95% 65%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Secondary = parchment */
+    --secondary: 38 35% 80%;
+    --secondary-foreground: 25 35% 15%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted: 150 15% 18%;
+    --muted-foreground: 45 15% 70%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 350 70% 45%;
+    --accent-foreground: 45 30% 95%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 45 30% 95%;
 
-    --radius: 0.5rem;
+    --border: 150 20% 20%;
+    --input: 150 20% 16%;
+    --ring: 42 80% 55%;
 
-    --sidebar-background: 0 0% 98%;
+    --radius: 0.6rem;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Card-type tints */
+    --door: 18 65% 38%;
+    --door-foreground: 45 30% 95%;
+    --treasure: 42 75% 48%;
+    --treasure-foreground: 25 40% 12%;
+    --monster: 0 65% 40%;
+    --monster-foreground: 45 30% 95%;
+    --curse: 280 55% 35%;
+    --curse-foreground: 45 30% 95%;
+    --equip: 200 55% 38%;
+    --equip-foreground: 45 30% 95%;
+    --oneshot: 140 55% 32%;
+    --oneshot-foreground: 45 30% 95%;
+    --enhancer: 320 55% 45%;
+    --enhancer-foreground: 45 30% 95%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Gradients */
+    --gradient-felt: radial-gradient(ellipse at center, hsl(150 35% 14%) 0%, hsl(150 40% 7%) 75%);
+    --gradient-wood: linear-gradient(180deg, hsl(30 35% 22%), hsl(25 40% 12%));
+    --gradient-brass: linear-gradient(135deg, hsl(48 95% 65%), hsl(38 80% 45%));
+    --gradient-parchment: linear-gradient(180deg, hsl(45 35% 95%), hsl(40 30% 86%));
+    --gradient-monster: linear-gradient(160deg, hsl(0 65% 45%), hsl(355 70% 28%));
+    --gradient-curse: linear-gradient(160deg, hsl(280 55% 40%), hsl(265 60% 22%));
+    --gradient-treasure: linear-gradient(160deg, hsl(48 90% 60%), hsl(35 70% 35%));
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Shadows */
+    --shadow-card: 0 6px 18px -4px hsl(0 0% 0% / 0.6), 0 2px 4px hsl(0 0% 0% / 0.4);
+    --shadow-card-hover: 0 16px 36px -8px hsl(0 0% 0% / 0.7), 0 4px 8px hsl(0 0% 0% / 0.5);
+    --shadow-glow-brass: 0 0 24px hsl(42 90% 55% / 0.45);
+    --shadow-inset-felt: inset 0 0 80px hsl(150 50% 4% / 0.7);
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    /* Motion */
+    --ease-out-card: cubic-bezier(0.22, 1, 0.36, 1);
+    --transition-card: transform 220ms var(--ease-out-card), box-shadow 220ms var(--ease-out-card);
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Typography */
+    --font-display: "Cinzel", "Trajan Pro", "Cormorant Garamond", Georgia, serif;
+    --font-body: "Spectral", "Crimson Pro", Georgia, serif;
+    --font-ui: "Inter", system-ui, sans-serif;
   }
 }
 
@@ -99,7 +95,87 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html, body, #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    background-image:
+      radial-gradient(ellipse at top, hsl(150 30% 12%) 0%, hsl(150 35% 5%) 70%),
+      repeating-linear-gradient(
+        45deg,
+        hsl(150 40% 5% / 0.2) 0,
+        hsl(150 40% 5% / 0.2) 2px,
+        transparent 2px,
+        transparent 6px
+      );
+    background-attachment: fixed;
   }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer components {
+  .felt-table {
+    background: var(--gradient-felt);
+    box-shadow: var(--shadow-inset-felt);
+    border: 4px solid hsl(var(--wood-rim));
+    border-radius: 24px;
+    position: relative;
+  }
+
+  .felt-table::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    background: var(--gradient-wood);
+    border-radius: 32px;
+    z-index: -1;
+    box-shadow: 0 20px 60px -10px hsl(0 0% 0% / 0.8);
+  }
+
+  .brass-text {
+    background: var(--gradient-brass);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 1px 0 hsl(0 0% 0% / 0.3);
+  }
+
+  .card-base {
+    @apply rounded-lg overflow-hidden relative;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition-card);
+    will-change: transform;
+  }
+
+  .card-base:hover {
+    transform: translateY(-8px) scale(1.04);
+    box-shadow: var(--shadow-card-hover);
+    z-index: 50;
+  }
+
+  .hand-strip > * + * {
+    margin-left: -2.75rem;
+  }
+  .hand-strip > *:hover ~ * {
+    transform: translateX(1.5rem);
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 1.6s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5); }
+    50% { box-shadow: 0 0 0 12px hsl(var(--primary) / 0); }
+  }
+
+  .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 6px; }
 }
