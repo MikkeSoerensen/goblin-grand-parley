@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { GameCard } from "./GameCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import type { Card, EquipmentCard, MonsterCard } from "../../../shared/types";
+import type { Card, EquipmentCard } from "../../../shared/types";
 import { Backpack, Hand, Trash2, Coins, Shield } from "lucide-react";
 
 export function PlayerHand() {
@@ -10,12 +10,13 @@ export function PlayerHand() {
   const [selected, setSelected] = useState<string | null>(null);
   const [showBackpack, setShowBackpack] = useState(false);
   const [sellMode, setSellMode] = useState<string[]>([]);
+  const [isSelling, setIsSelling] = useState(false); // RETTELSE: Ny state til at styre salg
 
   if (!view?.self) return null;
   const self = view.self;
   const isMyTurn = view.players[view.activePlayerIndex]?.id === self.id;
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
-  const card = self.hand.find(c => c.id === selected) ?? null;
+  const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
 
   const playableInCombat = (c: Card) => c.type === "oneshot" || c.type === "enhancer";
 
@@ -45,15 +46,19 @@ export function PlayerHand() {
           <Button size="sm" variant={showBackpack ? "default" : "secondary"} onClick={() => setShowBackpack(s => !s)}>
             <Backpack className="w-4 h-4 mr-1"/> Backpack ({self.backpack.length})
           </Button>
-          {sellMode.length > 0 ? (
+          
+          {/* RETTELSE: Opdateret salgs-UI */}
+          {isSelling ? (
             <>
-              <Button size="sm" variant="default" disabled={sellTotal < 1000} onClick={() => { send({ type: "sell", cardIds: sellMode }); setSellMode([]); }}>
-                <Coins className="w-4 h-4 mr-1"/> Sell ({sellTotal}g → {Math.floor(sellTotal/1000)} lvl)
+              <Button size="sm" variant="default" disabled={sellTotal < 1000} onClick={() => { send({ type: "sell", cardIds: sellMode }); setSellMode([]); setIsSelling(false); }}>
+                <Coins className="w-4 h-4 mr-1"/> Confirm Sell ({sellTotal}g)
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSellMode([])}>Cancel</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setSellMode([]); setIsSelling(false); }}>Cancel</Button>
             </>
           ) : (
-            <Button size="sm" variant="secondary" onClick={() => setSellMode([])}><Coins className="w-4 h-4"/></Button>
+            <Button size="sm" variant="secondary" onClick={() => { setIsSelling(true); setSelected(null); }}>
+              <Coins className="w-4 h-4 mr-1"/> Sell Items
+            </Button>
           )}
         </div>
       </div>
@@ -66,12 +71,12 @@ export function PlayerHand() {
             size="md"
             selected={selected === c.id || sellMode.includes(c.id)}
             onClick={() => {
-              if (sellMode.length > 0 || (c.type === "equipment")) {
-                // toggle sell mode for equipment
+              // RETTELSE: Nu går vi kun i "sell mode", hvis brugeren aktivt har trykket på "Sell Items" knappen først
+              if (isSelling) {
                 if (c.type === "equipment") {
                   setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
-                  return;
                 }
+                return;
               }
               setSelected(s => s === c.id ? null : c.id);
             }}
@@ -83,7 +88,7 @@ export function PlayerHand() {
       </div>
 
       {/* Action menu for selected card */}
-      {card && (
+      {card && !isSelling && (
         <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
           <span className="font-display text-sm opacity-80">{card.name}:</span>
           {card.type === "equipment" && isMyTurn && !inCombat && (

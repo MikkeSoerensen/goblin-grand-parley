@@ -21,7 +21,8 @@ export function CombatPanel() {
   const winning = playerTotal > monsterTotal;
 
   const myPass = c.passes[self.id];
-  const canPass = !isFighter && self.id in c.passes;
+  // RETTELSE: Vi fjerner !isFighter, så hjælpere også kan trykke Pass efter en Blood Oath
+  const canPass = self.id in c.passes; 
   const allPassed = Object.values(c.passes).every(Boolean);
 
   return (
@@ -91,7 +92,7 @@ export function CombatPanel() {
       )}
 
       {/* Help offers received */}
-      {view.negotiations.filter(n => n.toId === self.id && n.status === "pending").map((n: any) => (
+      {view.negotiations.filter((n: any) => n.toId === self.id && n.status === "pending").map((n: any) => (
         <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
           <span className="flex-1">{view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s) for help.</span>
           <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
@@ -106,7 +107,8 @@ export function CombatPanel() {
             {myPass ? "✓ Passed" : "Pass"}
           </Button>
         )}
-        {isAttacker && allPassed && view.status === "inCombat" && (
+        {/* RETTELSE: Vi sørger for at Resolve-knappen altid vises, når alle har passet */}
+        {isAttacker && allPassed && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant="default" onClick={() => send({ type: "resolveCombat" })}><Swords className="w-4 h-4 mr-1"/> Resolve combat</Button>
         )}
         {view.status === "runAwayRoll" && isFighter && (
