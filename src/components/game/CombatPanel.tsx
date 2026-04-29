@@ -19,6 +19,7 @@ export function CombatPanel() {
   const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
   const winning = playerTotal > monsterTotal;
+  const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
 
   const myPass = !!c.passes[self.id];
   const canPass = !myPass && !isFighter; 
@@ -92,14 +93,25 @@ export function CombatPanel() {
             {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => (
               <div key={p.id} className="flex items-center gap-2 text-sm">
                 <span className="flex-1 truncate">{p.name} (Pwr {p.combatPower})</span>
-                <input type="number" min={0} max={5} value={helpTreasures[p.id] ?? 1} onChange={e => setHelpTreasures(s => ({ ...s, [p.id]: Math.max(0, +e.target.value) }))} className="w-14 bg-input rounded px-2 py-1 text-sm border border-border" />
-                <Button size="sm" onClick={() => send({ type: "askForHelp", helperId: p.id, treasures: helpTreasures[p.id] ?? 1 })}>Offer</Button>
+                <input 
+                  type="number" 
+                  min={0} 
+                  max={totalTreasures} 
+                  value={helpTreasures[p.id] ?? Math.min(1, totalTreasures)} 
+                  onChange={e => setHelpTreasures(s => ({ ...s, [p.id]: Math.min(totalTreasures, Math.max(0, +e.target.value)) }))} 
+                  className="w-14 bg-input rounded px-2 py-1 text-sm border border-border" 
+                />
+                <Button 
+                  size="sm" 
+                  onClick={() => send({ type: "askForHelp", helperId: p.id, treasures: helpTreasures[p.id] ?? Math.min(1, totalTreasures) })}
+                >
+                  Offer
+                </Button>
               </div>
             ))}
           </div>
         </div>
       )}
-
       {c.contract && (
         <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-accent/20 border border-accent/40">
           🩸 Blood Oath: helper gets {c.contract.treasures} treasure(s) — locked.
