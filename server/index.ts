@@ -719,6 +719,7 @@ const advanceTurn = (room: Room) => {
   room.currentPhase = 1;
   room.status = "normalTurn";
   room.combatFought = false;
+  room.combat = null;
   log(room, `▶ ${room.players[next].name}'s turn.`);
 };
 
