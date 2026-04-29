@@ -660,32 +660,39 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
-    case "runAway": {
+case "runAway": {
       if (!room.combat) return "No combat.";
-      if (room.status !== "runAwayRoll") return "Not run-away phase.";
+      if ((room.status as string) !== "runAwayRoll") return "Not run-away phase.";
       if (playerId !== room.combat.attackerId && playerId !== room.combat.helperId) return "Not in this combat.";
+      
       const roll = 1 + Math.floor(Math.random() * 6);
       io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Run Away" });
       log(room, `🎲 ${player.name} rolls ${roll} to run away.`);
+      
       if (roll >= 5) {
         log(room, `${player.name} escapes!`);
       } else {
         log(room, `${player.name} fails to escape — Bad Stuff!`);
         for (const m of room.combat.monsters) {
           applyBadStuff(room, player, m.badStuff);
-          if ((room.status as string) !== "looting") return null; // pause for looting
+          // RETTELSE HER: Stop KUN funktionen, hvis spilleren er død (looting) eller spillet er slut.
+          if ((room.status as string) === "looting" || (room.status as string) === "gameOver") return null; 
         }
       }
+      
       // mark this player's run resolved by removing from combat passes (we reuse passes for ran flag)
       (room.combat as any)._ran = (room.combat as any)._ran ?? new Set<string>();
       ((room.combat as any)._ran as Set<string>).add(playerId);
+      
       const attackerDone = ((room.combat as any)._ran as Set<string>).has(room.combat.attackerId);
       const helperDone = !room.combat.helperId || ((room.combat as any)._ran as Set<string>).has(room.combat.helperId);
+      
       if (attackerDone && helperDone) {
         // discard monsters
         for (const m of room.combat.monsters) room.discards.door.push(m);
         room.table = room.table.filter(t => !room.combat!.monsters.some(m => m.id === t.id));
         room.combat = null;
+        
         if ((room.status as string) !== "looting" && (room.status as string) !== "gameOver") {
           room.status = "normalTurn";
           room.currentPhase = 3;
