@@ -553,28 +553,54 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
 
     case "pass": {
       if (!room.combat) return "No combat.";
-      if (!(playerId in room.combat.passes)) return "You're not interrupting.";
+      
+      // Fighters (angriber og hjælper) må ikke trykke pass! 
+      if (room.combat.attackerId === playerId || room.combat.helperId === playerId) {
+        return "Fighters cannot pass.";
+      }
+      
+      // Registrer spillerens stemme
       room.combat.passes[playerId] = true;
-      // if all passed → ready to resolve
-      const allPassed = Object.values(room.combat.passes).every(Boolean);
-      if (allPassed) room.status = "inCombat";
+
+      // Vores nye logik: Tæl hvor mange der REELT kan afgive pass
+      const alivePlayers = room.players.filter(p => !p.isDead).length;
+      const expectedPasses = alivePlayers - (room.combat.helperId ? 2 : 1);
+      const passCount = Object.values(room.combat.passes).filter(Boolean).length;
+
+      // Hvis vi har modtaget de forventede stemmer, er kampen klar til at slutte
+      if (passCount >= expectedPasses) {
+        room.status = "inCombat";
+      }
       return null;
     }
 
     case "resolveCombat": {
       if (!room.combat) return "No combat.";
       if (room.combat.attackerId !== playerId) return "Only attacker may resolve.";
-      if (room.status === "waitingForInterrupts") {
-      log(room, `⏳ ${player.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
-      return null; // Vi stopper koden her, så kampen IKKE slutter, men afventer Pass.
-      }
-      if (room.status !== "inCombat") return "Kampen kan ikke afsluttes endnu.";
+      
       const c = room.combat;
+
+      // Vores nye logik igen: Mangler der overhovedet nogen stemmer for at vi kan gå videre?
+      const alivePlayers = room.players.filter(p => !p.isDead).length;
+      const expectedPasses = alivePlayers - (c.helperId ? 2 : 1);
+      const passCount = Object.values(c.passes).filter(Boolean).length;
+
+      if (passCount < expectedPasses) {
+        room.status = "waitingForInterrupts";
+        log(room, `⏳ ${player.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
+        return null; // Stop koden her og vent
+      }
+
+      // Hvis vi er nået hertil, er kravet opfyldt (f.eks. 0 mangler = 0 stemmer). Tving kampen igennem!
+      room.status = "inCombat";
+
+      // --- HERFRA OG NED ER RESTEN AF LOVABLES KODE FULDSTÆNDIG UÆNDRET ---
       const attacker = room.players.find(p => p.id === c.attackerId)!;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;
       const ms = monsterTotal(c);
       const ps = playerSideTotal(room, c);
       log(room, `Resolution: Players ${ps} vs Monsters ${ms}.`);
+      
       if (ps > ms) {
         // Victory!
         const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
@@ -595,7 +621,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         if (helper) refreshDerived(helper);
         checkVictory(room, attacker, true);
         room.combat = null;
-        if (room.status !== "gameOver") {
+        if ((room.status as string) !== "gameOver") {
           room.status = "normalTurn";
           room.currentPhase = 3;
         }
@@ -620,7 +646,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         log(room, `${player.name} fails to escape — Bad Stuff!`);
         for (const m of room.combat.monsters) {
           applyBadStuff(room, player, m.badStuff);
-          if (room.status === "looting") return null; // pause for looting
+          if ((room.status as string) !== "looting") return null; // pause for looting
         }
       }
       // mark this player's run resolved by removing from combat passes (we reuse passes for ran flag)
@@ -633,7 +659,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         for (const m of room.combat.monsters) room.discards.door.push(m);
         room.table = room.table.filter(t => !room.combat!.monsters.some(m => m.id === t.id));
         room.combat = null;
-        if (room.status !== "looting" && room.status !== "gameOver") {
+        if ((room.status as string) !== "looting" && (room.status as string) !== "gameOver") {
           room.status = "normalTurn";
           room.currentPhase = 3;
         }
