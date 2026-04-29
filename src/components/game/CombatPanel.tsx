@@ -20,10 +20,15 @@ export function CombatPanel() {
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
   const winning = playerTotal > monsterTotal;
 
-  const myPass = c.passes[self.id];
-  // RETTELSE: Vi fjerner !isFighter, så hjælpere også kan trykke Pass efter en Blood Oath
-  const canPass = self.id in c.passes; 
-  const allPassed = Object.values(c.passes).every(Boolean);
+  // --- RETTELSER TIL PASS-LOGIK ---
+  const myPass = !!c.passes[self.id];
+  const canPass = !myPass; // Hvis du ikke har trykket Pass endnu, må du trykke!
+  
+  // Vi regner ud præcis hvor mange der SKAL passe (alle levende spillere minus angriberen)
+  const alivePlayers = view.players.filter(p => !p.isDead).length;
+  const expectedPasses = alivePlayers - 1; 
+  const passCount = Object.values(c.passes).filter(Boolean).length;
+  const allPassed = passCount >= expectedPasses;
 
   return (
     <div className="bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
@@ -107,7 +112,7 @@ export function CombatPanel() {
             {myPass ? "✓ Passed" : "Pass"}
           </Button>
         )}
-        {/* RETTELSE: Vi sørger for at Resolve-knappen altid vises, når alle har passet */}
+        
         {isAttacker && allPassed && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant="default" onClick={() => send({ type: "resolveCombat" })}><Swords className="w-4 h-4 mr-1"/> Resolve combat</Button>
         )}
@@ -115,7 +120,7 @@ export function CombatPanel() {
           <Button size="sm" variant="destructive" onClick={() => send({ type: "runAway" })}><Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away</Button>
         )}
         <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
-          Pass votes: {Object.values(c.passes).filter(Boolean).length}/{Object.keys(c.passes).length}
+          Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
         </div>
       </div>
     </div>
