@@ -514,6 +514,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (card.deck === "treasure") room.discards.treasure.push(card);
       else room.discards.door.push(card);
       resetPasses(room);
+      room.status = "waitingForInterrupts"; // <--- NY LINJE TILFØJET HER
       refreshDerived(player);
       return null;
     }
@@ -563,7 +564,11 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
     case "resolveCombat": {
       if (!room.combat) return "No combat.";
       if (room.combat.attackerId !== playerId) return "Only attacker may resolve.";
-      if (room.status !== "inCombat") return "Opponents haven't all passed.";
+      if (room.status === "waitingForInterrupts") {
+      log(room, `⏳ ${attacker.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
+      return null; // Vi stopper koden her, så kampen IKKE slutter, men afventer Pass.
+      }
+      if (room.status !== "inCombat") return "Kampen kan ikke afsluttes endnu.";
       const c = room.combat;
       const attacker = room.players.find(p => p.id === c.attackerId)!;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;

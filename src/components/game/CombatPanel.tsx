@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useState } from "react";
-import { Swords, Shield, HandHelping, Dice5 } from "lucide-react";
+import { Swords, Shield, HandHelping, Dice5, AlertTriangle } from "lucide-react";
 
 export function CombatPanel() {
   const view = useGame(s => s.view);
@@ -20,15 +20,27 @@ export function CombatPanel() {
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
   const winning = playerTotal > monsterTotal;
 
-// --- RETTELSER TIL PASS-LOGIK ---
   const myPass = !!c.passes[self.id];
-  const canPass = !myPass && !isFighter; // RETTELSE: Kun modstandere må trykke Pass!
+  const canPass = !myPass && !isFighter; // Kun modstandere må trykke pass
   
-  // RETTELSE: Vi trækker både angriber (1) og en evt. hjælper (1) fra det forventede antal stemmer
   const alivePlayers = view.players.filter(p => !p.isDead).length;
   const expectedPasses = alivePlayers - (c.helperId ? 2 : 1); 
   const passCount = Object.values(c.passes).filter(Boolean).length;
   const allPassed = passCount >= expectedPasses;
+
+  // NY LOGIK: Håndterer når spilleren prøver at afslutte kampen
+  const handleResolveClick = () => {
+    if (!winning) {
+      // Spilleren er bagud
+      const confirmRun = window.confirm("Advarsel: Monsteret er stærkere end dig!\n\nEr du sikker på, at du ikke vil bede om hjælp eller bruge flere items? Trykker du OK, accepterer du nederlaget og går direkte til at slå om at flygte (Run Away).");
+      if (confirmRun) {
+        send({ type: "runAway" }); // Gå direkte til flugt-fasen
+      }
+    } else {
+      // Spilleren fører og beder de andre om at acceptere
+      send({ type: "resolveCombat" });
+    }
+  };
 
   return (
     <div className="bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
@@ -38,7 +50,8 @@ export function CombatPanel() {
         </h2>
         <div className="text-sm font-ui opacity-80">
           {view.status === "waitingForInterrupts" && "Waiting for opponents to pass…"}
-          {view.status === "inCombat" && "Ready to resolve!"}
+          {view.status === "inCombat" && winning && "Ready to declare victory!"}
+          {view.status === "inCombat" && !winning && "You are losing! Ask for help or run."}
           {view.status === "runAwayRoll" && "Run away phase"}
         </div>
       </div>
@@ -67,7 +80,7 @@ export function CombatPanel() {
         {c.log.slice(-6).map((l, i) => <div key={i} className="opacity-80">{l}</div>)}
       </div>
 
-      {/* Negotiation: attacker can ask for help */}
+      {/* Negotiation */}
       {isAttacker && !c.helperId && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
           <div className="font-display text-sm mb-2 flex items-center gap-1"><HandHelping className="w-4 h-4"/> Ask for help</div>
@@ -75,14 +88,7 @@ export function CombatPanel() {
             {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => (
               <div key={p.id} className="flex items-center gap-2 text-sm">
                 <span className="flex-1 truncate">{p.name} (Pwr {p.combatPower})</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={5}
-                  value={helpTreasures[p.id] ?? 1}
-                  onChange={e => setHelpTreasures(s => ({ ...s, [p.id]: Math.max(0, +e.target.value) }))}
-                  className="w-14 bg-input rounded px-2 py-1 text-sm border border-border"
-                />
+                <input type="number" min={0} max={5} value={helpTreasures[p.id] ?? 1} onChange={e => setHelpTreasures(s => ({ ...s, [p.id]: Math.max(0, +e.target.value) }))} className="w-14 bg-input rounded px-2 py-1 text-sm border border-border" />
                 <Button size="sm" onClick={() => send({ type: "askForHelp", helperId: p.id, treasures: helpTreasures[p.id] ?? 1 })}>Offer</Button>
               </div>
             ))}
@@ -90,38 +96,31 @@ export function CombatPanel() {
         </div>
       )}
 
-      {c.contract && (
-        <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-accent/20 border border-accent/40">
-          🩸 Blood Oath: helper gets {c.contract.treasures} treasure(s) — locked.
-        </div>
-      )}
-
-      {/* Help offers received */}
-      {view.negotiations.filter((n: any) => n.toId === self.id && n.status === "pending").map((n: any) => (
-        <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
-          <span className="flex-1">{view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s) for help.</span>
-          <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
-          <Button size="sm" variant="ghost" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: false })}>Decline</Button>
-        </div>
-      ))}
-
       {/* Pass + resolve */}
       <div className="flex gap-2 flex-wrap pt-2 border-t border-border">
-        {canPass && view.status !== "runAwayRoll" && (
+        {/* Modstandere får kun Pass-knappen, hvis angriberen rent faktisk vinder! */}
+        {canPass && winning && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
           </Button>
         )}
         
-        {isAttacker && allPassed && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
-          <Button size="sm" variant="default" onClick={() => send({ type: "resolveCombat" })}><Swords className="w-4 h-4 mr-1"/> Resolve combat</Button>
+        {/* Angriberen ser altid knappen. Den skifter tekst alt efter situationen. */}
+        {isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
+          <Button size="sm" variant={winning ? "default" : "destructive"} onClick={handleResolveClick}>
+            {winning ? (allPassed ? "🎉 Finish & Win!" : "Attempt to Win") : <><AlertTriangle className="w-4 h-4 mr-1"/> Accept Defeat</>}
+          </Button>
         )}
+
         {view.status === "runAwayRoll" && isFighter && (
           <Button size="sm" variant="destructive" onClick={() => send({ type: "runAway" })}><Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away</Button>
         )}
-        <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
-          Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
-        </div>
+        
+        {winning && (
+          <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
+            Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
+          </div>
+        )}
       </div>
     </div>
   );
