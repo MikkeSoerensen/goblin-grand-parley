@@ -51,7 +51,7 @@ export function CombatPanel() {
         <div className="text-sm font-ui opacity-80">
           {view.status === "waitingForInterrupts" && "Waiting for opponents to pass…"}
           {view.status === "inCombat" && winning && "Ready to declare victory!"}
-          {view.status === "inCombat" && !winning && "You are losing! Ask for help or run."}
+          {view.status === "inCombat" && !winning && (isAttacker ? "You are losing! Ask for help or run." : `${attacker.name} is losing!`)}
           {view.status === "runAwayRoll" && "Run away phase"}
         </div>
       </div>
