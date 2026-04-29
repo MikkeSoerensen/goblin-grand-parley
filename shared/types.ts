@@ -179,7 +179,8 @@ export type ClientToServer =
   | { type: "lootBody"; cardId: string }
   | { type: "charityGive"; cardIds: string[]; toId: string }
   | { type: "rename"; name: string }
-  | { type: "flee" };
+  | { type: "flee" }
+  | { type: "playCard"; cardId: string };
 
 export type ServerToClient =
   | { type: "state"; view: ClientView }

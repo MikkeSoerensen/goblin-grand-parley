@@ -478,6 +478,33 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
+    case "playCard": {
+      if (!msg.cardId) return "No card specified.";
+      
+      // Find kortet i spillerens hånd
+      const idx = player.hand.findIndex(c => c.id === msg.cardId);
+      if (idx < 0) return "Card not in hand.";
+      const card = player.hand[idx];
+
+      // Håndter "Go Up a Level" kort
+      if (card.type === "go-up-a-level") {
+        if (player.level >= 9) {
+          return "Du kan ikke bruge dette kort til at vinde spillet (Level 10)!";
+        }
+        
+        // Giv level, fjern kortet fra hånden, og smid det i discard-bunken
+        player.level += 1;
+        player.hand.splice(idx, 1);
+        room.discards.treasure.push(card);
+        
+        log(room, `⬆️ ${player.name} plays ${card.name} and goes up a level!`);
+        refreshDerived(player);
+        return null;
+      }
+
+      return "Dette kort kan ikke spilles på denne måde lige nu.";
+    }
+
     case "discard": {
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
       if (idx < 0) return "Not in hand.";
