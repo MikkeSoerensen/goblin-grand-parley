@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useState } from "react";
-import { Swords, Shield, HandHelping, Dice5, AlertTriangle } from "lucide-react";
+import { Swords, HandHelping, Dice5, AlertTriangle } from "lucide-react";
 
 export function CombatPanel() {
   const view = useGame(s => s.view);
@@ -21,23 +21,26 @@ export function CombatPanel() {
   const winning = playerTotal > monsterTotal;
 
   const myPass = !!c.passes[self.id];
-  const canPass = !myPass && !isFighter; // Kun modstandere må trykke pass
+  const canPass = !myPass && !isFighter; 
   
   const alivePlayers = view.players.filter(p => !p.isDead).length;
   const expectedPasses = alivePlayers - (c.helperId ? 2 : 1); 
   const passCount = Object.values(c.passes).filter(Boolean).length;
   const allPassed = passCount >= expectedPasses;
 
-  // NY LOGIK: Håndterer når spilleren prøver at afslutte kampen
   const handleResolveClick = () => {
+    // NYT TJEK: Tvinger angriberen til at vente på Pass fra alle modstandere!
+    if (!allPassed) {
+      alert("Vent lige lidt! ✋\n\nDine modstandere skal trykke 'Pass', før du kan afslutte kampen eller flygte. De har stadig deres 2.6 sekunder til at kaste en sidste forbandelse!");
+      return;
+    }
+
     if (!winning) {
-      // Spilleren er bagud
       const confirmRun = window.confirm("Advarsel: Monsteret er stærkere end dig!\n\nEr du sikker på, at du ikke vil bede om hjælp eller bruge flere items? Trykker du OK, accepterer du nederlaget og går direkte til at slå om at flygte (Run Away).");
       if (confirmRun) {
-        send({ type: "flee" }); // Gå direkte til flugt-fasen
+        send({ type: "flee" });
       }
     } else {
-      // Spilleren fører og beder de andre om at acceptere
       send({ type: "resolveCombat" });
     }
   };
@@ -50,8 +53,9 @@ export function CombatPanel() {
         </h2>
         <div className="text-sm font-ui opacity-80">
           {view.status === "waitingForInterrupts" && "Waiting for opponents to pass…"}
-          {view.status === "inCombat" && winning && "Ready to declare victory!"}
+          {/* Rettelse: Dynamisk tekst alt efter hvem der kigger */}
           {view.status === "inCombat" && !winning && (isAttacker ? "You are losing! Ask for help or run." : `${attacker.name} is losing!`)}
+          {view.status === "inCombat" && winning && "Ready to declare victory!"}
           {view.status === "runAwayRoll" && "Run away phase"}
         </div>
       </div>
@@ -96,19 +100,34 @@ export function CombatPanel() {
         </div>
       )}
 
+      {c.contract && (
+        <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-accent/20 border border-accent/40">
+          🩸 Blood Oath: helper gets {c.contract.treasures} treasure(s) — locked.
+        </div>
+      )}
+
+      {view.negotiations.filter((n: any) => n.toId === self.id && n.status === "pending").map((n: any) => (
+        <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
+          <span className="flex-1">{view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s) for help.</span>
+          <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
+          <Button size="sm" variant="ghost" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: false })}>Decline</Button>
+        </div>
+      ))}
+
       {/* Pass + resolve */}
       <div className="flex gap-2 flex-wrap pt-2 border-t border-border">
-        {/* Modstandere får kun Pass-knappen, hvis angriberen rent faktisk vinder! */}
         {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
           </Button>
         )}
         
-        {/* Angriberen ser altid knappen. Den skifter tekst alt efter situationen. */}
+        {/* Rettelse: Knappen skifter nu dynamisk tekst, så angriberen altid ved, hvad status er */}
         {isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant={winning ? "default" : "destructive"} onClick={handleResolveClick}>
-            {winning ? (allPassed ? "🎉 Finish & Win!" : "Attempt to Win") : <><AlertTriangle className="w-4 h-4 mr-1"/> Accept Defeat</>}
+            {winning 
+              ? (allPassed ? "🎉 Finish & Win!" : "Attempt to Win") 
+              : <><AlertTriangle className="w-4 h-4 mr-1"/> {allPassed ? "Accept Defeat" : "Attempt to Flee"}</>}
           </Button>
         )}
 
@@ -116,11 +135,9 @@ export function CombatPanel() {
           <Button size="sm" variant="destructive" onClick={() => send({ type: "runAway" })}><Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away</Button>
         )}
         
-        {winning && (
-          <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
-            Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
-          </div>
-        )}
+        <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
+          Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
+        </div>
       </div>
     </div>
   );
