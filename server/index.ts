@@ -565,7 +565,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (!room.combat) return "No combat.";
       if (room.combat.attackerId !== playerId) return "Only attacker may resolve.";
       if (room.status === "waitingForInterrupts") {
-      log(room, `⏳ ${attacker.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
+      log(room, `⏳ ${player.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
       return null; // Vi stopper koden her, så kampen IKKE slutter, men afventer Pass.
       }
       if (room.status !== "inCombat") return "Kampen kan ikke afsluttes endnu.";
@@ -638,6 +638,14 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
           room.currentPhase = 3;
         }
       }
+      return null;
+    }
+
+      case "flee": {
+      if (!room.combat) return "No combat.";
+      if (room.combat.attackerId !== playerId) return "Kun angriberen kan overgive sig.";
+      room.status = "runAwayRoll";
+      room.combat.log.push(`💨 ${player.name} giver op og gør klar til at flygte!`);
       return null;
     }
 

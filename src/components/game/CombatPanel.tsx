@@ -99,7 +99,7 @@ export function CombatPanel() {
       {/* Pass + resolve */}
       <div className="flex gap-2 flex-wrap pt-2 border-t border-border">
         {/* Modstandere får kun Pass-knappen, hvis angriberen rent faktisk vinder! */}
-        {canPass && winning && view.status !== "runAwayRoll" && (
+        {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
           </Button>

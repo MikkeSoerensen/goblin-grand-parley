@@ -178,7 +178,8 @@ export type ClientToServer =
   | { type: "rollDie" }
   | { type: "lootBody"; cardId: string }
   | { type: "charityGive"; cardIds: string[]; toId: string }
-  | { type: "rename"; name: string };
+  | { type: "rename"; name: string }
+  | { type: "flee" };
 
 export type ServerToClient =
   | { type: "state"; view: ClientView }
