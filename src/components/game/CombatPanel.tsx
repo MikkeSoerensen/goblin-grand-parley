@@ -34,7 +34,7 @@ export function CombatPanel() {
       // Spilleren er bagud
       const confirmRun = window.confirm("Advarsel: Monsteret er stærkere end dig!\n\nEr du sikker på, at du ikke vil bede om hjælp eller bruge flere items? Trykker du OK, accepterer du nederlaget og går direkte til at slå om at flygte (Run Away).");
       if (confirmRun) {
-        send({ type: "runAway" }); // Gå direkte til flugt-fasen
+        send({ type: "flee" }); // Gå direkte til flugt-fasen
       }
     } else {
       // Spilleren fører og beder de andre om at acceptere
