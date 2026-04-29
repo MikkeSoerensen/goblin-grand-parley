@@ -20,13 +20,13 @@ export function CombatPanel() {
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
   const winning = playerTotal > monsterTotal;
 
-  // --- RETTELSER TIL PASS-LOGIK ---
+// --- RETTELSER TIL PASS-LOGIK ---
   const myPass = !!c.passes[self.id];
-  const canPass = !myPass; // Hvis du ikke har trykket Pass endnu, må du trykke!
+  const canPass = !myPass && !isFighter; // RETTELSE: Kun modstandere må trykke Pass!
   
-  // Vi regner ud præcis hvor mange der SKAL passe (alle levende spillere minus angriberen)
+  // RETTELSE: Vi trækker både angriber (1) og en evt. hjælper (1) fra det forventede antal stemmer
   const alivePlayers = view.players.filter(p => !p.isDead).length;
-  const expectedPasses = alivePlayers - 1; 
+  const expectedPasses = alivePlayers - (c.helperId ? 2 : 1); 
   const passCount = Object.values(c.passes).filter(Boolean).length;
   const allPassed = passCount >= expectedPasses;
 
