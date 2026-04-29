@@ -3,14 +3,14 @@ import { GameCard } from "./GameCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
-import { Backpack, Hand, Trash2, Coins, Shield } from "lucide-react";
+import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
 
 export function PlayerHand() {
   const view = useGame(s => s.view);
   const [selected, setSelected] = useState<string | null>(null);
   const [showBackpack, setShowBackpack] = useState(false);
   const [sellMode, setSellMode] = useState<string[]>([]);
-  const [isSelling, setIsSelling] = useState(false); // RETTELSE: Ny state til at styre salg
+  const [isSelling, setIsSelling] = useState(false);
 
   if (!view?.self) return null;
   const self = view.self;
@@ -28,6 +28,7 @@ export function PlayerHand() {
     if (action === "lookForTrouble") send({ type: "lookForTrouble", cardId: card.id });
     if (action === "playAttacker") send({ type: "playInCombat", cardId: card.id, side: "attacker" });
     if (action === "playMonster") send({ type: "playInCombat", cardId: card.id, side: "monster" });
+    if (action === "playCard") send({ type: "playCard", cardId: card.id }); // NY ACTION TIL LEVEL UP/ONESHOTS
     setSelected(null);
   };
 
@@ -47,7 +48,6 @@ export function PlayerHand() {
             <Backpack className="w-4 h-4 mr-1"/> Backpack ({self.backpack.length})
           </Button>
           
-          {/* RETTELSE: Opdateret salgs-UI */}
           {isSelling ? (
             <>
               <Button size="sm" variant="default" disabled={sellTotal < 1000} onClick={() => { send({ type: "sell", cardIds: sellMode }); setSellMode([]); setIsSelling(false); }}>
@@ -71,7 +71,6 @@ export function PlayerHand() {
             size="md"
             selected={selected === c.id || sellMode.includes(c.id)}
             onClick={() => {
-              // RETTELSE: Nu går vi kun i "sell mode", hvis brugeren aktivt har trykket på "Sell Items" knappen først
               if (isSelling) {
                 if (c.type === "equipment") {
                   setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
@@ -91,21 +90,34 @@ export function PlayerHand() {
       {card && !isSelling && (
         <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
           <span className="font-display text-sm opacity-80">{card.name}:</span>
+          
+          {/* Udstyr */}
           {card.type === "equipment" && isMyTurn && !inCombat && (
             <>
               <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
               <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>To Backpack</Button>
             </>
           )}
+
+          {/* Level up / Oneshots (uden for kamp) */}
+          {(card.type === "oneshot" || card.type === "levelup" || card.type === "item") && isMyTurn && !inCombat && (
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
+          )}
+
+          {/* Monstre */}
           {card.type === "monster" && isMyTurn && view.currentPhase === 2 && view.status === "normalTurn" && (
             <Button size="sm" variant="default" onClick={() => handleAction("lookForTrouble")}>👁️ Look for Trouble</Button>
           )}
+
+          {/* Kamp-specifikke kort */}
           {inCombat && playableInCombat(card) && (
             <>
               <Button size="sm" onClick={() => handleAction("playAttacker")}>⚔️ Play for attacker</Button>
               <Button size="sm" variant="destructive" onClick={() => handleAction("playMonster")}>👹 Play for monster</Button>
             </>
           )}
+
+          {/* Generelle knapper */}
           {isMyTurn && !inCombat && (
             <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Discard</Button>
           )}
