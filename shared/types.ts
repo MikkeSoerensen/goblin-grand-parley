@@ -2,7 +2,7 @@
 // Single source of truth for card and state shapes.
 
 export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem";
-export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level";
+export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "class";
 export type DeckType = "door" | "treasure";
 
 export type Phase = 1 | 2 | 3 | 4;
@@ -59,6 +59,12 @@ export interface CurseCard extends BaseCard {
   effectText: string;
 }
 
+export interface ClassCard extends BaseCard {
+  type: "class";
+  className: "Warrior" | "Cleric" | "Thief" | "Wizard";
+  effectText: string;
+}
+
 export interface OneShotCard extends BaseCard {
   type: "oneshot";
   deck: "treasure";
@@ -101,11 +107,13 @@ export interface PublicPlayer {
   combatPower: number;
   isDead: boolean;
   connected: boolean;
+  playerClass: ClassCard | null; // <--- Lige her!
 }
 
 export interface PrivatePlayer extends PublicPlayer {
   hand: Card[];
   backpack: Card[];
+  playerClass: ClassCard | null;
 }
 
 export interface CombatContract {

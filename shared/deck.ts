@@ -29,6 +29,11 @@ const oneShot = (cardId: string, name: string, bonus: number, goldValue: number,
     id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target,
   }));
 
+  const classCard = (cardId: string, name: "Warrior" | "Cleric" | "Thief" | "Wizard", effectText: string, copies = 1): ClassCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "class", deck: "door", className: name, effectText,
+  }));
+
 const enhancer = (cardId: string, name: string, bonus: number, goldValue: number, copies = 1): EnhancerCard[] =>
   Array.from({ length: copies }, () => ({
     id: uid(), cardId, name, type: "enhancer", deck: "treasure", bonus, goldValue, target: "monster",
@@ -81,6 +86,12 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...curse("c-level1",   "Curse! Lose a Level", { kind: "loseLevel", amount: 1 }, "Demoted.", 3));
   cards.push(...curse("c-level2",   "Curse! Income Tax", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
   cards.push(...curse("c-loseAny",  "Curse! Malign Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
+
+  // Classes (Lægges f.eks. lige under dine Curses i buildDoorDeck)
+  cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
+  cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
+  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
+  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   return cards;
 };

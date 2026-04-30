@@ -85,6 +85,7 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   id: p.id, name: p.name, level: p.level, equipment: p.equipment,
   handCount: p.hand.length, backpackCount: p.backpack.length,
   combatPower: computePower(p), isDead: p.isDead, connected: p.connected,
+  playerClass: p.playerClass, // <--- Tilføjet her!
 });
 
 const buildView = (room: Room, selfId: string | null): ClientView => {
@@ -906,6 +907,7 @@ io.on("connection", (socket) => {
             equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null },
             hand: [], backpack: [], handCount: 0, backpackCount: 0,
             combatPower: 1, isDead: false, connected: true,
+            playerClass: null, // <--- Starter uden en Class
           };
           room.players.push(player);
           log(room, `${player.name} joined ${code}.`);
