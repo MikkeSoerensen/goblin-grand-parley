@@ -24,9 +24,9 @@ export function PlayerHand() {
     if (!card) return;
 
     if (action === "equip") {
-      if (card.type !== "equipment") return; // Sikkerhedstjek: Stop hvis det ikke er udstyr
+      if (card.type !== "equipment") return;
       
-      const eqCard = card as any; // Tvinger TypeScript til at slappe af
+      const eqCard = card as any;
       const eq = view!.self!.equipment;
       const currentHandsUsed = eq.hands.reduce((n: number, h: any) => n + (h.slot === "twoHands" ? 2 : 1), 0);
       
@@ -49,10 +49,14 @@ export function PlayerHand() {
     
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
+    
+    // Vores nye 'hurtig-salg' direkte fra kort-menuen. Sender det i et array, som serveren forventer af 'Sell Mode'.
+    if (action === "sell") send({ type: "sell", cardIds: [card.id] }); 
+    
     if (action === "lookForTrouble") send({ type: "lookForTrouble", cardId: card.id });
     if (action === "playAttacker") send({ type: "playInCombat", cardId: card.id, side: "attacker" });
     if (action === "playMonster") send({ type: "playInCombat", cardId: card.id, side: "monster" });
-    if (action === "playCard") send({ type: "playCard", cardId: card.id });
+    if (action === "playCard") send({ type: "playCard", cardId: card.id });    
     
     setSelected(null);
   };
@@ -121,6 +125,8 @@ export function PlayerHand() {
             <>
               <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
               <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>To Backpack</Button>
+              {/* Vores nye direkte Salgs-knap */}
+              <Button size="sm" variant="outline" onClick={() => handleAction("sell")}><Coins className="w-4 h-4 mr-1"/>Sell</Button>
             </>
           )}
 
