@@ -360,6 +360,39 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
+    case "castCurse": {
+      // Find kortet i afsenderens hånd eller rygsæk
+      const cIdx = player.hand.findIndex(c => c.id === msg.cardId);
+      const bIdx = player.backpack.findIndex(c => c.id === msg.cardId);
+      
+      let cardToPlay: Card | null = null;
+      
+      if (cIdx >= 0) {
+        cardToPlay = player.hand.splice(cIdx, 1)[0];
+      } else if (bIdx >= 0) {
+        cardToPlay = player.backpack.splice(bIdx, 1)[0];
+      }
+      
+      if (!cardToPlay || cardToPlay.type !== "curse") return "Card not found or not a curse.";
+
+      // Find offeret
+      const targetPlayer = room.players.find(p => p.id === msg.targetId);
+      if (!targetPlayer) {
+        // Hvis offeret ikke findes (f.eks. forlod spillet), så læg kortet tilbage og afbryd
+        player.hand.push(cardToPlay);
+        return "Target player not found.";
+      }
+
+      // Kast forbandelsen!
+      log(room, `💀 ${player.name} casts ${cardToPlay.name} on ${targetPlayer.name}!`);
+      applyBadStuff(room, targetPlayer, (cardToPlay as CurseCard).effect);
+      room.discards.door.push(cardToPlay);
+      
+      refreshDerived(player);
+      refreshDerived(targetPlayer);
+      return null;
+    }
+
     case "kickDoor": {
       if (room.status !== "normalTurn" || room.currentPhase !== 1) return "Not Kick Door phase.";
       if (room.players[room.activePlayerIndex].id !== playerId) return "Not your turn.";

@@ -181,8 +181,9 @@ export type ClientToServer =
   | { type: "rename"; name: string }
   | { type: "flee" }
   | { type: "playCard"; cardId: string }
-  | { type: "equip"; cardId: string; forceSwap?: boolean };
-
+  | { type: "equip"; cardId: string; forceSwap?: boolean }
+  | { type: "castCurse"; cardId: string; targetId: string };
+  
 export type ServerToClient =
   | { type: "state"; view: ClientView }
   | { type: "error"; message: string }

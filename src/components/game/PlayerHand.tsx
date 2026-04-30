@@ -50,9 +50,9 @@ export function PlayerHand() {
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
     
-    // Vores nye 'hurtig-salg' direkte fra kort-menuen. Sender det i et array, som serveren forventer af 'Sell Mode'.
+    // NYT: Sætter spillet direkte i "Sell Mode" og markerer kortet
     if (action === "sell") {
-       setIsSelling(true);
+      setIsSelling(true);
       setSellMode([card.id]);
     }
     
@@ -64,9 +64,10 @@ export function PlayerHand() {
     setSelected(null);
   };
 
-const sellTotal = sellMode.reduce((s, id) => {
+  // NYT: Skudsikkert tjek for guldværdi i toppen af filen
+  const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
-    return s + (c && 'goldValue' in c ? (c as any).goldValue : 0);
+    return s + (c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0);
   }, 0);
 
   return (
@@ -104,7 +105,8 @@ const sellTotal = sellMode.reduce((s, id) => {
             selected={selected === c.id || sellMode.includes(c.id)}
             onClick={() => {
               if (isSelling) {
-                if (c.type === "equipment") {
+                // NYT: Skudsikkert tjek for guldværdi nede i kortet
+                if ((c as any).goldValue !== undefined) {
                   setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
                 }
                 return;
@@ -118,7 +120,7 @@ const sellTotal = sellMode.reduce((s, id) => {
         )}
       </div>
 
-    {/* Action menu for selected card */}
+      {/* Action menu for selected card */}
       {card && !isSelling && (
         <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
           <span className="font-display text-sm opacity-80">{card.name}:</span>
@@ -131,11 +133,31 @@ const sellTotal = sellMode.reduce((s, id) => {
             </>
           )}
 
-          {/* Alt med en guldværdi (Både udstyr og Yuppie Water!) */}
+          {/* Alt med en guldværdi (Både udstyr og oneshots!) */}
           {(card as any).goldValue !== undefined && isMyTurn && !inCombat && (
             <Button size="sm" variant="outline" onClick={() => handleAction("sell")}>
               <Coins className="w-4 h-4 mr-1"/>Sell ({(card as any).goldValue}g)
             </Button>
+          )}
+
+          {/* Forbandelser (Curses) */}
+          {card.type === "curse" && (
+            <div className="flex items-center gap-2 border-l-2 border-destructive pl-2 ml-1">
+              <span className="text-sm font-bold text-destructive">Cast on:</span>
+              {view.players.map(p => (
+                <Button 
+                  key={p.id} 
+                  size="sm" 
+                  variant={p.id === self.id ? "outline" : "destructive"} 
+                  onClick={() => {
+                    send({ type: "castCurse", cardId: card.id, targetId: p.id });
+                    setSelected(null);
+                  }}
+                >
+                  {p.id === self.id ? "Yourself" : p.name}
+                </Button>
+              ))}
+            </div>
           )}
 
           {/* Level up / Oneshots (uden for kamp) */}
