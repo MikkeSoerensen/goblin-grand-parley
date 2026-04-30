@@ -487,26 +487,58 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
-    case "sell": {
+case "sell": {
       let totalGold = 0;
       const sold: Card[] = [];
+      
       for (const id of msg.cardIds) {
+        // 1. Tjek om det er taget på kroppen (Equipped)
         const eqIdx = (() => {
           const all = allEquipped(player);
           return all.find(e => e.id === id);
         })();
-        if (eqIdx) { removeEquipped(player, id); sold.push(eqIdx); totalGold += eqIdx.goldValue; continue; }
+        if (eqIdx) { 
+          removeEquipped(player, id); 
+          sold.push(eqIdx); 
+          totalGold += eqIdx.goldValue; 
+          continue; 
+        }
+        
+        // 2. Tjek rygsækken (Backpack)
         const bIdx = player.backpack.findIndex(c => c.id === id);
         if (bIdx >= 0) {
-          const c = player.backpack[bIdx] as EquipmentCard;
-          if (c.type === "equipment") { player.backpack.splice(bIdx, 1); sold.push(c); totalGold += c.goldValue; }
+          const c = player.backpack[bIdx];
+          // NYT: Spørg om det har en goldValue i stedet for at kræve, det er udstyr
+          if ('goldValue' in c) { 
+            player.backpack.splice(bIdx, 1); 
+            sold.push(c); 
+            totalGold += (c as any).goldValue; 
+            continue; 
+          }
+        }
+
+        // 3. NYT: Tjek hånden (Hand) - Før anede serveren slet ikke, man kunne sælge herfra!
+        const hIdx = player.hand.findIndex(c => c.id === id);
+        if (hIdx >= 0) {
+          const c = player.hand[hIdx];
+          if ('goldValue' in c) { 
+            player.hand.splice(hIdx, 1); 
+            sold.push(c); 
+            totalGold += (c as any).goldValue; 
+            continue; 
+          }
         }
       }
-      if (totalGold < 1000) return "Need 1000 gold worth (sold anyway returned).";
+
+      // Tjekker om vi overhovedet nåede op på de 1000 guld
+      if (totalGold < 1000) return "Need 1000 gold worth.";
+      
       const levelsGained = Math.floor(totalGold / 1000);
       for (const c of sold) room.discards.treasure.push(c);
-      const newLevel = Math.min(9, player.level + levelsGained); // CANNOT reach 10 by selling
-      log(room, `${player.name} sells items for ${totalGold}g → +${newLevel - player.level} level(s).`);
+      
+      const newLevel = Math.min(9, player.level + levelsGained); // Man KAN IKKE vinde (nå level 10) ved at sælge!
+      log(room, `💰 ${player.name} sells items for ${totalGold}g → +${newLevel - player.level} level(s).`);
+      
       player.level = newLevel;
       refreshDerived(player);
       return null;

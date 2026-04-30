@@ -61,9 +61,9 @@ export function PlayerHand() {
     setSelected(null);
   };
 
-  const sellTotal = sellMode.reduce((s, id) => {
+const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
-    return s + (c && c.type === "equipment" ? (c as EquipmentCard).goldValue : 0);
+    return s + (c && 'goldValue' in c ? (c as any).goldValue : 0);
   }, 0);
 
   return (
