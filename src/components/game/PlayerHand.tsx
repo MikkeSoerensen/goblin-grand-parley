@@ -51,7 +51,10 @@ export function PlayerHand() {
     if (action === "discard") send({ type: "discard", cardId: card.id });
     
     // Vores nye 'hurtig-salg' direkte fra kort-menuen. Sender det i et array, som serveren forventer af 'Sell Mode'.
-    if (action === "sell") send({ type: "sell", cardIds: [card.id] }); 
+    if (action === "sell") {
+       setIsSelling(true);
+      setSellMode([card.id]);
+    }
     
     if (action === "lookForTrouble") send({ type: "lookForTrouble", cardId: card.id });
     if (action === "playAttacker") send({ type: "playInCombat", cardId: card.id, side: "attacker" });
@@ -115,7 +118,7 @@ const sellTotal = sellMode.reduce((s, id) => {
         )}
       </div>
 
-      {/* Action menu for selected card */}
+    {/* Action menu for selected card */}
       {card && !isSelling && (
         <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
           <span className="font-display text-sm opacity-80">{card.name}:</span>
@@ -125,9 +128,14 @@ const sellTotal = sellMode.reduce((s, id) => {
             <>
               <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
               <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>To Backpack</Button>
-              {/* Vores nye direkte Salgs-knap */}
-              <Button size="sm" variant="outline" onClick={() => handleAction("sell")}><Coins className="w-4 h-4 mr-1"/>Sell</Button>
             </>
+          )}
+
+          {/* Alt med en guldværdi (Både udstyr og Yuppie Water!) */}
+          {(card as any).goldValue !== undefined && isMyTurn && !inCombat && (
+            <Button size="sm" variant="outline" onClick={() => handleAction("sell")}>
+              <Coins className="w-4 h-4 mr-1"/>Sell ({(card as any).goldValue}g)
+            </Button>
           )}
 
           {/* Level up / Oneshots (uden for kamp) */}

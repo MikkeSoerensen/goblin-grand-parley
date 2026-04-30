@@ -487,56 +487,45 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
-case "sell": {
+    case "sell": {
       let totalGold = 0;
-      const sold: Card[] = [];
       
+      // 1. Tjek om vi har 1000g overhovedet, UDEN at slette noget endnu!
       for (const id of msg.cardIds) {
-        // 1. Tjek om det er taget på kroppen (Equipped)
+        const eq = allEquipped(player).find(e => e.id === id);
+        if (eq) { totalGold += eq.goldValue; continue; }
+        
+        const bCard = player.backpack.find(c => c.id === id);
+        if (bCard && 'goldValue' in bCard) { totalGold += (bCard as any).goldValue; continue; }
+        
+        const hCard = player.hand.find(c => c.id === id);
+        if (hCard && 'goldValue' in hCard) { totalGold += (hCard as any).goldValue; continue; }
+      }
+
+      // Hvis vi er under 1000g, stopper vi koden og afviser købet (og spilleren beholder sine ting!)
+      if (totalGold < 1000) return "Du skal vælge for mindst 1000g for at sælge!";
+
+      // 2. Hvis der er 1000g+, SÅ sletter vi dem fra spillerens krop/rygsæk/hånd
+      const sold: Card[] = [];
+      for (const id of msg.cardIds) {
         const eqIdx = (() => {
           const all = allEquipped(player);
           return all.find(e => e.id === id);
         })();
-        if (eqIdx) { 
-          removeEquipped(player, id); 
-          sold.push(eqIdx); 
-          totalGold += eqIdx.goldValue; 
-          continue; 
-        }
+        if (eqIdx) { removeEquipped(player, id); sold.push(eqIdx); continue; }
         
-        // 2. Tjek rygsækken (Backpack)
         const bIdx = player.backpack.findIndex(c => c.id === id);
-        if (bIdx >= 0) {
-          const c = player.backpack[bIdx];
-          // NYT: Spørg om det har en goldValue i stedet for at kræve, det er udstyr
-          if ('goldValue' in c) { 
-            player.backpack.splice(bIdx, 1); 
-            sold.push(c); 
-            totalGold += (c as any).goldValue; 
-            continue; 
-          }
-        }
+        if (bIdx >= 0) { const c = player.backpack[bIdx]; player.backpack.splice(bIdx, 1); sold.push(c); continue; }
 
-        // 3. NYT: Tjek hånden (Hand) - Før anede serveren slet ikke, man kunne sælge herfra!
         const hIdx = player.hand.findIndex(c => c.id === id);
-        if (hIdx >= 0) {
-          const c = player.hand[hIdx];
-          if ('goldValue' in c) { 
-            player.hand.splice(hIdx, 1); 
-            sold.push(c); 
-            totalGold += (c as any).goldValue; 
-            continue; 
-          }
-        }
+        if (hIdx >= 0) { const c = player.hand[hIdx]; player.hand.splice(hIdx, 1); sold.push(c); continue; }
       }
 
-      // Tjekker om vi overhovedet nåede op på de 1000 guld
-      if (totalGold < 1000) return "Need 1000 gold worth.";
-      
+      // 3. Giv belønningen!
       const levelsGained = Math.floor(totalGold / 1000);
       for (const c of sold) room.discards.treasure.push(c);
       
-      const newLevel = Math.min(9, player.level + levelsGained); // Man KAN IKKE vinde (nå level 10) ved at sælge!
+      const newLevel = Math.min(9, player.level + levelsGained); // Man KAN IKKE vinde på et salg
       log(room, `💰 ${player.name} sells items for ${totalGold}g → +${newLevel - player.level} level(s).`);
       
       player.level = newLevel;
