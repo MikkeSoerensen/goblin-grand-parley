@@ -180,7 +180,8 @@ export type ClientToServer =
   | { type: "charityGive"; cardIds: string[]; toId: string }
   | { type: "rename"; name: string }
   | { type: "flee" }
-  | { type: "playCard"; cardId: string };
+  | { type: "playCard"; cardId: string }
+  | { type: "equip"; cardId: string; forceSwap?: boolean };
 
 export type ServerToClient =
   | { type: "state"; view: ClientView }

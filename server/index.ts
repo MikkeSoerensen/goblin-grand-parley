@@ -426,10 +426,44 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       const fromHand = idx >= 0;
       const card = fromHand ? player.hand[idx] : player.backpack.find(c => c.id === msg.cardId);
       if (!card || card.type !== "equipment") return "Not equipment.";
+
+      // NYT: Hvis spilleren har valgt "Auto-Swap", pakker vi det blokerende udstyr ned i rygsækken først!
+      if ('forceSwap' in msg && msg.forceSwap) {
+        if (card.isBig && player.equipment.bigItem) {
+          player.backpack.push(player.equipment.bigItem);
+          player.equipment.bigItem = null as any;
+        }
+        if (card.slot === "head" && player.equipment.head) {
+          player.backpack.push(player.equipment.head);
+          player.equipment.head = null as any;
+        }
+        if (card.slot === "armor" && player.equipment.armor) {
+          player.backpack.push(player.equipment.armor);
+          player.equipment.armor = null as any;
+        }
+        if (card.slot === "feet" && player.equipment.feet) {
+          player.backpack.push(player.equipment.feet);
+          player.equipment.feet = null as any;
+        }
+        if (card.slot === "hand" || card.slot === "twoHands") {
+          // Hvis vi skal bruge hænder, og der ikke er plads, tømmer vi de hænder der er nødvendige
+          const needed = card.slot === "twoHands" ? 2 : 1;
+          let currentHandsUsed = player.equipment.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
+          while (currentHandsUsed > (2 - needed) && player.equipment.hands.length > 0) {
+            const removed = player.equipment.hands.pop()!;
+            player.backpack.push(removed);
+            currentHandsUsed -= (removed.slot === "twoHands" ? 2 : 1);
+          }
+        }
+      }
+
+      // Nu hvor der er gjort plads (hvis forceSwap var true), prøver vi at tage det på
       const err = tryEquip(player, card as EquipmentCard);
       if (err) return err;
+
       if (fromHand) player.hand.splice(idx, 1);
       else player.backpack.splice(player.backpack.findIndex(c => c.id === msg.cardId), 1);
+      
       refreshDerived(player);
       log(room, `${player.name} equips ${card.name}.`);
       return null;

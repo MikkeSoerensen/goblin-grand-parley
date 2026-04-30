@@ -22,13 +22,38 @@ export function PlayerHand() {
 
   const handleAction = (action: string) => {
     if (!card) return;
-    if (action === "equip") send({ type: "equip", cardId: card.id });
+
+    if (action === "equip") {
+      if (card.type !== "equipment") return; // Sikkerhedstjek: Stop hvis det ikke er udstyr
+      
+      const eqCard = card as any; // Tvinger TypeScript til at slappe af
+      const eq = view!.self!.equipment;
+      const currentHandsUsed = eq.hands.reduce((n: number, h: any) => n + (h.slot === "twoHands" ? 2 : 1), 0);
+      
+      let collision = false;
+      if (eqCard.isBig && eq.bigItem) collision = true;
+      if (eqCard.slot === "head" && eq.head) collision = true;
+      if (eqCard.slot === "armor" && eq.armor) collision = true;
+      if (eqCard.slot === "feet" && eq.feet) collision = true;
+      if (eqCard.slot === "hand" && currentHandsUsed >= 2) collision = true;
+      if (eqCard.slot === "twoHands" && currentHandsUsed > 0) collision = true;
+
+      if (collision) {
+        if (window.confirm("Du har i forvejen udstyr på denne plads.\n\nVil du automatisk pakke det gamle udstyr ned i rygsækken og tage dette på i stedet?")) {
+          send({ type: "equip", cardId: card.id, forceSwap: true } as any);
+        }
+      } else {
+        send({ type: "equip", cardId: card.id });
+      }
+    }
+    
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
     if (action === "lookForTrouble") send({ type: "lookForTrouble", cardId: card.id });
     if (action === "playAttacker") send({ type: "playInCombat", cardId: card.id, side: "attacker" });
     if (action === "playMonster") send({ type: "playInCombat", cardId: card.id, side: "monster" });
-    if (action === "playCard") send({ type: "playCard", cardId: card.id }); // NY ACTION TIL LEVEL UP/ONESHOTS
+    if (action === "playCard") send({ type: "playCard", cardId: card.id });
+    
     setSelected(null);
   };
 
