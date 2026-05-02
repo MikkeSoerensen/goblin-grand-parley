@@ -480,10 +480,16 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
           player.equipment.feet = null as any;
         }
         if (card.slot === "hand" || card.slot === "twoHands") {
+          // SMART SWAP: Sorter våbnene fra STÆRKEST til SVAGEST. 
+          // (Det svageste våben ender bagerst i arrayet)
+          player.equipment.hands.sort((a, b) => b.bonus - a.bonus);
+
           // Hvis vi skal bruge hænder, og der ikke er plads, tømmer vi de hænder der er nødvendige
           const needed = card.slot === "twoHands" ? 2 : 1;
           let currentHandsUsed = player.equipment.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
+          
           while (currentHandsUsed > (2 - needed) && player.equipment.hands.length > 0) {
+            // Fordi vi lige har sorteret, vil .pop() nu ALTID fjerne det svageste våben!
             const removed = player.equipment.hands.pop()!;
             player.backpack.push(removed);
             currentHandsUsed -= (removed.slot === "twoHands" ? 2 : 1);
