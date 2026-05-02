@@ -632,27 +632,37 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
       if (idx < 0) return "Not in hand.";
       const card = player.hand[idx];
-      if (card.type === "oneshot") {
-        const o = card as OneShotCard;
+      
+      // Både OneShots og Enhancers skal kunne spilles på begge sider!
+      if (card.type === "oneshot" || card.type === "enhancer") {
+        const bonusAmount = (card as any).bonus; 
+        const sign = bonusAmount > 0 ? "+" : ""; // Sikrer at der står "+5" eller bare "-5"
+        
         if (msg.side === "attacker") {
-          if (player.id !== room.combat.attackerId && player.id !== room.combat.helperId) return "Only fighters can buff their side.";
-          room.combat.attackerBonuses += o.bonus;
+          // Hvis man IKKE er med i kampen, må man KUN kaste kort på angriberen, hvis det er for at sabotere dem (negativ bonus)!
+          if (bonusAmount > 0 && player.id !== room.combat.attackerId && player.id !== room.combat.helperId) {
+             return "Only fighters can buff the attacker. You can only sabotage them with negative cards!";
+          }
+          room.combat.attackerBonuses += bonusAmount;
+          room.combat.log.push(`⚔️ ${player.name} plays ${card.name} on the attacker (${sign}${bonusAmount}).`);
         } else {
-          // playing against attacker (subtract from their side or boost monster — we simply subtract)
-          room.combat.monsterBonuses += o.bonus;
+          // Alle må spille kort på monsteret (både for at buffe og debuffe)
+          room.combat.monsterBonuses += bonusAmount;
+          room.combat.log.push(`👹 ${player.name} plays ${card.name} on the monster (${sign}${bonusAmount}).`);
         }
-      } else if (card.type === "enhancer") {
-        const e = card as EnhancerCard;
-        room.combat.monsterBonuses += e.bonus;
-      } else return "Card cannot be played in combat.";
+      } else {
+         return "Card cannot be played in combat.";
+      }
+      
       player.hand.splice(idx, 1);
       room.combat.playedCards.push({ byPlayer: player.id, card });
-      room.combat.log.push(`${player.name} plays ${card.name}.`);
+      
       // played card goes to discard immediately
       if (card.deck === "treasure") room.discards.treasure.push(card);
       else room.discards.door.push(card);
+      
       resetPasses(room);
-      room.status = "waitingForInterrupts"; // <--- NY LINJE TILFØJET HER
+      room.status = "waitingForInterrupts";
       refreshDerived(player);
       return null;
     }
