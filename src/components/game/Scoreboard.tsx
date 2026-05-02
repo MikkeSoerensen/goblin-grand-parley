@@ -32,10 +32,23 @@ export function Scoreboard() {
                 </span>
                 <span className="text-xs font-ui opacity-70">{p.handCount}🃏</span>
               </div>
-              <div className="flex items-center gap-3 text-sm mt-1 font-ui">
+              
+              {/* Stats og Class Badge */}
+              <div className="flex items-center flex-wrap gap-3 text-sm mt-1 font-ui">
                 <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-accent"/> {p.level}/10</span>
                 <span className="flex items-center gap-1"><Swords className="w-3.5 h-3.5 text-primary"/> {p.combatPower}</span>
+                
+                {/* NYT: Viser spillerens klasse som et flot lille badge! */}
+                {p.playerClass && (
+                  <span 
+                    className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-200 border border-indigo-500/40 ml-auto cursor-help"
+                    title={p.playerClass.effectText}
+                  >
+                    🎭 {p.playerClass.name}
+                  </span>
+                )}
               </div>
+              
               {/* Public equipment */}
               {(p.equipment.head || p.equipment.armor || p.equipment.feet || p.equipment.bigItem || p.equipment.hands.length > 0) && (
                 <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-ui opacity-80">
