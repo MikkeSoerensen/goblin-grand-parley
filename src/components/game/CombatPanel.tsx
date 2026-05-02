@@ -14,6 +14,8 @@ export function CombatPanel() {
   const isAttacker = c.attackerId === self.id;
   const isHelper = c.helperId === self.id;
   const isFighter = isAttacker || isHelper;
+  const hasCowards = view.activeDungeons?.some((d: any) => d.cardId === "d-cowards");
+  const hasChaos = view.activeDungeons?.some((d: any) => d.cardId === "d-chaos");
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
   const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
@@ -171,14 +173,17 @@ export function CombatPanel() {
         </div>
       )}
 
-      {/* Pass + resolve */}
-      <div className="flex gap-2 flex-wrap pt-2 border-t border-border">
+{/* Pass + resolve */}
+      <div className="flex gap-2 flex-wrap pt-2 border-t border-border items-center">
+        
+        {/* Pass Knap */}
         {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
           </Button>
         )}
         
+        {/* Løs Kamp Knap */}
         {isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant={winning ? "default" : "destructive"} onClick={handleResolveClick}>
             {winning 
@@ -187,14 +192,47 @@ export function CombatPanel() {
           </Button>
         )}
 
+        {/* NY KNAP: d-cowards (Insta-Flee) */}
+        {hasCowards && isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
+          <Button size="sm" variant="outline" className="border-purple-500 text-purple-400 hover:bg-purple-900/40" onClick={() => send({ type: "cowardlyFlee" })}>
+            🐔 Cowardly Flee (Instant)
+          </Button>
+        )}
+
+        {/* Flugt-Fase Knapper */}
         {view.status === "runAwayRoll" && isFighter && (
-          <Button size="sm" variant="destructive" onClick={() => send({ type: "runAway" })}><Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away</Button>
+          <div className="flex flex-col gap-2 w-full mt-2">
+            
+            {/* Standard Run Away */}
+            <Button size="sm" variant="destructive" className="w-fit" onClick={() => send({ type: "runAway" })}>
+              <Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away
+            </Button>
+            
+            {/* NY MENU: d-chaos (Advantage Reroll) */}
+            {hasChaos && self.hand.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 bg-purple-900/20 p-2 rounded border border-purple-500/30">
+                <span className="text-xs text-purple-300 font-bold px-1 w-full sm:w-auto">🌪️ Chaos Reroll (Discard to roll twice):</span>
+                {self.hand.map(c => (
+                  <Button 
+                    key={c.id} 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-6 text-[10px] px-2 border-purple-500/50 hover:bg-purple-500/20" 
+                    onClick={() => send({ type: "runAway", discardId: c.id } as any)}
+                  >
+                    Discard {c.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         
-        <div className="flex-1 text-right text-xs opacity-70 font-ui self-center">
+        <div className="flex-1 text-right text-xs opacity-70 font-ui self-center mt-2 w-full">
           Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
         </div>
       </div>
+
     </div>
   );
 }

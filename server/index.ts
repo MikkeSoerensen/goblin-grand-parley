@@ -26,8 +26,10 @@ const shuffle = <T,>(a: T[]): T[] => {
   }
   return arr;
 };
+
 const rid = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 const newOfferId = () => Math.random().toString(36).slice(2, 10);
+const hasDungeon = (room: Room, cardId: string) => room.activeDungeons.some(d => d.cardId === cardId);
 
 // ---------- Room ----------
 interface Room {
@@ -258,6 +260,13 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
     }
     case "death": {
       log(room, `💀 ${p.name} has DIED.`);
+      
+      // d-doom: Mister 2 levels ved død!
+      if (hasDungeon(room, "d-doom")) {
+         const oldLvl = p.level;
+         p.level = Math.max(1, p.level - 2);
+         log(room, `☠️ Impending Doom! ${p.name} loses ${oldLvl - p.level} level(s) to the dungeon!`);
+      }
       // body becomes loot pile
       const pile: Card[] = [
         ...allEquipped(p), ...p.backpack, ...p.hand,
@@ -303,8 +312,16 @@ const startCombat = (room: Room, attacker: PrivatePlayer, monsterCard: MonsterCa
   room.combatFought = true;
 };
 
-const monsterTotal = (c: CombatState): number =>
-  c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
+// VIGTIGT: Den kræver nu 'room' som det første argument!
+const monsterTotal = (room: Room, c: CombatState): number => {
+  let total = c.monsters.reduce((s, m) => {
+    let lvl = m.level;
+    if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
+    if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
+    return s + lvl;
+  }, 0) + c.monsterBonuses;
+  return total;
+};
 
 const playerSideTotal = (room: Room, c: CombatState): number => {
   const a = room.players.find(p => p.id === c.attackerId)!;
@@ -453,12 +470,15 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         room.table.push(card);
         startCombat(room, player, card as any);
       } else if (card.type === "curse") {
-        applyBadStuff(room, player, (card as any).effect);
+        if (hasDungeon(room, "d-curses")) {
+          log(room, `💀 DUNGEON OF CURSES: ${card.name} hits EVERYONE!`);
+          for (const target of room.players.filter(p => !p.isDead)) {
+             applyBadStuff(room, target, (card as any).effect);
+          }
+        } else {
+          applyBadStuff(room, player, (card as any).effect);
+        }
         room.discards.door.push(card);
-        room.currentPhase = 2;
-      } else {
-        player.hand.push(card);
-        refreshDerived(player);
         room.currentPhase = 2;
       }
       return null;
@@ -481,8 +501,18 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (room.currentPhase !== 2 && room.currentPhase !== 3) return "Wrong phase.";
       if (room.combatFought) return "Already fought this turn.";
       if (room.players[room.activePlayerIndex].id !== playerId) return "Not your turn.";
-      const card = drawFromDeck(room, "door");
-      if (card) { player.hand.push(card); log(room, `${player.name} loots the room (face-down).`); }
+      
+      const c1 = drawFromDeck(room, "door");
+      if (c1) player.hand.push(c1);
+      
+      if (hasDungeon(room, "d-generous")) {
+        const c2 = drawFromDeck(room, "door");
+        if (c2) player.hand.push(c2);
+        log(room, `${player.name} loots the room and finds 2 cards thanks to Generous Goblins!`);
+      } else {
+        log(room, `${player.name} loots the room (face-down).`);
+      }
+      
       refreshDerived(player);
       room.currentPhase = 4;
       return null;
@@ -492,12 +522,13 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (room.players[room.activePlayerIndex].id !== playerId) return "Not your turn.";
       if (room.status === "inCombat" || room.status === "waitingForInterrupts") return "Combat in progress.";
       // Charity check
-      if (player.hand.length > 5) {
+      const charityLimit = hasDungeon(room, "d-charity") ? 4 : 5;
+      if (player.hand.length > charityLimit) {
         const minLevel = Math.min(...room.players.filter(p => p.id !== playerId).map(p => p.level));
         const candidates = room.players.filter(p => p.id !== playerId && p.level === minLevel).map(p => p.id);
-        room.charity = { fromId: playerId, cardCount: player.hand.length - 5, candidates };
+        room.charity = { fromId: playerId, cardCount: player.hand.length - charityLimit, candidates };
         room.status = "charitySelection";
-        log(room, `${player.name} must give ${player.hand.length - 5} card(s) to charity.`);
+        log(room, `${player.name} must give ${player.hand.length - charityLimit} card(s) to charity.`);
         return null;
       }
       advanceTurn(room);
@@ -577,18 +608,19 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
     }
 
     case "sell": {
-      let totalGold = 0;
+      if (hasDungeon(room, "d-poverty")) return "Dungeon of Pathetic Poverty prevents you from selling items!";
       
-      // 1. Tjek om vi har 1000g overhovedet, UDEN at slette noget endnu!
+      let totalGold = 0;
       for (const id of msg.cardIds) {
         const eq = allEquipped(player).find(e => e.id === id);
-        if (eq) { totalGold += eq.goldValue; continue; }
+        let val = eq ? eq.goldValue : 
+                  (player.backpack.find(c => c.id === id) as any)?.goldValue ?? 
+                  (player.hand.find(c => c.id === id) as any)?.goldValue ?? 0;
         
-        const bCard = player.backpack.find(c => c.id === id);
-        if (bCard && 'goldValue' in bCard) { totalGold += (bCard as any).goldValue; continue; }
+        if (hasDungeon(room, "d-clipping")) val = Math.max(0, val - 100);
+        if (hasDungeon(room, "d-lavish")) val *= 2;
         
-        const hCard = player.hand.find(c => c.id === id);
-        if (hCard && 'goldValue' in hCard) { totalGold += (hCard as any).goldValue; continue; }
+        totalGold += val;
       }
 
       // Hvis vi er under 1000g, stopper vi koden og afviser købet (og spilleren beholder sine ting!)
@@ -726,6 +758,17 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         refreshDerived(player);
         return null;
       }
+
+      if (card.type === "monster" && hasDungeon(room, "d-undead")) {
+        player.hand.splice(idx, 1);
+        room.combat.monsters.push(card as MonsterCard);
+        room.combat.log.push(`🧟 ${player.name} plays ${card.name} directly into combat thanks to the Undead!`);
+        room.discards.door.push(card);
+        resetPasses(room);
+        room.status = "waitingForInterrupts";
+        refreshDerived(player);
+        return null;
+      }
       
       // Både OneShots og Enhancers skal kunne spilles på begge sider!
       if (card.type === "oneshot" || card.type === "enhancer") {
@@ -802,13 +845,20 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
             room.currentPhase = 2;
             log(room, `✨ ${player.name} puts the resurrected ${resurrectedCard.name} in their hand.`);
          }
+         if (hasDungeon(room, "d-healing")) {
+           const extra = drawFromDeck(room, "door");
+           if (extra) {
+             player.hand.push(extra);
+             log(room, `✨ Heavenly Healing! ${player.name} draws a bonus door card!`);
+           }
+         }
          
          refreshDerived(player);
          return null;
       }
 
       // TYV: Steal (Må KUN gøres UDEN for kamp)
-      if (msg.ability === "steal") {
+        if (msg.ability === "steal") {
          if (player.playerClass?.name !== "Thief") return "Not a Thief.";
          if (room.combat) return "Cannot steal while a combat is active.";
          if (msg.cardIds.length !== 1) return "Must discard exactly 1 card to steal.";
@@ -838,7 +888,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          else room.discards.treasure.push(discardedCard);
 
          // Slå med terningen! (Sender resultatet ud til alle ligesom "Run Away")
-         const roll = 1 + Math.floor(Math.random() * 6);
+         let roll = 1 + Math.floor(Math.random() * 6);
+         if (hasDungeon(room, "d-thieves")) roll += 2; // Thieving Thugs
          io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
 
          if (roll >= 4) {
@@ -948,6 +999,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
     }
 
     case "askForHelp": {
+      if (hasDungeon(room, "d-misanthropy")) return "Dungeon of Misanthropic Misery: Everyone fights alone!";
+      if (hasDungeon(room, "d-bribery") && msg.treasures < 2) return "Dungeon of Blatant Bribery: You must offer at least 2 treasures!";
       if (!room.combat || room.combat.attackerId !== playerId) return "Only attacker may request help.";
       if (room.combat.helperId) return "Already have a helper.";
       const offer: NegotiationOffer & { id: string } = {
@@ -1008,69 +1061,106 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       
       const c = room.combat;
 
-      // Vores nye logik igen: Mangler der overhovedet nogen stemmer for at vi kan gå videre?
       const alivePlayers = room.players.filter(p => !p.isDead).length;
       const expectedPasses = alivePlayers - (c.helperId ? 2 : 1);
       const passCount = Object.values(c.passes).filter(Boolean).length;
 
       if (passCount < expectedPasses) {
         room.status = "waitingForInterrupts";
-        log(room, `⏳ ${player.name} forsøger at vinde! Modstanderne skal smide kort nu eller trykke Pass.`);
-        return null; // Stop koden her og vent
+        log(room, `⏳ ${player.name} is attempting to win! Opponents must play cards or pass.`);
+        return null;
       }
 
-      // Hvis vi er nået hertil, er kravet opfyldt (f.eks. 0 mangler = 0 stemmer). Tving kampen igennem!
       room.status = "inCombat";
 
       const attacker = room.players.find(p => p.id === c.attackerId)!;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;
-      const ms = monsterTotal(c);
+      
+      // DUNGEON: Sudden Swaps (Sker før resultatet gøres op)
+      if (hasDungeon(room, "d-swapping") && helper && helper.hand.length > 0) {
+        const rIdx = Math.floor(Math.random() * helper.hand.length);
+        const stolen = helper.hand.splice(rIdx, 1)[0];
+        attacker.hand.push(stolen);
+        log(room, `🔄 Sudden Swaps! ${attacker.name} blindly stole a card from ${helper.name}'s hand!`);
+      }
+
+      // VIGTIGT: monsterTotal kræver nu room som parameter!
+      const ms = monsterTotal(room, c);
       const ps = playerSideTotal(room, c);
       
-      // NYT: Tjek om en af dem i kampen er Warrior
       const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
       
       log(room, `Resolution: Players ${ps} vs Monsters ${ms}.${hasWarrior ? " (Warrior tie-breaker active!)" : ""}`);
       
-      // NYT: Krigere vinder på uafgjort (>=), alle andre skal have mere (>)
       if (hasWarrior ? ps >= ms : ps > ms) {
         // Victory!
-        const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0) + (c.charmedTreasures || 0);
+        let totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0) + (c.charmedTreasures || 0);
+        
+        // DUNGEON: Unexpected Wealth
+        if (hasDungeon(room, "d-wealth")) totalTreasures += 1;
+
         const totalLevels = c.monsters.reduce((s, m) => s + m.levelsAwarded, 0);
         const helperShare = c.contract ? Math.min(c.contract.treasures, totalTreasures) : 0;
         const attackerShare = totalTreasures - helperShare;
+        
         for (let i = 0; i < attackerShare; i++) {
           const t = drawFromDeck(room, "treasure"); if (t) attacker.hand.push(t);
         }
-        if (helper) for (let i = 0; i < helperShare; i++) {
-          const t = drawFromDeck(room, "treasure"); if (t) helper.hand.push(t);
+        if (helper) {
+          for (let i = 0; i < helperShare; i++) {
+            const t = drawFromDeck(room, "treasure"); if (t) helper.hand.push(t);
+          }
         }
+        
         attacker.level += totalLevels;
         log(room, `🏆 Victory! +${totalLevels} level(s), +${attackerShare} treasure(s) to ${attacker.name}${helper ? `, +${helperShare} to ${helper.name}` : ""}.`);
+        
         for (const m of c.monsters) room.discards.door.push(m);
         room.table = room.table.filter(t => !c.monsters.some(m => m.id === t.id));
+        
         refreshDerived(attacker);
         if (helper) refreshDerived(helper);
         checkVictory(room, attacker, true);
+        
         room.combat = null;
         if ((room.status as string) !== "gameOver") {
           room.status = "normalTurn";
           room.currentPhase = 3;
         }
       } else {
-        // Defeat — must run away
+        // Defeat
         room.status = "runAwayRoll";
         log(room, `Defeat! ${attacker.name}${helper ? ` and ${helper.name}` : ""} must Run Away.`);
       }
       return null;
     }
 
-case "runAway": {
+    case "runAway": {
       if (!room.combat) return "No combat.";
       if ((room.status as string) !== "runAwayRoll") return "Not run-away phase.";
       if (playerId !== room.combat.attackerId && playerId !== room.combat.helperId) return "Not in this combat.";
       
-      const roll = 1 + Math.floor(Math.random() * 6);
+      let roll = 1 + Math.floor(Math.random() * 6);
+      
+      // DUNGEON: d-chaos (Discard et kort for at slå to terninger og tage den højeste)
+      if (hasDungeon(room, "d-chaos") && msg.discardId) {
+        const idx = player.hand.findIndex(c => c.id === msg.discardId);
+        if (idx >= 0) {
+          const [discarded] = player.hand.splice(idx, 1);
+          if (discarded.deck === "door") room.discards.door.push(discarded);
+          else room.discards.treasure.push(discarded);
+          
+          const roll2 = 1 + Math.floor(Math.random() * 6);
+          log(room, `🌪️ ${player.name} discarded ${discarded.name} for Chaos Advantage! Rolled ${roll} & ${roll2}.`);
+          roll = Math.max(roll, roll2); // Tag det højeste slag!
+          refreshDerived(player);
+        }
+      }
+
+      // DUNGEONS: Ændrer terningeslaget (Elven Excess & Poultry)
+      if (hasDungeon(room, "d-elven")) roll++;
+      if (hasDungeon(room, "d-poultry")) roll--;
+      
       io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Run Away" });
       log(room, `🎲 ${player.name} rolls ${roll} to run away.`);
       
@@ -1080,12 +1170,10 @@ case "runAway": {
         log(room, `${player.name} fails to escape — Bad Stuff!`);
         for (const m of room.combat.monsters) {
           applyBadStuff(room, player, m.badStuff);
-          // RETTELSE HER: Stop KUN funktionen, hvis spilleren er død (looting) eller spillet er slut.
           if ((room.status as string) === "looting" || (room.status as string) === "gameOver") return null; 
         }
       }
       
-      // mark this player's run resolved by removing from combat passes (we reuse passes for ran flag)
       (room.combat as any)._ran = (room.combat as any)._ran ?? new Set<string>();
       ((room.combat as any)._ran as Set<string>).add(playerId);
       
@@ -1093,7 +1181,6 @@ case "runAway": {
       const helperDone = !room.combat.helperId || ((room.combat as any)._ran as Set<string>).has(room.combat.helperId);
       
       if (attackerDone && helperDone) {
-        // discard monsters
         for (const m of room.combat.monsters) room.discards.door.push(m);
         room.table = room.table.filter(t => !room.combat!.monsters.some(m => m.id === t.id));
         room.combat = null;
@@ -1106,11 +1193,21 @@ case "runAway": {
       return null;
     }
 
-      case "flee": {
+    case "flee": {
       if (!room.combat) return "No combat.";
       if (room.combat.attackerId !== playerId) return "Kun angriberen kan overgive sig.";
       room.status = "runAwayRoll";
       room.combat.log.push(`💨 ${player.name} giver op og gør klar til at flygte!`);
+      return null;
+    }
+
+    case "cowardlyFlee": {
+      if (!room.combat) return "No combat.";
+      if (!hasDungeon(room, "d-cowards")) return "Dungeon of Cowards is not active.";
+      if (room.combat.attackerId !== playerId) return "Only the attacker can trigger a cowardly flee.";
+      
+      room.status = "runAwayRoll";
+      room.combat.log.push(`🐔 ${player.name} uses the Dungeon of Cowardly Combat to instantly flee without asking!`);
       return null;
     }
 

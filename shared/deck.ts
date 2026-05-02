@@ -122,9 +122,9 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...mate(1));
 
   // Portaler (Blandes ind i dørene)
-  cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 4));
-  cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 2));
-  cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 2));
+  cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
+  cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 3));
+  cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 3));
 
   return cards;
 };
@@ -197,6 +197,22 @@ export const buildDungeonDeck = (): Card[] => {
   cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
   cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level."));
   cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure."));
+  cards.push(...dungeon("d-feeble", "Dungeon of Feeble Foes", "All monsters are -5 Level (minimum Level 1)."));
+  cards.push(...dungeon("d-misanthropy", "Dungeon of Misanthropic Misery", "No one can ask for help in combat! Everyone fights alone."));
+  cards.push(...dungeon("d-bribery", "Dungeon of Blatant Bribery", "You must offer at least 2 treasures when asking for help in combat."));
+  cards.push(...dungeon("d-poultry", "Dungeon of Profuse Poultry", "Everyone has a chicken on their head! -1 to all Run Away rolls."));
+  cards.push(...dungeon("d-lavish", "Dungeon of Lavish Loot", "Items sell for double their printed gold value!"));
+  cards.push(...dungeon("d-chaos", "Dungeon of Chaotic Combat", "Fighters may discard a card to re-roll the Run Away die once per combat."));
+  cards.push(...dungeon("d-generous", "Dungeon of Generous Goblins", "When Looting the Room (face-down), draw 2 Door cards instead of 1."));
+  cards.push(...dungeon("d-charity", "Dungeon of Compulsory Charity", "At the end of your turn, you must give to Charity if you have 4 or more cards (instead of 5)."));
+  cards.push(...dungeon("d-cowards", "Dungeon of Cowardly Combat", "Players may choose to automatically fail their combat and Run Away without asking for help."));
+  cards.push(...dungeon("d-undead", "Dungeon of the Unrelenting Undead", "Any player may play a Monster card into any combat WITHOUT needing a Wandering Monster card."));
+  cards.push(...dungeon("d-thieves", "Dungeon of Thieving Thugs", "Thieves get +2 to their steal rolls (rolls of 2-6 succeed)."));
+  cards.push(...dungeon("d-clipping", "Dungeon of Coupon Clipping", "All items are worth 100g less when selling (a 400g item counts as 300g)."));
+  cards.push(...dungeon("d-swapping", "Dungeon of Sudden Swaps", "Before resolving combat, the attacker may randomly steal 1 card from their helper's hand."));
+  cards.push(...dungeon("d-healing", "Dungeon of Heavenly Healing", "When you resurrect a card (Cleric), draw an extra face-down Door card as a bonus."));
+  cards.push(...dungeon("d-doom", "Dungeon of Impending Doom", "If you die in this dungeon, you lose 2 Levels instead of keeping your level."));
+  cards.push(...dungeon("d-poverty", "Dungeon of Pathetic Poverty", "You cannot sell items for levels while this Dungeon is active."));
   return cards;
 };
 

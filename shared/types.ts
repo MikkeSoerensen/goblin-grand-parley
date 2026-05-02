@@ -248,7 +248,8 @@ export type ClientToServer =
   | { type: "respondHelp"; offerId: string; accept: boolean }
   | { type: "pass" }
   | { type: "resolveCombat" }
-  | { type: "runAway" }
+  | { type: "runAway"; discardId?: string }
+  | { type: "cowardlyFlee" }
   | { type: "rollDie" }
   | { type: "lootBody"; cardId: string }
   | { type: "charityGive"; cardIds: string[]; toId: string }
