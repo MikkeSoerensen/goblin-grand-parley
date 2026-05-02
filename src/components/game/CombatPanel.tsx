@@ -127,7 +127,7 @@ export function CombatPanel() {
       ))}
 
       {/* --- NY SEKTION: CLASS ABILITIES --- */}
-      {self.playerClass && view.status !== "runAwayRoll" && (
+      {self.playerClass && ["Warrior", "Thief", "Wizard"].includes(self.playerClass.name) && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
           <div className="font-display text-sm mb-2 flex items-center gap-1 text-indigo-400">
             <Zap className="w-4 h-4"/> {self.playerClass.name} Abilities
