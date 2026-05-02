@@ -208,6 +208,43 @@ export function PlayerHand() {
             </Button>
           )}
 
+          {/* Thief: STEAL MENU (Uden for kamp) */}
+          {self.playerClass?.name === "Thief" && !inCombat && (
+            <div className="w-full mt-2 border-t border-purple-500/30 pt-2">
+              <span className="text-sm font-bold text-purple-500 flex items-center mb-1">🗡️ Steal from: (Costs this card)</span>
+              <div className="flex flex-col gap-2">
+                {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => {
+                  // Saml alt modstanderens aktive udstyr
+                  const eqs = [p.equipment.head, p.equipment.armor, p.equipment.feet, p.equipment.bigItem, ...p.equipment.hands].filter(Boolean) as EquipmentCard[];
+                  // Tyve kan kun stjæle ting, der IKKE er "Big"
+                  const stealable = eqs.filter(e => !e.isBig);
+                  
+                  if (stealable.length === 0) return null;
+                  
+                  return (
+                    <div key={p.id} className="flex flex-wrap items-center gap-1 bg-purple-900/20 p-1.5 rounded">
+                      <span className="text-xs text-muted-foreground w-16 truncate">{p.name}:</span>
+                      {stealable.map(eq => (
+                        <Button 
+                          key={eq.id} 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-purple-500/50 h-6 text-[10px] px-2" 
+                          onClick={() => {
+                            send({ type: "useClassAbility", ability: "steal", cardIds: [card.id], targetId: p.id, targetCardId: eq.id } as any);
+                            setSelected(null);
+                          }}
+                        >
+                          {eq.name}
+                        </Button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Cleric: Resurrection (Må kun bruges i Phase 1, i stedet for Kick Open the Door) */}
           {self.playerClass?.name === "Cleric" && isMyTurn && view.currentPhase === 1 && view.status === "normalTurn" && (
             <Button size="sm" variant="outline" className="border-yellow-500 text-yellow-500" onClick={() => {

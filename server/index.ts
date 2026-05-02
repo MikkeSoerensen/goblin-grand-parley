@@ -752,6 +752,58 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          return null;
       }
 
+      // TYV: Steal (Må KUN gøres UDEN for kamp)
+      if (msg.ability === "steal") {
+         if (player.playerClass?.name !== "Thief") return "Not a Thief.";
+         if (room.combat) return "Cannot steal while a combat is active.";
+         if (msg.cardIds.length !== 1) return "Must discard exactly 1 card to steal.";
+         if (!msg.targetId || !msg.targetCardId) return "Target player or item missing.";
+
+         const target = room.players.find(p => p.id === msg.targetId);
+         if (!target || target.isDead) return "Invalid target.";
+
+         // Find udstyret på modstanderens krop og "lån" det midlertidigt
+         const targetEq = removeEquipped(target, msg.targetCardId);
+         if (!targetEq) return "Item not found on target's body.";
+         
+         // Man må KUN stjæle Small Items
+         if (targetEq.isBig) {
+           tryEquip(target, targetEq); // Sæt det tilbage!
+           return "Cannot steal Big items.";
+         }
+
+         // Betal prisen (Kassér et kort)
+         const idx = player.hand.findIndex(x => x.id === msg.cardIds[0]);
+         if (idx < 0) {
+            tryEquip(target, targetEq); // Sæt det tilbage!
+            return "Payment card not found in hand.";
+         }
+         const [discardedCard] = player.hand.splice(idx, 1);
+         if (discardedCard.deck === "door") room.discards.door.push(discardedCard); 
+         else room.discards.treasure.push(discardedCard);
+
+         // Slå med terningen! (Sender resultatet ud til alle ligesom "Run Away")
+         const roll = 1 + Math.floor(Math.random() * 6);
+         io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
+
+         if (roll >= 4) {
+           // Succes! Kortet lægges i tyvens rygsæk
+           player.backpack.push(targetEq);
+           log(room, `🗡️ ${player.name} rolls ${roll} and successfully STEALS ${targetEq.name} from ${target.name}!`);
+         } else {
+           // Fiasko! Giv kortet tilbage og slå tyven ned i level
+           tryEquip(target, targetEq);
+           const oldLevel = player.level;
+           player.level = Math.max(1, player.level - 1);
+           const lost = oldLevel - player.level;
+           log(room, `🩸 ${player.name} rolls ${roll} and FAILS to steal from ${target.name}. They get whacked and lose ${lost} level(s)!`);
+         }
+         
+         refreshDerived(player);
+         refreshDerived(target);
+         return null;
+      }
+
       // 2. HERFRA og ned kræver de andre evner, at der er en kamp!
       if (!room.combat) return "No combat active.";
       const c = room.combat;
