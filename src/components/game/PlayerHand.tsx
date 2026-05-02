@@ -49,6 +49,42 @@ export function PlayerHand() {
     
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
+
+    {/* CLASS ABILITIES (Kun i kamp) */}
+          {inCombat && (
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-border mt-1">
+              
+              {/* Warrior: Berserk */}
+              {self.playerClass?.name === "Warrior" && (view.combat?.attackerId === self.id || view.combat?.helperId === self.id) && (
+                <Button size="sm" variant="outline" className="border-orange-500 text-orange-500" onClick={() => {
+                  send({ type: "useClassAbility", ability: "berserk", cardIds: [card.id] });
+                  setSelected(null);
+                }}>
+                  ⚔️ Berserk (+1)
+                </Button>
+              )}
+
+              {/* Thief: Backstab */}
+              {self.playerClass?.name === "Thief" && view.combat && (
+                <Button size="sm" variant="outline" className="border-purple-500 text-purple-500" onClick={() => {
+                  send({ type: "useClassAbility", ability: "backstab", cardIds: [card.id], targetId: view.combat!.attackerId });
+                  setSelected(null);
+                }}>
+                  🗡️ Backstab Attacker (-2)
+                </Button>
+              )}
+
+              {/* Wizard: Charm */}
+              {self.playerClass?.name === "Wizard" && (view.combat?.attackerId === self.id || view.combat?.helperId === self.id) && self.handCount >= 3 && view.combat?.monsters.map(m => (
+                <Button key={m.id} size="sm" variant="outline" className="border-blue-500 text-blue-500" onClick={() => {
+                  send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
+                  setSelected(null);
+                }}>
+                  🪄 Charm {m.name}
+                </Button>
+              ))}
+            </div>
+          )}
     
     // NYT: Sætter spillet direkte i "Sell Mode" og markerer kortet
     if (action === "sell") {

@@ -657,6 +657,93 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
+    case "useClassAbility": {
+      if (!room.combat) return "No combat active.";
+      const c = room.combat;
+      
+      if (msg.ability === "berserk") {
+         if (player.playerClass?.name !== "Warrior") return "Not a Warrior.";
+         if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to go berserk.";
+         
+         c.warriorDiscardCount = c.warriorDiscardCount || {};
+         const currentUsed = c.warriorDiscardCount[playerId] || 0;
+         if (currentUsed + msg.cardIds.length > 3) return `You can only discard up to 3 cards (used ${currentUsed}).`;
+         
+         let discarded = 0;
+         for (const cid of msg.cardIds) {
+           const idx = player.hand.findIndex(x => x.id === cid);
+           if (idx >= 0) {
+             const [card] = player.hand.splice(idx, 1);
+             if (card.deck === "door") room.discards.door.push(card); else room.discards.treasure.push(card);
+             discarded++;
+           }
+         }
+         if (discarded === 0) return "No valid cards discarded.";
+         
+         c.warriorDiscardCount[playerId] = currentUsed + discarded;
+         c.attackerBonuses += discarded;
+         log(room, `⚔️ ${player.name} goes BERSERK! Discards ${discarded} card(s) for +${discarded} bonus.`);
+         refreshDerived(player);
+         return null;
+      }
+      
+      if (msg.ability === "backstab") {
+         if (player.playerClass?.name !== "Thief") return "Not a Thief.";
+         if (!msg.targetId) return "No target specified.";
+         const target = room.players.find(p => p.id === msg.targetId);
+         if (!target) return "Target not found.";
+         
+         c.backstabbedBy = c.backstabbedBy || {};
+         c.backstabbedBy[target.id] = c.backstabbedBy[target.id] || [];
+         if (c.backstabbedBy[target.id].includes(playerId)) return "You already backstabbed this player in this combat.";
+         
+         if (msg.cardIds.length !== 1) return "Must discard exactly 1 card to backstab.";
+         const idx = player.hand.findIndex(x => x.id === msg.cardIds[0]);
+         if (idx < 0) return "Card not in hand.";
+         
+         const [card] = player.hand.splice(idx, 1);
+         if (card.deck === "door") room.discards.door.push(card); else room.discards.treasure.push(card);
+         
+         c.backstabbedBy[target.id].push(playerId);
+         if (target.id === c.attackerId || target.id === c.helperId) {
+           c.attackerBonuses -= 2;
+           log(room, `🗡️ ${player.name} BACKSTABS ${target.name}! (-2 to their combat score)`);
+         } else {
+           return "Can only backstab players currently in combat.";
+         }
+         refreshDerived(player);
+         return null;
+      }
+      
+      if (msg.ability === "charm") {
+         if (player.playerClass?.name !== "Wizard") return "Not a Wizard.";
+         if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to charm.";
+         if (!msg.monsterId) return "No monster selected.";
+         if (player.hand.length < 3) return "Need at least 3 cards in hand to Charm.";
+         
+         const mIdx = c.monsters.findIndex(m => m.id === msg.monsterId);
+         if (mIdx < 0) return "Monster not in combat.";
+         const monster = c.monsters[mIdx];
+         
+         // Troldmanden kaster hele hånden!
+         const handSize = player.hand.length;
+         for (const card of player.hand) {
+            if (card.deck === "door") room.discards.door.push(card); else room.discards.treasure.push(card);
+         }
+         player.hand = [];
+         
+         // Fjern monsteret, men gem skattene!
+         c.monsters.splice(mIdx, 1);
+         room.discards.door.push(monster);
+         c.charmedTreasures = (c.charmedTreasures || 0) + monster.treasures;
+         
+         log(room, `🪄 ${player.name} CHARMS the ${monster.name} by discarding their hand (${handSize} cards)!`);
+         refreshDerived(player);
+         return null;
+      }
+      return "Invalid ability.";
+    }
+
     case "askForHelp": {
       if (!room.combat || room.combat.attackerId !== playerId) return "Only attacker may request help.";
       if (room.combat.helperId) return "Already have a helper.";
@@ -732,16 +819,20 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       // Hvis vi er nået hertil, er kravet opfyldt (f.eks. 0 mangler = 0 stemmer). Tving kampen igennem!
       room.status = "inCombat";
 
-      // --- HERFRA OG NED ER RESTEN AF LOVABLES KODE FULDSTÆNDIG UÆNDRET ---
       const attacker = room.players.find(p => p.id === c.attackerId)!;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;
       const ms = monsterTotal(c);
       const ps = playerSideTotal(room, c);
-      log(room, `Resolution: Players ${ps} vs Monsters ${ms}.`);
       
-      if (ps > ms) {
+      // NYT: Tjek om en af dem i kampen er Warrior
+      const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
+      
+      log(room, `Resolution: Players ${ps} vs Monsters ${ms}.${hasWarrior ? " (Warrior tie-breaker active!)" : ""}`);
+      
+      // NYT: Krigere vinder på uafgjort (>=), alle andre skal have mere (>)
+      if (hasWarrior ? ps >= ms : ps > ms) {
         // Victory!
-        const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
+        const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0) + (c.charmedTreasures || 0);
         const totalLevels = c.monsters.reduce((s, m) => s + m.levelsAwarded, 0);
         const helperShare = c.contract ? Math.min(c.contract.treasures, totalTreasures) : 0;
         const attackerShare = totalTreasures - helperShare;

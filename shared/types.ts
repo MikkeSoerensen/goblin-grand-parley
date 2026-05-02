@@ -132,6 +132,9 @@ export interface CombatState {
   attackerBonuses: number;          // one-shots in player's favor
   passes: Record<string, boolean>;  // playerId -> has passed this round
   log: string[];
+  charmedTreasures?: number;
+  backstabbedBy?: Record<string, string[]>;
+  warriorDiscardCount?: Record<string, number>;
 }
 
 export interface NegotiationOffer {
@@ -190,7 +193,8 @@ export type ClientToServer =
   | { type: "flee" }
   | { type: "playCard"; cardId: string }
   | { type: "equip"; cardId: string; forceSwap?: boolean }
-  | { type: "castCurse"; cardId: string; targetId: string };
+  | { type: "castCurse"; cardId: string; targetId: string }
+  | { type: "useClassAbility"; ability: "berserk" | "backstab" | "charm"; cardIds: string[]; targetId?: string; monsterId?: string };
   
 export type ServerToClient =
   | { type: "state"; view: ClientView }
