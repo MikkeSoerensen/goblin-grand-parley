@@ -732,15 +732,20 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          }
          player.hand = [];
          
-         // Fjern monsteret, men gem skattene!
+         // Fjern monsteret
          c.monsters.splice(mIdx, 1);
          room.discards.door.push(monster);
+         
+         // Ryd monsteret fra bordet
+         room.table = room.table.filter(t => t.id !== monster.id);
+         
          c.charmedTreasures = (c.charmedTreasures || 0) + monster.treasures;
          
          log(room, `🪄 ${player.name} CHARMS the ${monster.name} by discarding their hand (${handSize} cards)!`);
          refreshDerived(player);
          return null;
       }
+      
       return "Invalid ability.";
     }
 

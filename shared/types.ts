@@ -194,7 +194,7 @@ export type ClientToServer =
   | { type: "playCard"; cardId: string }
   | { type: "equip"; cardId: string; forceSwap?: boolean }
   | { type: "castCurse"; cardId: string; targetId: string }
-  | { type: "useClassAbility"; ability: "berserk" | "backstab" | "charm"; cardIds: string[]; targetId?: string; monsterId?: string };
+  | { type: "useClassAbility"; ability: "berserk" | "backstab" | "charm"; cardIds: string[]; targetId?: string; monsterId?: string }
   
 export type ServerToClient =
   | { type: "state"; view: ClientView }
