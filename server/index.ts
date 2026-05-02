@@ -590,15 +590,25 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
 
       // NYT: Håndter "Class" kort
       if (card.type === "class") {
-        // Hvis man allerede har en klasse, smider vi den gamle i skraldespanden først
+        let oldClass = null;
+        
+        // Hvis man allerede har en klasse, gemmer vi navnet og smider den i skraldespanden
         if (player.playerClass) {
-          room.discards.door.push(player.playerClass);
+          oldClass = player.playerClass;
+          room.discards.door.push(oldClass);
         }
+        
         // Sæt den nye klasse, fjern kortet fra hånden
-        player.playerClass = card as any; // (Tvinger TypeScript til at slappe af)
+        player.playerClass = card as any;
         player.hand.splice(idx, 1);
         
-        log(room, `✨ ${player.name} is now a ${card.name}!`);
+        // Skriv en tydelig besked i loggen!
+        if (oldClass) {
+          log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
+        } else {
+          log(room, `✨ ${player.name} is now a ${card.name}!`);
+        }
+        
         refreshDerived(player);
         return null;
       }

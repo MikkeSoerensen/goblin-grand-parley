@@ -1,4 +1,4 @@
-import { Card, EquipmentCard, MonsterCard } from "../../../shared/types";
+import { Card, EquipmentCard, MonsterCard, ClassCard } from "../../../shared/types";
 import { cn } from "@/lib/utils";
 
 const typeStyles: Record<string, string> = {
@@ -8,6 +8,7 @@ const typeStyles: Record<string, string> = {
   oneshot: "bg-gradient-to-br from-oneshot to-oneshot/70 text-oneshot-foreground",
   enhancer: "bg-gradient-to-br from-enhancer to-enhancer/70 text-enhancer-foreground",
   "go-up-a-level": "bg-gradient-treasure text-treasure-foreground",
+  class: "bg-gradient-to-br from-indigo-900 to-purple-900 text-white border-purple-500/50", // NY FARVE TIL CLASSES!
 };
 
 const slotIcon: Record<string, string> = {
@@ -61,6 +62,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "oneshot" && "🧪"}
         {card.type === "enhancer" && "✨"}
         {card.type === "go-up-a-level" && "⬆️"}
+        {card.type === "class" && "🎭"} {/* NYT IKON! */}
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
         {card.type === "monster" && (
@@ -80,6 +82,14 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "oneshot" && <div className="font-bold">+{(card as any).bonus} · {(card as any).goldValue}g</div>}
         {card.type === "enhancer" && <div className="font-bold">{(card as any).bonus > 0 ? "+" : ""}{(card as any).bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{(card as any).effectText}</div>}
+        
+        {/* NY TEKST TIL CLASS-KORT! */}
+        {card.type === "class" && (
+          <>
+            <div className="font-bold">Class</div>
+            <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as ClassCard).effectText}</div>
+          </>
+        )}
       </div>
     </button>
   );
