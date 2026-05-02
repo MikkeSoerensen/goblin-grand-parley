@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useState } from "react";
-import { Swords, HandHelping, Dice5, AlertTriangle } from "lucide-react";
+import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
 export function CombatPanel() {
   const view = useGame(s => s.view);
@@ -30,9 +30,8 @@ export function CombatPanel() {
   const allPassed = passCount >= expectedPasses;
 
   const handleResolveClick = () => {
-    // NYT TJEK: Tvinger angriberen til at vente på Pass fra alle modstandere!
     if (!allPassed) {
-      alert("Vent lige lidt! ✋\n\nDine modstandere skal trykke 'Pass', før du kan afslutte kampen eller flygte. De har stadig deres 2.6 sekunder til at kaste en sidste forbandelse!");
+      alert("Vent lige lidt! ✋\n\nDine modstandere skal trykke 'Pass', før du kan afslutte kampen eller flygte. De har stadig deres tid til at kaste en sidste forbandelse!");
       return;
     }
 
@@ -54,7 +53,6 @@ export function CombatPanel() {
         </h2>
         <div className="text-sm font-ui opacity-80">
           {view.status === "waitingForInterrupts" && "Waiting for opponents to pass…"}
-          {/* Rettelse: Dynamisk tekst alt efter hvem der kigger */}
           {view.status === "inCombat" && !winning && (isAttacker ? "You are losing! Ask for help or run." : `${attacker.name} is losing!`)}
           {view.status === "inCombat" && winning && "Ready to declare victory!"}
           {view.status === "runAwayRoll" && "Run away phase"}
@@ -126,6 +124,51 @@ export function CombatPanel() {
         </div>
       ))}
 
+      {/* --- NY SEKTION: CLASS ABILITIES --- */}
+      {self.playerClass && view.status !== "runAwayRoll" && (
+        <div className="border-t border-border pt-3 mb-3">
+          <div className="font-display text-sm mb-2 flex items-center gap-1 text-indigo-400">
+            <Zap className="w-4 h-4"/> {self.playerClass.name} Abilities
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            
+            {/* Wizard: Charm Monster (Knap direkte i panelet) */}
+            {self.playerClass.name === "Wizard" && isFighter && self.handCount >= 3 && c.monsters.map(m => (
+              <Button 
+                key={m.id} 
+                size="sm" 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => {
+                  if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
+                    send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
+                  }
+                }}
+              >
+                🪄 Charm {m.name} (Discard Hand)
+              </Button>
+            ))}
+            {self.playerClass.name === "Wizard" && isFighter && self.handCount < 3 && (
+               <div className="text-xs font-ui text-muted-foreground italic">You need at least 3 cards in hand to use Charm.</div>
+            )}
+
+            {/* Warrior: Berserk (Guide-tekst) */}
+            {self.playerClass.name === "Warrior" && isFighter && (
+              <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
+                💡 <b>Berserk:</b> Click on cards in your hand to discard them for +1 combat power (max 3 per combat).
+              </div>
+            )}
+
+            {/* Thief: Backstab (Guide-tekst) */}
+            {self.playerClass.name === "Thief" && (
+              <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
+                💡 <b>Backstab:</b> Click on a card in your hand to discard it and give {attacker.name} -2 in combat.
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {/* Pass + resolve */}
       <div className="flex gap-2 flex-wrap pt-2 border-t border-border">
         {canPass && view.status !== "runAwayRoll" && (
@@ -134,7 +177,6 @@ export function CombatPanel() {
           </Button>
         )}
         
-        {/* Rettelse: Knappen skifter nu dynamisk tekst, så angriberen altid ved, hvad status er */}
         {isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant={winning ? "default" : "destructive"} onClick={handleResolveClick}>
             {winning 
