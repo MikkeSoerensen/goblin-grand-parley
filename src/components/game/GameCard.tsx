@@ -8,7 +8,10 @@ const typeStyles: Record<string, string> = {
   oneshot: "bg-gradient-to-br from-oneshot to-oneshot/70 text-oneshot-foreground",
   enhancer: "bg-gradient-to-br from-enhancer to-enhancer/70 text-enhancer-foreground",
   "go-up-a-level": "bg-gradient-treasure text-treasure-foreground",
-  class: "bg-gradient-to-br from-indigo-900 to-purple-900 text-white border-purple-500/50", // NY FARVE TIL CLASSES!
+  class: "bg-gradient-to-br from-indigo-900 to-purple-900 text-white border-purple-500/50",
+  // NYE FARVER TIL WANDERING MONSTER OG MATE:
+  "wandering-monster": "bg-gradient-to-br from-orange-600 to-red-800 text-white border-orange-500/50",
+  mate: "bg-gradient-to-br from-pink-500 to-rose-700 text-white border-pink-400/50",
 };
 
 const slotIcon: Record<string, string> = {
@@ -62,7 +65,10 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "oneshot" && "🧪"}
         {card.type === "enhancer" && "✨"}
         {card.type === "go-up-a-level" && "⬆️"}
-        {card.type === "class" && "🎭"} {/* NYT IKON! */}
+        {card.type === "class" && "🎭"}
+        {/* NYE IKONER: */}
+        {card.type === "wandering-monster" && "🐉"}
+        {card.type === "mate" && "💞"}
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
         {card.type === "monster" && (
@@ -83,12 +89,20 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "enhancer" && <div className="font-bold">{(card as any).bonus > 0 ? "+" : ""}{(card as any).bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{(card as any).effectText}</div>}
         
-        {/* NY TEKST TIL CLASS-KORT! */}
         {card.type === "class" && (
           <>
             <div className="font-bold">Class</div>
             <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as ClassCard).effectText}</div>
           </>
+        )}
+
+        {/* NY TEKST TIL WANDERING MONSTER OG MATE */}
+        {card.type === "wandering-monster" && (
+           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as any).flavor}</div>
+        )}
+
+        {card.type === "mate" && (
+           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as any).flavor}</div>
         )}
       </div>
     </button>
