@@ -49,34 +49,8 @@ export function PlayerHand() {
     
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
-
-{/* CLASS ABILITIES (Vises altid, når der er en kamp i gang erg) */}
-          {view.combat && (
-            <div className="flex flex-wrap gap-2 pt-1 border-t border-border mt-1">
-              
-              {/* Warrior: Berserk (Må kun bruges, hvis man selv er med i kampen) */}
-              {self.playerClass?.name === "Warrior" && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (
-                <Button size="sm" variant="outline" className="border-orange-500 text-orange-500" onClick={() => {
-                  send({ type: "useClassAbility", ability: "berserk", cardIds: [card.id] });
-                  setSelected(null);
-                }}>
-                  ⚔️ Berserk (+1)
-                </Button>
-              )}
-
-              {/* Thief: Backstab (Må bruges på alle tidspunkter i en kamp) */}
-              {self.playerClass?.name === "Thief" && (
-                <Button size="sm" variant="outline" className="border-purple-500 text-purple-500" onClick={() => {
-                  send({ type: "useClassAbility", ability: "backstab", cardIds: [card.id], targetId: view.combat!.attackerId });
-                  setSelected(null);
-                }}>
-                  🗡️ Backstab Attacker (-2)
-                </Button>
-              )}
-            </div>
-          )}
     
-    // NYT: Sætter spillet direkte i "Sell Mode" og markerer kortet
+    // Sætter spillet direkte i "Sell Mode" og markerer kortet
     if (action === "sell") {
       setIsSelling(true);
       setSellMode([card.id]);
@@ -90,7 +64,6 @@ export function PlayerHand() {
     setSelected(null);
   };
 
-  // NYT: Skudsikkert tjek for guldværdi i toppen af filen
   const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
     return s + (c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0);
@@ -131,7 +104,6 @@ export function PlayerHand() {
             selected={selected === c.id || sellMode.includes(c.id)}
             onClick={() => {
               if (isSelling) {
-                // NYT: Skudsikkert tjek for guldværdi nede i kortet
                 if ((c as any).goldValue !== undefined) {
                   setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
                 }
@@ -209,6 +181,35 @@ export function PlayerHand() {
               <Button size="sm" onClick={() => handleAction("playAttacker")}>⚔️ Play for attacker</Button>
               <Button size="sm" variant="destructive" onClick={() => handleAction("playMonster")}>👹 Play for monster</Button>
             </>
+          )}
+
+          {/* CLASS ABILITIES (Vises under kamp når man vælger et kort) */}
+          {view.combat && self.playerClass?.name === "Warrior" && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (
+            <Button size="sm" variant="outline" className="border-orange-500 text-orange-500" onClick={() => {
+              send({ type: "useClassAbility", ability: "berserk", cardIds: [card.id] });
+              setSelected(null);
+            }}>
+              ⚔️ Berserk (+1)
+            </Button>
+          )}
+
+          {view.combat && self.playerClass?.name === "Thief" && (
+            <Button size="sm" variant="outline" className="border-purple-500 text-purple-500" onClick={() => {
+              send({ type: "useClassAbility", ability: "backstab", cardIds: [card.id], targetId: view.combat!.attackerId });
+              setSelected(null);
+            }}>
+              🗡️ Backstab Attacker (-2)
+            </Button>
+          )}
+
+          {/* Cleric: Resurrection (Må kun bruges i Phase 1, i stedet for Kick Open the Door) */}
+          {self.playerClass?.name === "Cleric" && isMyTurn && view.currentPhase === 1 && view.status === "normalTurn" && (
+            <Button size="sm" variant="outline" className="border-yellow-500 text-yellow-500" onClick={() => {
+              send({ type: "useClassAbility", ability: "resurrect", cardIds: [card.id] });
+              setSelected(null);
+            }}>
+              🙏 Resurrect Door Card
+            </Button>
           )}
 
           {/* Generelle knapper */}

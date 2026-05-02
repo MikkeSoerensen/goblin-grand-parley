@@ -745,6 +745,54 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          refreshDerived(player);
          return null;
       }
+
+      if (msg.ability === "resurrect") {
+         if (player.playerClass?.name !== "Cleric") return "Not a Cleric.";
+         if (room.activePlayerIndex !== room.players.findIndex(p => p.id === playerId)) return "Not your turn.";
+         if (room.currentPhase !== 1) return "Can only resurrect Door cards at the start of your turn (Phase 1).";
+         if (room.discards.door.length === 0) return "Door discard pile is empty.";
+         if (msg.cardIds.length !== 1) return "Must discard exactly 1 card to resurrect.";
+
+         // 1. Tag det øverste kort FRA skraldespanden FØRST (så vi ikke bare trækker det, vi lige har smidt ud)
+         const resurrectedCard = room.discards.door.pop()!;
+         
+         // 2. Kassér det valgte kort som betaling
+         const idx = player.hand.findIndex(x => x.id === msg.cardIds[0]);
+         if (idx < 0) return "Card not in hand.";
+         const [discardedCard] = player.hand.splice(idx, 1);
+         if (discardedCard.deck === "door") room.discards.door.push(discardedCard); 
+         else room.discards.treasure.push(discardedCard);
+
+         log(room, `🙏 ${player.name} discards ${discardedCard.name} to RESURRECT the top door card: ${resurrectedCard.name}!`);
+
+         // 3. Udfør "Kick Open The Door" logikken med det genoplivede kort
+         if (resurrectedCard.type === "monster") {
+            room.currentPhase = 2; // Combat
+            room.status = "waitingForInterrupts";
+            room.combat = {
+               attackerId: playerId,
+               helperId: null,
+               monsters: [resurrectedCard],
+               monsterBonuses: 0,
+               attackerBonuses: 0,
+               passes: {},
+               contract: null,   // <-- NY: Ingen kontrakt til at starte med
+               playedCards: [],  // <-- NY: Ingen kort spillet i kampen endnu
+               log: [`${player.name} fights ${resurrectedCard.name} (Lvl ${resurrectedCard.level})`]
+            };
+         } else if (resurrectedCard.type === "curse") {
+            player.hand.push(resurrectedCard);
+            room.currentPhase = 2;
+            log(room, `💀 The resurrected card was a curse! It goes to ${player.name}'s hand.`);
+         } else {
+            player.hand.push(resurrectedCard);
+            room.currentPhase = 2;
+            log(room, `✨ ${player.name} puts the resurrected ${resurrectedCard.name} in their hand.`);
+         }
+         
+         refreshDerived(player);
+         return null;
+      }
       
       return "Invalid ability.";
     }

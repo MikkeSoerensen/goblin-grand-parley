@@ -18,7 +18,9 @@ export function CombatPanel() {
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
   const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
-  const winning = playerTotal > monsterTotal;
+  // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
+  const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
+  const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
   const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
 
   const myPass = !!c.passes[self.id];
