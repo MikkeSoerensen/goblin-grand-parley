@@ -2,8 +2,9 @@
 // Single source of truth for card and state shapes.
 
 export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem";
-export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level";
-export type DeckType = "door" | "treasure";
+export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon";
+export type DeckType = "door" | "treasure" | "dungeon";
+
 
 export type Phase = 1 | 2 | 3 | 4;
 export type AppStatus =
@@ -83,6 +84,18 @@ export interface ClassCard extends BaseCard {
   effectText: string;
 }
 
+export interface PortalCard extends BaseCard {
+  type: "portal";
+  deck: "door"; // Portaler ligger gemt i Door-decket!
+  effectText: string;
+}
+
+export interface DungeonCard extends BaseCard {
+  type: "dungeon";
+  deck: "dungeon"; // Dungeons har deres helt egen bunke
+  effectText: string;
+}
+
 export interface OneShotCard extends BaseCard {
   type: "oneshot";
   deck: "treasure";
@@ -114,7 +127,30 @@ export type Card =
   | GoUpLevelCard
   | ClassCard
   | WanderingMonsterCard
-  | MateCard;
+  | MateCard
+  | PortalCard
+  | DungeonCard;
+
+export interface PublicGameState {
+  status: AppStatus;
+  players: PublicPlayer[];
+  activePlayerIndex: number;
+  currentPhase: Phase;
+  doorDeckCount: number;
+  treasureDeckCount: number;
+  dungeonDeckCount: number;      // NY: Antal kort i Dungeon-bunken
+  doorDiscardCount: number;
+  treasureDiscardCount: number;
+  dungeonDiscardCount: number;   // NY: Antal kort i Dungeon-skraldespanden
+  table: Card[];                 
+  activeDungeons: DungeonCard[]; // NY: De aktive fangehuller, der gælder for ALLE spillere
+  combat: CombatState | null;
+  negotiations: NegotiationOffer[];
+  charity: { fromId: string; cardCount: number; candidates: string[] } | null;
+  looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
+  log: string[];
+  winnerId: string | null;
+}
 
 export interface PlayerEquipment {
   head: EquipmentCard | null;

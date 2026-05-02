@@ -13,7 +13,8 @@ import { buildAllDecks } from "../shared/deck.js";
 import type {
   Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
   PrivatePlayer, PublicPlayer, PublicGameState, ClientView, Phase, AppStatus,
-  CombatState, NegotiationOffer, BadStuffKind, Slot, ClientToServer,
+  CombatState, NegotiationOffer, BadStuffKind, Slot, ClientToServer, 
+  DungeonCard, PortalCard // <--- Tilføj disse to!
 } from "../shared/types.js";
 
 // ---------- utils ----------
@@ -33,8 +34,9 @@ interface Room {
   code: string;
   players: PrivatePlayer[];
   socketIdToPlayerId: Map<string, string>;
-  decks: { door: Card[]; treasure: Card[] };
-  discards: { door: Card[]; treasure: Card[] };
+  decks: { door: Card[]; treasure: Card[]; dungeon: Card[] }; // Tilføjet dungeon
+  discards: { door: Card[]; treasure: Card[]; dungeon: Card[] }; // Tilføjet dungeon
+  activeDungeons: DungeonCard[]; // NY: Holder styr på fangehuller på bordet
   table: Card[];
   status: AppStatus;
   activePlayerIndex: number;
@@ -66,7 +68,7 @@ const refreshDerived = (p: PrivatePlayer) => {
   p.backpackCount = p.backpack.length;
 };
 
-const drawFromDeck = (room: Room, deck: "door" | "treasure"): Card | null => {
+const drawFromDeck = (room: Room, deck: "door" | "treasure" | "dungeon"): Card | null => {
   if (room.decks[deck].length === 0) {
     if (room.discards[deck].length === 0) return null;
     room.decks[deck] = shuffle(room.discards[deck]);
@@ -97,8 +99,11 @@ const buildView = (room: Room, selfId: string | null): ClientView => {
     currentPhase: room.currentPhase,
     doorDeckCount: room.decks.door.length,
     treasureDeckCount: room.decks.treasure.length,
+    dungeonDeckCount: room.decks.dungeon.length, // NY
     doorDiscardCount: room.discards.door.length,
     treasureDiscardCount: room.discards.treasure.length,
+    dungeonDiscardCount: room.discards.dungeon.length, // NY
+    activeDungeons: room.activeDungeons, // NY
     table: room.table,
     combat: room.combat,
     negotiations: room.negotiations.map(({ id, ...rest }) => ({ ...rest, ...(({} as any)) , id } as any)),
@@ -125,8 +130,9 @@ const createRoom = (code: string): Room => {
     code,
     players: [],
     socketIdToPlayerId: new Map(),
-    decks: { door: shuffle(decks.door), treasure: shuffle(decks.treasure) },
-    discards: { door: [], treasure: [] },
+    decks: { door: shuffle(decks.door), treasure: shuffle(decks.treasure), dungeon: shuffle(decks.dungeon) },
+    discards: { door: [], treasure: [], dungeon: [] },
+    activeDungeons: [], // NY
     table: [],
     status: "lobby",
     activePlayerIndex: 0,
@@ -399,12 +405,55 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (room.players[room.activePlayerIndex].id !== playerId) return "Not your turn.";
       const card = drawFromDeck(room, "door");
       if (!card) return "No cards in door deck.";
+
+      // --- NY LOGIK: PORTAL ---
+      if (card.type === "portal") {
+        log(room, `🌀 ${player.name} kicks the door and finds a PORTAL: ${card.name}!`);
+        
+        if (card.cardId === "p-open") {
+          // Træk et nyt fangehul og læg det på bordet
+          const newDungeon = drawFromDeck(room, "dungeon");
+          if (newDungeon) {
+             room.activeDungeons.push(newDungeon as any);
+             log(room, `🏰 A new dungeon opens: ${newDungeon.name}!`);
+          }
+        } else if (card.cardId === "p-close") {
+          // Luk et fangehul (vi popper bare det nyeste for at holde det simpelt)
+          if (room.activeDungeons.length > 0) {
+             const closed = room.activeDungeons.pop()!; 
+             room.discards.dungeon.push(closed);
+             log(room, `🏚️ ${closed.name} is closed!`);
+          } else {
+             log(room, `...but there were no active dungeons to close.`);
+          }
+        } else if (card.cardId === "p-swap") {
+           // Smid alle aktive fangehuller væk og træk et nyt
+           while(room.activeDungeons.length > 0) {
+             room.discards.dungeon.push(room.activeDungeons.pop()!);
+           }
+           const newDungeon = drawFromDeck(room, "dungeon");
+           if (newDungeon) {
+             room.activeDungeons.push(newDungeon as any);
+             log(room, `🌌 Dimensional Shift! New dungeon: ${newDungeon.name}!`);
+           }
+        }
+
+        // Smid selve Portal-kortet i skraldespanden
+        room.discards.door.push(card);
+        
+        // VIGTIGT: Vi ændrer IKKE currentPhase. Spilleren må sparke en ny dør ind automatisk!
+        log(room, `👢 ${player.name} gets to kick open another door!`);
+        refreshDerived(player);
+        return null; 
+      }
+
+      // --- EKSISTERENDE LOGIK FOR ALMINDELIGE KORT ---
       log(room, `🚪 ${player.name} kicks the door: ${card.name}.`);
       if (card.type === "monster") {
         room.table.push(card);
-        startCombat(room, player, card);
+        startCombat(room, player, card as any);
       } else if (card.type === "curse") {
-        applyBadStuff(room, player, (card as CurseCard).effect);
+        applyBadStuff(room, player, (card as any).effect);
         room.discards.door.push(card);
         room.currentPhase = 2;
       } else {

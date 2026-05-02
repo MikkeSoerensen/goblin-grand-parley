@@ -1,16 +1,7 @@
 import type {
-  Card,
-  MonsterCard,
-  EquipmentCard,
-  CurseCard,
-  OneShotCard,
-  EnhancerCard,
-  GoUpLevelCard,
-  BadStuffKind,
-  Slot,
-  ClassCard,
-  WanderingMonsterCard,
-  MateCard
+  Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
+  GoUpLevelCard, BadStuffKind, Slot, ClassCard, WanderingMonsterCard, MateCard,
+  PortalCard, DungeonCard // <--- NYE
 } from "./types";
 
 let _id = 0;
@@ -40,6 +31,16 @@ const wanderingMonster = (copies = 1): WanderingMonsterCard[] =>
 const mate = (copies = 1): MateCard[] =>
   Array.from({ length: copies }, () => ({
     id: uid(), cardId: "c-mate", name: "Mate", type: "mate", deck: "door", flavor: "Duplicates a monster in combat!"
+  }));
+
+const portal = (cardId: string, name: string, effectText: string, copies = 1): PortalCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "portal", deck: "door", effectText
+  }));
+
+const dungeon = (cardId: string, name: string, effectText: string, copies = 1): DungeonCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name, type: "dungeon", deck: "dungeon", effectText
   }));
 
 const curse = (cardId: string, name: string, effect: BadStuffKind, effectText: string, copies = 1): CurseCard[] =>
@@ -120,6 +121,11 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...wanderingMonster(2));
   cards.push(...mate(1));
 
+  // Portaler (Blandes ind i dørene)
+  cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 4));
+  cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 2));
+  cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 2));
+
   return cards;
 };
 
@@ -184,7 +190,18 @@ export const buildTreasureDeck = (): Card[] => {
   return cards;
 };
 
+// ---------- DUNGEON DECK ----------
+export const buildDungeonDeck = (): Card[] => {
+  const cards: Card[] = [];
+  cards.push(...dungeon("d-elven", "Dungeon of Elvish Excess", "All players get +1 to their Run Away rolls."));
+  cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
+  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level."));
+  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure."));
+  return cards;
+};
+
 export const buildAllDecks = () => ({
   door: buildDoorDeck(),
   treasure: buildTreasureDeck(),
+  dungeon: buildDungeonDeck(), // <--- Tilføjet
 });

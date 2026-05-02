@@ -1,6 +1,6 @@
 import { useGame, send } from "@/lib/store";
-import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
+import { Button } from "@/components/ui/button";
 import { DoorOpen, Eye, PackageOpen, ChevronRight } from "lucide-react";
 
 const phaseNames = ["", "1. Kick Door", "2. Look for Trouble", "3. Loot the Room", "4. Charity"];
@@ -28,8 +28,24 @@ export function TableArea() {
         <div className="text-right text-xs font-ui opacity-70">
           <div>Door: {view.doorDeckCount} (+{view.doorDiscardCount} dis)</div>
           <div>Treasure: {view.treasureDeckCount} (+{view.treasureDiscardCount} dis)</div>
+          {/* NYT: Dungeon counter tilføjet */}
+          <div className="text-purple-300">Dungeon: {view.dungeonDeckCount} (+{view.dungeonDiscardCount} dis)</div>
         </div>
       </header>
+
+      {/* --- NYT: ACTIVE DUNGEONS ZONE --- */}
+      {view.activeDungeons && view.activeDungeons.length > 0 && (
+        <div className="mt-4 flex flex-col items-center w-full">
+          <div className="text-xs font-bold text-purple-300 uppercase tracking-widest mb-2 drop-shadow-md">
+            Active Dungeons
+          </div>
+          <div className="flex flex-wrap gap-4 justify-center">
+            {view.activeDungeons.map(d => (
+              <GameCard key={d.id} card={d} size="lg" className="border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Center: decks + table cards */}
       <div className="flex items-center gap-8 my-6 flex-wrap justify-center">
@@ -40,17 +56,27 @@ export function TableArea() {
           </div>
           <span className="text-xs opacity-70 font-ui">{view.doorDeckCount} cards</span>
         </div>
+        
         {/* Table */}
-        <div className="flex gap-2 min-w-[10rem] min-h-[12rem] items-center">
+        <div className="flex gap-2 min-w-[10rem] min-h-[12rem] items-center justify-center">
           {view.table.length === 0 && <div className="opacity-40 italic font-ui">— table empty —</div>}
           {view.table.map(c => <GameCard key={c.id} card={c} size="md"/>)}
         </div>
+        
         {/* Treasure deck */}
         <div className="flex flex-col items-center gap-1">
           <div className="card-base w-32 h-44 bg-gradient-treasure flex items-center justify-center font-display text-xl text-treasure-foreground border-2 border-treasure-foreground/30">
             💰 Treasure
           </div>
           <span className="text-xs opacity-70 font-ui">{view.treasureDeckCount} cards</span>
+        </div>
+
+        {/* --- NYT: DUNGEON DECK --- */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="card-base w-32 h-44 bg-gradient-to-br from-indigo-900 to-purple-950 flex items-center justify-center font-display text-xl text-white border-2 border-purple-500/30">
+            🏰 Dungeon
+          </div>
+          <span className="text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
         </div>
       </div>
 
