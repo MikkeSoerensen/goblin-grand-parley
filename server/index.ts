@@ -633,6 +633,45 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (idx < 0) return "Not in hand.";
       const card = player.hand[idx];
       
+      // --- NY LOGIK: WANDERING MONSTER ---
+      if (card.type === "wandering-monster") {
+        if (!msg.extraCardId) return "You must select a monster from your hand to wander in!";
+        const mIdx = player.hand.findIndex(c => c.id === msg.extraCardId && c.type === "monster");
+        if (mIdx < 0) return "Selected extra card is not a monster in your hand.";
+        const newMonster = player.hand[mIdx] as MonsterCard;
+
+        // Slet BEGGE kort fra hånden på én gang
+        player.hand = player.hand.filter(c => c.id !== card.id && c.id !== newMonster.id);
+
+        room.combat.monsters.push(newMonster);
+        room.combat.log.push(`🐉 ${player.name} plays Wandering Monster! ${newMonster.name} (Lvl ${newMonster.level}) joins the fight!`);
+        room.discards.door.push(card);
+        
+        resetPasses(room);
+        room.status = "waitingForInterrupts";
+        refreshDerived(player);
+        return null;
+      }
+
+      // --- NY LOGIK: MATE ---
+      if (card.type === "mate") {
+        if (room.combat.monsters.length === 0) return "No monsters to mate with.";
+        
+        // Vi kloner det første monster i kampen
+        const targetMonster = room.combat.monsters[0];
+        const clonedMonster = { ...targetMonster, id: Math.random().toString(), name: `Mate of ${targetMonster.name}` };
+        
+        player.hand.splice(idx, 1);
+        room.combat.monsters.push(clonedMonster as MonsterCard);
+        room.combat.log.push(`💞 ${player.name} plays Mate! A second ${targetMonster.name} appears!`);
+        room.discards.door.push(card); 
+        
+        resetPasses(room);
+        room.status = "waitingForInterrupts";
+        refreshDerived(player);
+        return null;
+      }
+      
       // Både OneShots og Enhancers skal kunne spilles på begge sider!
       if (card.type === "oneshot" || card.type === "enhancer") {
         const bonusAmount = (card as any).bonus; 

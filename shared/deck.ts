@@ -1,4 +1,17 @@
-import type { Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard, GoUpLevelCard, BadStuffKind, Slot } from "./types";
+import type {
+  Card,
+  MonsterCard,
+  EquipmentCard,
+  CurseCard,
+  OneShotCard,
+  EnhancerCard,
+  GoUpLevelCard,
+  BadStuffKind,
+  Slot,
+  ClassCard,
+  WanderingMonsterCard,
+  MateCard
+} from "./types";
 
 let _id = 0;
 const uid = () => `c${++_id}`;
@@ -18,6 +31,16 @@ const equipment = (
   id: uid(), cardId, name, type: "equipment", deck: "treasure",
   bonus, goldValue, slot, isBig, flavor,
 }));
+
+const wanderingMonster = (copies = 1): WanderingMonsterCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId: "c-wandering", name: "Wandering Monster", type: "wandering-monster", deck: "door", flavor: "Play this card along with a Monster from your hand to add it to any combat."
+  }));
+
+const mate = (copies = 1): MateCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId: "c-mate", name: "Mate", type: "mate", deck: "door", flavor: "Duplicates a monster in combat!"
+  }));
 
 const curse = (cardId: string, name: string, effect: BadStuffKind, effectText: string, copies = 1): CurseCard[] =>
   Array.from({ length: copies }, () => ({
@@ -93,6 +116,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
+  // Special Cards
+  cards.push(...wanderingMonster(2));
+  cards.push(...mate(1));
+
   return cards;
 };
 
@@ -149,7 +176,6 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...enhancer("h-enraged",  "Enraged",  +5, 100, 1));
   cards.push(...enhancer("h-humongous","Humongous",+10, 300, 1));
   cards.push(...enhancer("h-baby",     "Baby",     -5, 100, 1));   // weakens monster (good for attacker)
-  cards.push(...enhancer("h-mate",     "Mate",     +5, 100, 1));
   cards.push(...enhancer("h-intelligent","Intelligent", +5, 200, 1));
 
   // Go up a level

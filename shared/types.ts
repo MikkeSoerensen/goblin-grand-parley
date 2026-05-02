@@ -27,6 +27,24 @@ export interface BaseCard {
   flavor?: string;
 }
 
+export interface WanderingMonsterCard {
+  id: string;
+  cardId: string;
+  name: string;
+  type: "wandering-monster";
+  deck: "door";
+  flavor?: string;
+}
+
+export interface MateCard {
+  id: string;
+  cardId: string;
+  name: string;
+  type: "mate";
+  deck: "door";
+  flavor?: string;
+}
+
 export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
   | { kind: "loseItem"; slot: Slot | "any" | "biggest" }
@@ -87,7 +105,16 @@ export interface GoUpLevelCard extends BaseCard {
   goldValue: 0;
 }
 
-export type Card = MonsterCard | EquipmentCard | CurseCard | OneShotCard | EnhancerCard | GoUpLevelCard | ClassCard;
+export type Card =
+  | MonsterCard
+  | EquipmentCard
+  | CurseCard
+  | OneShotCard
+  | EnhancerCard
+  | GoUpLevelCard
+  | ClassCard
+  | WanderingMonsterCard
+  | MateCard;
 
 export interface PlayerEquipment {
   head: EquipmentCard | null;
@@ -180,7 +207,7 @@ export type ClientToServer =
   | { type: "toBackpack"; cardId: string }
   | { type: "sell"; cardIds: string[] }
   | { type: "discard"; cardId: string }
-  | { type: "playInCombat"; cardId: string; side: "attacker" | "monster" }
+  | { type: "playInCombat"; cardId: string; side?: "attacker" | "monster"; extraCardId?: string }
   | { type: "askForHelp"; helperId: string; treasures: number }
   | { type: "respondHelp"; offerId: string; accept: boolean }
   | { type: "pass" }

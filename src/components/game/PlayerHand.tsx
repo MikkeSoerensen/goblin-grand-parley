@@ -12,8 +12,14 @@ export function PlayerHand() {
   const [sellMode, setSellMode] = useState<string[]>([]);
   const [isSelling, setIsSelling] = useState(false);
 
+  // 1. Definer self én gang for alle. Vi sørger for, at komponenten stopper her, hvis der ikke er en spiller.
   if (!view?.self) return null;
   const self = view.self;
+
+  // 2. Nu er 'self' defineret og garanteret at eksistere, så vi kan trygt lede efter kortet.
+  const wanderingMonsterCard = self.hand.find(c => c.type === "wandering-monster");
+
+  // 3. Definer resten af de variabler, du skal bruge til komponenten.
   const isMyTurn = view.players[view.activePlayerIndex]?.id === self.id;
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
   const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
@@ -217,6 +223,27 @@ export function PlayerHand() {
             <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Discard</Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+
+          {/* Knap til Wandering Monster */}
+          {card.type === "monster" && view.combat && wanderingMonsterCard && (
+            <Button size="sm" variant="outline" className="border-red-500 text-red-500" onClick={() => {
+              send({ type: "playInCombat", cardId: wanderingMonsterCard.id, extraCardId: card.id });
+              setSelected(null);
+            }}>
+              🐉 Wander into combat
+            </Button>
+          )}
+
+          {/* Knap til Mate */}
+          {card.type === "mate" && view.combat && (
+            <Button size="sm" variant="outline" className="border-pink-500 text-pink-500" onClick={() => {
+              send({ type: "playInCombat", cardId: card.id });
+              setSelected(null);
+            }}>
+              💞 Play Mate
+            </Button>
+          )}
+          
         </div>
       )}
     </div>
