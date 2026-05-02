@@ -160,6 +160,13 @@ export function PlayerHand() {
             </div>
           )}
 
+          {/* Classes */}
+          {card.type === "class" && isMyTurn && !inCombat && (
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
+              <Zap className="w-4 h-4 mr-1"/> Become {card.name}
+            </Button>
+          )}
+
           {/* Level up / Oneshots (uden for kamp) */}
           {(card.type === "oneshot" || card.type === "go-up-a-level") && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>

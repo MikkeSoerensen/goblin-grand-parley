@@ -2,7 +2,7 @@
 // Single source of truth for card and state shapes.
 
 export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem";
-export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "class";
+export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level";
 export type DeckType = "door" | "treasure";
 
 export type Phase = 1 | 2 | 3 | 4;
@@ -87,7 +87,7 @@ export interface GoUpLevelCard extends BaseCard {
   goldValue: 0;
 }
 
-export type Card = MonsterCard | EquipmentCard | CurseCard | OneShotCard | EnhancerCard | GoUpLevelCard;
+export type Card = MonsterCard | EquipmentCard | CurseCard | OneShotCard | EnhancerCard | GoUpLevelCard | ClassCard;
 
 export interface PlayerEquipment {
   head: EquipmentCard | null;

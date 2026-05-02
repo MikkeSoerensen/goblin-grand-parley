@@ -580,13 +580,25 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         if (player.level >= 9) {
           return "Du kan ikke bruge dette kort til at vinde spillet (Level 10)!";
         }
-        
-        // Giv level, fjern kortet fra hånden, og smid det i discard-bunken
         player.level += 1;
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
-        
         log(room, `⬆️ ${player.name} plays ${card.name} and goes up a level!`);
+        refreshDerived(player);
+        return null;
+      }
+
+      // NYT: Håndter "Class" kort
+      if (card.type === "class") {
+        // Hvis man allerede har en klasse, smider vi den gamle i skraldespanden først
+        if (player.playerClass) {
+          room.discards.door.push(player.playerClass);
+        }
+        // Sæt den nye klasse, fjern kortet fra hånden
+        player.playerClass = card as any; // (Tvinger TypeScript til at slappe af)
+        player.hand.splice(idx, 1);
+        
+        log(room, `✨ ${player.name} is now a ${card.name}!`);
         refreshDerived(player);
         return null;
       }
