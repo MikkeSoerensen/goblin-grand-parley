@@ -769,6 +769,25 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         refreshDerived(player);
         return null;
       }
+
+      // --- NY LOGIK: GOBLIN-SVÆRMEN ---
+      // Hvis kortet har "Goblin" i navnet, og der i forvejen ER en Goblin i kampen, 
+      // må det spilles direkte fra hånden uden Wandering Monster!
+      if (card.type === "monster" && card.name.toLowerCase().includes("goblin")) {
+        const hasGoblin = room.combat.monsters.some(m => m.name.toLowerCase().includes("goblin"));
+        
+        if (hasGoblin) {
+          player.hand.splice(idx, 1);
+          room.combat.monsters.push(card as MonsterCard);
+          room.combat.log.push(`👺 GOBLIN SWARM! ${player.name} plays ${card.name} directly into combat!`);
+          room.discards.door.push(card);
+          
+          resetPasses(room);
+          room.status = "waitingForInterrupts";
+          refreshDerived(player);
+          return null;
+        }
+      }
       
       // Både OneShots og Enhancers skal kunne spilles på begge sider!
       if (card.type === "oneshot" || card.type === "enhancer") {
