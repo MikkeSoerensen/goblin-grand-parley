@@ -90,11 +90,10 @@ export default function Index() {
 
   return (
     <main className="min-h-screen p-4 flex flex-col gap-4">
-      <div className="flex gap-4 flex-1 min-h-0">
-        <TableArea />
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden">
         <Scoreboard />
+        <TableArea />
       </div>
-
       {/* Floating combat panel */}
       {view.combat && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-30 max-w-3xl w-full px-4">

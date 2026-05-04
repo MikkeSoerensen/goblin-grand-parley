@@ -31,9 +31,9 @@ interface Props {
 
 export function GameCard({ card, size = "md", faceDown, selected, onClick, className }: Props) {
   const sizes = {
-    sm: "w-20 h-28 text-[10px]",
-    md: "w-32 h-44 text-xs",
-    lg: "w-44 h-60 text-sm",
+    sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px]",
+    md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs",
+    lg: "w-32 h-44 md:w-44 md:h-60 text-xs md:text-sm shrink-0", // Sikrer fangehuller ikke bliver moset for meget
   };
 
   if (faceDown) {
