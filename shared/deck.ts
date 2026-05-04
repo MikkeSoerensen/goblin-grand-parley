@@ -101,6 +101,12 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-clown","Clown Prince",      14, 3, 2, { kind: "loseAllItems" }, "Honked to nakedness.", 1));
   cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
 
+  // Goblin Swarm!
+  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 4)); 
+  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 2));
+  cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
+  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 1));
+
   // Curses (~14)
   cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
   cards.push(...curse("c-loseHead", "Curse! Lose Your Headgear", { kind: "loseItem", slot: "head" }, "Discard your head item.", 2));
@@ -111,7 +117,7 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...curse("c-level2",   "Curse! Income Tax", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
   cards.push(...curse("c-loseAny",  "Curse! Malign Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
 
-  // Classes (Lægges f.eks. lige under dine Curses i buildDoorDeck)
+  // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
@@ -121,7 +127,7 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...wanderingMonster(2));
   cards.push(...mate(1));
 
-  // Portaler (Blandes ind i dørene)
+  // Portaler
   cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
   cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 3));
   cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 3));

@@ -423,19 +423,17 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       const card = drawFromDeck(room, "door");
       if (!card) return "No cards in door deck.";
 
-      // --- NY LOGIK: PORTAL ---
+      // --- PORTALER ---
       if (card.type === "portal") {
         log(room, `🌀 ${player.name} kicks the door and finds a PORTAL: ${card.name}!`);
         
         if (card.cardId === "p-open") {
-          // Træk et nyt fangehul og læg det på bordet
           const newDungeon = drawFromDeck(room, "dungeon");
           if (newDungeon) {
              room.activeDungeons.push(newDungeon as any);
              log(room, `🏰 A new dungeon opens: ${newDungeon.name}!`);
           }
         } else if (card.cardId === "p-close") {
-          // Luk et fangehul (vi popper bare det nyeste for at holde det simpelt)
           if (room.activeDungeons.length > 0) {
              const closed = room.activeDungeons.pop()!; 
              room.discards.dungeon.push(closed);
@@ -444,7 +442,6 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
              log(room, `...but there were no active dungeons to close.`);
           }
         } else if (card.cardId === "p-swap") {
-           // Smid alle aktive fangehuller væk og træk et nyt
            while(room.activeDungeons.length > 0) {
              room.discards.dungeon.push(room.activeDungeons.pop()!);
            }
@@ -455,16 +452,13 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
            }
         }
 
-        // Smid selve Portal-kortet i skraldespanden
         room.discards.door.push(card);
-        
-        // VIGTIGT: Vi ændrer IKKE currentPhase. Spilleren må sparke en ny dør ind automatisk!
         log(room, `👢 ${player.name} gets to kick open another door!`);
         refreshDerived(player);
         return null; 
       }
 
-      // --- EKSISTERENDE LOGIK FOR ALMINDELIGE KORT ---
+      // --- ALMINDELIGE KORT ---
       log(room, `🚪 ${player.name} kicks the door: ${card.name}.`);
       if (card.type === "monster") {
         room.table.push(card);
@@ -479,6 +473,14 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
           applyBadStuff(room, player, (card as any).effect);
         }
         room.discards.door.push(card);
+        room.currentPhase = 2;
+      } else {
+        // --- RETTELSEN ER HER ---
+        // Hvis det IKKE er monster, portal eller curse (f.eks. Wandering Monster, Mate, Class)
+        // lægges det direkte i spillerens hånd, og turen går til Phase 2 (Look for trouble/Loot).
+        player.hand.push(card);
+        log(room, `🃏 ${player.name} puts ${card.name} in their hand.`);
+        refreshDerived(player);
         room.currentPhase = 2;
       }
       return null;
@@ -768,6 +770,25 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         room.status = "waitingForInterrupts";
         refreshDerived(player);
         return null;
+      }
+
+      // --- NY LOGIK: GOBLIN-SVÆRMEN ---
+      // Hvis kortet har "Goblin" i navnet, og der i forvejen ER en Goblin i kampen, 
+      // må det spilles direkte fra hånden uden Wandering Monster!
+      if (card.type === "monster" && card.name.toLowerCase().includes("goblin")) {
+        const hasGoblin = room.combat.monsters.some(m => m.name.toLowerCase().includes("goblin"));
+        
+        if (hasGoblin) {
+          player.hand.splice(idx, 1);
+          room.combat.monsters.push(card as MonsterCard);
+          room.combat.log.push(`👺 GOBLIN SWARM! ${player.name} plays ${card.name} directly into combat!`);
+          room.discards.door.push(card);
+          
+          resetPasses(room);
+          room.status = "waitingForInterrupts";
+          refreshDerived(player);
+          return null;
+        }
       }
       
       // Både OneShots og Enhancers skal kunne spilles på begge sider!
