@@ -16,6 +16,7 @@ export function CombatPanel() {
   const isFighter = isAttacker || isHelper;
   const hasCowards = view.activeDungeons?.some((d: any) => d.cardId === "d-cowards");
   const hasChaos = view.activeDungeons?.some((d: any) => d.cardId === "d-chaos");
+  const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
   const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
@@ -109,6 +110,18 @@ export function CombatPanel() {
                 >
                   Offer
                 </Button>
+                
+                {/* NY KNAP: Kneepads of Allure */}
+                {hasKneepads && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-pink-500 text-pink-500 hover:bg-pink-900/40"
+                    onClick={() => send({ type: "forceHelp", targetId: p.id })}
+                  >
+                    💖 Force
+                  </Button>
+                )}
               </div>
             ))}
           </div>

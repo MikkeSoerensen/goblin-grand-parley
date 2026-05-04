@@ -158,6 +158,9 @@ const handsUsed = (p: PrivatePlayer): number =>
   p.equipment.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
 
 const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
+  if (card.cardId === "e-kneepads" && p.playerClass?.name === "Warrior") {
+    return "Warriors are too proud to wear the Kneepads of Allure!";
+  }
   if (card.isBig && p.equipment.bigItem) return "You already have a Big item equipped.";
   switch (card.slot) {
     case "head":
@@ -659,16 +662,12 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
     case "playCard": {
       if (!msg.cardId) return "No card specified.";
       
-      // Find kortet i spillerens hånd
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
       if (idx < 0) return "Card not in hand.";
       const card = player.hand[idx];
 
-      // Håndter "Go Up a Level" kort
       if (card.type === "go-up-a-level") {
-        if (player.level >= 9) {
-          return "Du kan ikke bruge dette kort til at vinde spillet (Level 10)!";
-        }
+        if (player.level >= 9) return "Du kan ikke bruge dette kort til at vinde spillet (Level 10)!";
         player.level += 1;
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
@@ -677,35 +676,23 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         return null;
       }
 
-      // NYT: Håndter "Class" kort
       if (card.type === "class") {
         let oldClass = null;
-        
-        // Hvis man allerede har en klasse, gemmer vi navnet og smider den i skraldespanden
         if (player.playerClass) {
           oldClass = player.playerClass;
           room.discards.door.push(oldClass);
         }
-        
-        // Sæt den nye klasse, fjern kortet fra hånden
         player.playerClass = card as any;
         player.hand.splice(idx, 1);
         
-        // Skriv en tydelig besked i loggen!
-        if (oldClass) {
-          log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
-        } else {
-          log(room, `✨ ${player.name} is now a ${card.name}!`);
-        }
+        if (oldClass) log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
+        else log(room, `✨ ${player.name} is now a ${card.name}!`);
         
         refreshDerived(player);
         return null;
       }
 
-      return "Dette kort kan ikke spilles på denne måde lige nu.";
-    }
-
-    // NYT: Håndter "Portal" kort spillet direkte fra hånden
+      // PORTAL-LOGIKKEN ER NU INDE I BLOKKEN!
       if (card.type === "portal") {
         if (room.players[room.activePlayerIndex].id !== playerId) return "You can only play Portals on your turn.";
         
@@ -736,13 +723,14 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
            }
         }
 
-        // Fjern fra hånd og smid i skraldespanden
         player.hand.splice(idx, 1);
         room.discards.door.push(card);
-        
         refreshDerived(player);
         return null;
       }
+
+      return "Dette kort kan ikke spilles på denne måde lige nu.";
+    } // <-- Her lukker "playCard"-boksen endeligt!
 
     case "discard": {
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
@@ -1074,6 +1062,26 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
+    case "forceHelp": {
+      if (!room.combat || room.combat.attackerId !== playerId) return "Only attacker can force help.";
+      if (room.combat.helperId) return "Already have a helper.";
+      if (player.equipment.feet?.cardId !== "e-kneepads") return "You do not have the Kneepads of Allure equipped.";
+      
+      const target = room.players.find(p => p.id === msg.targetId);
+      if (!target || target.isDead) return "Invalid target.";
+
+      // Tving dem ind i kampen (og de får 0 skatte for det!)
+      room.combat.helperId = target.id;
+      room.combat.contract = { helperId: target.id, treasures: 0, accepted: true };
+      
+      // Fjern deres eventuelle 'pass' og nulstil for de andre
+      delete room.combat.passes[target.id];
+      resetPasses(room);
+      
+      log(room, `💖 ${player.name} uses the Kneepads of Allure to FORCE ${target.name} to help them!`);
+      return null;
+    }
+
     case "respondHelp": {
       const offer = room.negotiations.find(o => o.id === msg.offerId);
       if (!offer || offer.toId !== playerId) return "Not your offer.";
@@ -1202,6 +1210,13 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       
       let roll = 1 + Math.floor(Math.random() * 6);
       
+      // NYT: Boots of Running Really Fast giver +2!
+      if (player.equipment.feet?.cardId === "e-boots-run") {
+        roll += 2;
+        log(room, `👟 ${player.name}'s Boots of Running Really Fast gives them +2 to escape!`);
+      }
+
+     
       // DUNGEON: d-chaos (Discard et kort for at slå to terninger og tage den højeste)
       if (hasDungeon(room, "d-chaos") && msg.discardId) {
         const idx = player.hand.findIndex(c => c.id === msg.discardId);

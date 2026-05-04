@@ -172,6 +172,11 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...equipment("e-anvil",   "Huge Rock",         3, 0, "bigItem", true, 1));
   cards.push(...equipment("e-ladder",  "Tuba of Charm",     3, 300, "bigItem", true, 1));
 
+  // --- Skøre Våben & Snyde-Items ---
+  cards.push(...equipment("e-two-hand-sword", "Two-Handed Sword... of One-Handedness", 4, 400, "hand", false, 1, "It's big, but strangely light. Only takes 1 hand!"));
+  cards.push(...equipment("e-boots-run", "Boots of Running Really Fast", 0, 400, "feet", false, 1, "Gives +2 to all your Run Away rolls."));
+  cards.push(...equipment("e-kneepads", "Kneepads of Allure", 0, 600, "feet", false, 1, "Not usable by Warriors. Force any player to help you in combat!"));
+
   // One-shots
   cards.push(...oneShot("o-potion-h", "Potion of Halitosis", 2, 100, "monster", 2));
   cards.push(...oneShot("o-potion-i", "Instant Wall",        3, 300, "either", 1));

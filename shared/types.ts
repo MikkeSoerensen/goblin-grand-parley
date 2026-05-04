@@ -259,6 +259,7 @@ export type ClientToServer =
   | { type: "equip"; cardId: string; forceSwap?: boolean }
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
+  | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
   
 export type ServerToClient =
   | { type: "state"; view: ClientView }
