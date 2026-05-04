@@ -705,6 +705,45 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return "Dette kort kan ikke spilles på denne måde lige nu.";
     }
 
+    // NYT: Håndter "Portal" kort spillet direkte fra hånden
+      if (card.type === "portal") {
+        if (room.players[room.activePlayerIndex].id !== playerId) return "You can only play Portals on your turn.";
+        
+        log(room, `🌀 ${player.name} plays a PORTAL from their hand: ${card.name}!`);
+        
+        if (card.cardId === "p-open") {
+          const newDungeon = drawFromDeck(room, "dungeon");
+          if (newDungeon) {
+             room.activeDungeons.push(newDungeon as any);
+             log(room, `🏰 A new dungeon opens: ${newDungeon.name}!`);
+          }
+        } else if (card.cardId === "p-close") {
+          if (room.activeDungeons.length > 0) {
+             const closed = room.activeDungeons.pop()!; 
+             room.discards.dungeon.push(closed);
+             log(room, `🏚️ ${closed.name} is closed!`);
+          } else {
+             log(room, `...but there were no active dungeons to close.`);
+          }
+        } else if (card.cardId === "p-swap") {
+           while(room.activeDungeons.length > 0) {
+             room.discards.dungeon.push(room.activeDungeons.pop()!);
+           }
+           const newDungeon = drawFromDeck(room, "dungeon");
+           if (newDungeon) {
+             room.activeDungeons.push(newDungeon as any);
+             log(room, `🌌 Dimensional Shift! New dungeon: ${newDungeon.name}!`);
+           }
+        }
+
+        // Fjern fra hånd og smid i skraldespanden
+        player.hand.splice(idx, 1);
+        room.discards.door.push(card);
+        
+        refreshDerived(player);
+        return null;
+      }
+
     case "discard": {
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
       if (idx < 0) return "Not in hand.";

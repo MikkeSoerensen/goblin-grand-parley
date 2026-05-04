@@ -171,9 +171,19 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* Level up / Oneshots (uden for kamp) */}
-          {(card.type === "oneshot" || card.type === "go-up-a-level") && isMyTurn && !inCombat && (
+          {/* Level up / Oneshots / Portaler (uden for kamp) */}
+          {(card.type === "oneshot" || card.type === "go-up-a-level" || card.type === "portal") && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
+          )}
+
+          {/* Knap til Goblin-Sværm */}
+          {card.type === "monster" && card.name.toLowerCase().includes("goblin") && view.combat && view.combat.monsters.some(m => m.name.toLowerCase().includes("goblin")) && (
+            <Button size="sm" variant="outline" className="border-green-500 text-green-500" onClick={() => {
+              send({ type: "playInCombat", cardId: card.id });
+              setSelected(null);
+            }}>
+              👺 Goblin Swarm!
+            </Button>
           )}
 
           {/* Monstre */}

@@ -5,9 +5,12 @@ import { useState } from "react";
 
 export function CharityModal() {
   const view = useGame(s => s.view);
-  const [selected, setSelected] = useState<string[]>([]);
+  // NYT: Vi gemmer nu kortets index (nummer i rækken) i stedet for dets ID
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [recipient, setRecipient] = useState<string | null>(null);
+
   if (!view?.charity || !view.self) return null;
+
   if (view.charity.fromId !== view.self.id) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur z-40 flex items-center justify-center p-4">
@@ -18,6 +21,7 @@ export function CharityModal() {
       </div>
     );
   }
+
   const self = view.self;
   const need = view.charity.cardCount;
   const candidates = view.players.filter(p => view.charity!.candidates.includes(p.id));
@@ -29,10 +33,11 @@ export function CharityModal() {
         <h2 className="font-display text-xl brass-text mb-1">Charity</h2>
         <p className="text-sm opacity-80 mb-3">You have more than 5 cards. Choose <b>{need}</b> to give to {candidates.length === 1 ? candidates[0].name : "the lowest-level opponent (pick recipient below)"}.</p>
         <div className="flex flex-wrap gap-2 mb-3 max-h-72 overflow-y-auto scroll-thin">
-          {self.hand.map(c => (
-            <GameCard key={c.id} card={c} size="md"
-              selected={selected.includes(c.id)}
-              onClick={() => setSelected(s => s.includes(c.id) ? s.filter(x => x !== c.id) : (s.length < need ? [...s, c.id] : s))}
+          {self.hand.map((c, i) => (
+            // NYT: key er nu en kombination af ID og Index, og onCLick bruger 'i'
+            <GameCard key={`${c.id}-${i}`} card={c} size="md"
+              selected={selectedIndices.includes(i)}
+              onClick={() => setSelectedIndices(s => s.includes(i) ? s.filter(x => x !== i) : (s.length < need ? [...s, i] : s))}
             />
           ))}
         </div>
@@ -45,8 +50,12 @@ export function CharityModal() {
             ))}
           </div>
         )}
-        <Button disabled={selected.length !== need || !autoTo} onClick={() => send({ type: "charityGive", cardIds: selected, toId: autoTo! })}>
-          Give {selected.length}/{need}
+        {/* NYT: Når vi sender til serveren, slår vi indexet op i self.hand for at finde det rigtige ID at sende afsted */}
+        <Button disabled={selectedIndices.length !== need || !autoTo} onClick={() => {
+          const cardIds = selectedIndices.map(i => self.hand[i].id);
+          send({ type: "charityGive", cardIds, toId: autoTo! });
+        }}>
+          Give {selectedIndices.length}/{need}
         </Button>
       </div>
     </div>
