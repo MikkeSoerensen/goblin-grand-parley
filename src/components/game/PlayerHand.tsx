@@ -24,7 +24,7 @@ export function PlayerHand() {
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
   const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
 
-  const playableInCombat = (c: Card) => c.type === "oneshot" || c.type === "enhancer";
+  const playableInCombat = (c: Card) => (c.type === "oneshot" || c.type === "enhancer") && c.cardId !== "o-friendship";
 
   const handleAction = (action: string) => {
     if (!card) return;
@@ -289,6 +289,43 @@ export function PlayerHand() {
             }}>
               💞 Play Mate
             </Button>
+          )}
+
+          {/* SPECIAL: Friendship Potion */}
+          {card.cardId === "o-friendship" && inCombat && (
+            <Button size="sm" variant="outline" className="border-pink-500 text-pink-500 hover:bg-pink-900/40 w-full mt-2" onClick={() => {
+              send({ type: "playInCombat", cardId: card.id });
+              setSelected(null);
+            }}>
+              💖 Play Friendship Potion (End Combat)
+            </Button>
+          )}
+
+          {/* SPECIAL: Flask of Glue */}
+          {card.cardId === "o-flask-glue" && view.status === "runAwayRoll" && (
+            <div className="flex flex-col gap-2 border-l-2 border-yellow-500 pl-2 ml-1 mt-2 w-full">
+              <span className="text-sm font-bold text-yellow-500">Throw glue at:</span>
+              <div className="flex flex-wrap gap-2">
+                {[view.combat?.attackerId, view.combat?.helperId].filter(Boolean).map(id => {
+                  const p = view.players.find(player => player.id === id);
+                  if (!p || p.isDead) return null;
+                  return (
+                    <Button 
+                      key={p.id} 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-yellow-500 text-yellow-500 hover:bg-yellow-900/40"
+                      onClick={() => {
+                        send({ type: "playCard", cardId: card.id, targetId: p.id } as any);
+                        setSelected(null);
+                      }}
+                    >
+                      {p.name}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           )}
           
         </div>

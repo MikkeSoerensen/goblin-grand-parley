@@ -48,9 +48,9 @@ const curse = (cardId: string, name: string, effect: BadStuffKind, effectText: s
     id: uid(), cardId, name, type: "curse", deck: "door", effect, effectText,
   }));
 
-const oneShot = (cardId: string, name: string, bonus: number, goldValue: number, target: OneShotCard["target"], copies = 1): OneShotCard[] =>
+const oneShot = (cardId: string, name: string, bonus: number, goldValue: number, target: OneShotCard["target"], copies = 1, flavor?: string): OneShotCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target,
+    id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target, flavor,
   }));
 
   const classCard = (cardId: string, name: "Warrior" | "Cleric" | "Thief" | "Wizard", effectText: string, copies = 1): ClassCard[] =>
@@ -187,6 +187,11 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...oneShot("o-magic",    "Magic Missile",       5, 300, "monster", 1));
   cards.push(...oneShot("o-loaded",   "Loaded Die",          1, 100, "ally", 2));
 
+  // --- Trolling Potions ---
+  // --- Trolling Potions ---
+  cards.push(...oneShot("o-friendship", "Friendship Potion", 0, 300, "ally", 1, "Play during any combat. The combat ends immediately. No levels or treasure are awarded."));
+  cards.push(...oneShot("o-flask-glue", "Flask of Glue", 0, 100, "either", 1, "Play when someone is trying to run away. They automatically fail their roll!"));
+  
   // Enhancers (added to monster level — typically negative for player to weaken,
   //   but stored as positive bonus — opponents play to strengthen monster)
   cards.push(...enhancer("h-ancient",  "Ancient",  +5, 200, 1));

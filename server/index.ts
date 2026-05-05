@@ -692,7 +692,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         return null;
       }
 
-      // PORTAL-LOGIKKEN ER NU INDE I BLOKKEN!
+      // PORTAL-LOGIKKEN //
+      // Hvis det er en portal, spiller vi den direkte fra hånden (uanset fase), og effekten sker med det samme på bordet.
       if (card.type === "portal") {
         if (room.players[room.activePlayerIndex].id !== playerId) return "You can only play Portals on your turn.";
         
@@ -725,6 +726,50 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
 
         player.hand.splice(idx, 1);
         room.discards.door.push(card);
+        refreshDerived(player);
+        return null;
+      }
+
+      // NY LOGIK: Flask of Glue
+      if (card.cardId === "o-flask-glue") {
+        if (room.status !== "runAwayRoll") return "Flask of Glue can only be played when someone is running away!";
+        
+        // Her forventer vi at modtage et targetId fra frontenden (ligesom Curses gør)
+        const msgTarget = (msg as any).targetId;
+        if (!msgTarget) return "You must specify who to glue!";
+        
+        const target = room.players.find(p => p.id === msgTarget);
+        if (!target) return "Target not found.";
+        
+        log(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! They AUTOMATICALLY FAIL to run away!`);
+        
+        // Giv dem al "Bad Stuff" med det samme
+        for (const m of room.combat!.monsters) {
+          applyBadStuff(room, target, m.badStuff);
+        }
+        
+        // Marker spilleren som værende færdig med at flygte
+        const c = room.combat!;
+        (c as any)._ran = (c as any)._ran ?? new Set<string>();
+        ((c as any)._ran as Set<string>).add(target.id);
+        
+        const attackerDone = ((c as any)._ran as Set<string>).has(c.attackerId);
+        const helperDone = !c.helperId || ((c as any)._ran as Set<string>).has(c.helperId);
+        
+        // Hvis alle er færdige, ryd op!
+        if (attackerDone && helperDone) {
+          for (const m of c.monsters) room.discards.door.push(m);
+          room.table = room.table.filter(t => !c.monsters.some(m => m.id === t.id));
+          room.combat = null;
+          
+          if ((room.status as string) !== "looting" && (room.status as string) !== "gameOver") {
+            room.status = "normalTurn";
+            room.currentPhase = 3;
+          }
+        }
+        
+        player.hand.splice(idx, 1);
+        room.discards.treasure.push(card);
         refreshDerived(player);
         return null;
       }
@@ -788,6 +833,28 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         return null;
       }
 
+      // NY LOGIK: Friendship Potion
+      if (card.cardId === "o-friendship") {
+        log(room, `💖 ${player.name} plays Friendship Potion! The combat ends instantly. No levels or treasures!`);
+        
+        // Smid monstrene ud og ryd bordet
+        for (const m of room.combat.monsters) room.discards.door.push(m);
+        room.table = room.table.filter(t => !room.combat!.monsters.some(m => m.id === t.id));
+        
+        // Afslut kampen og send spilleren videre
+        room.combat = null;
+        room.status = "normalTurn";
+        room.currentPhase = 3; 
+        
+        // Smid potion-kortet ud
+        player.hand.splice(idx, 1);
+        room.discards.treasure.push(card);
+        refreshDerived(player);
+        return null;
+      }
+
+      // --- NY LOGIK: UNDEAD ---
+       // Hvis kortet er et monster, og "Dungeon of the Undead" er aktiv, må det spilles direkte fra hånden uden Wandering Monster!
       if (card.type === "monster" && hasDungeon(room, "d-undead")) {
         player.hand.splice(idx, 1);
         room.combat.monsters.push(card as MonsterCard);
