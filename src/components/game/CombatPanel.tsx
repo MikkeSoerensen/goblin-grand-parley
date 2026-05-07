@@ -38,7 +38,11 @@ export function CombatPanel() {
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
-  const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
+  
+  let totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
+  if (view.activeDungeons?.some((d: any) => d.cardId === "d-wealth")) {
+    totalTreasures += 1;
+  }
 
   const myPass = !!c.passes[self.id];
   const canPass = !myPass && !isFighter; 

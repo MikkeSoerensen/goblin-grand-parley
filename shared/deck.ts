@@ -102,10 +102,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
 
   // Goblin Swarm!
-  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 99)); 
-  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 99));
-  cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 99));
-  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 99));
+  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 
+  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
+  cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
+  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 2));
 
   // Curses (~14)
   cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
@@ -124,7 +124,7 @@ export const buildDoorDeck = (): Card[] => {
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
-  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 50));
+  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   // Special Cards
@@ -207,13 +207,13 @@ export const buildTreasureDeck = (): Card[] => {
   return cards;
 };
 
-// ---------- DUNGEON DECK ----------
+// ---------- DUNGEON DECK ---------- // Note: Default er at der 1 kopi af hver, men det kan ændres ved skrive ", 2" eller lignende efter beskrivelsen.
 export const buildDungeonDeck = (): Card[] => {
   const cards: Card[] = [];
   cards.push(...dungeon("d-elven", "Dungeon of Elvish Excess", "All players get +1 to their Run Away rolls."));
   cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
-  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level."));
-  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure."));
+  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level.", 9999));
+  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure.",));
   cards.push(...dungeon("d-feeble", "Dungeon of Feeble Foes", "All monsters are -5 Level (minimum Level 1)."));
   cards.push(...dungeon("d-misanthropy", "Dungeon of Misanthropic Misery", "No one can ask for help in combat! Everyone fights alone."));
   cards.push(...dungeon("d-bribery", "Dungeon of Blatant Bribery", "You must offer at least 2 treasures when asking for help in combat."));
@@ -230,8 +230,8 @@ export const buildDungeonDeck = (): Card[] => {
   cards.push(...dungeon("d-healing", "Dungeon of Heavenly Healing", "When you resurrect a card (Cleric), draw an extra face-down Door card as a bonus."));
   cards.push(...dungeon("d-doom", "Dungeon of Impending Doom", "If you die in this dungeon, you lose 2 Levels instead of keeping your level."));
   cards.push(...dungeon("d-poverty", "Dungeon of Pathetic Poverty", "You cannot sell items for levels while this Dungeon is active."));
-  cards.push(...dungeon("d-goblin", "Dungeon: Goblin Land", "All monsters with the 'Goblin' tag get +3 to their combat strength!", 999));
-  cards.push(...dungeon("d-infinite", "Dungeon: Dimension of Hoarding", "There is no hand size limit! The Charity phase is completely skipped.", 2));
+  cards.push(...dungeon("d-goblin", "Dungeon: Goblin Land", "All monsters with the 'Goblin' tag get +3 to their combat strength!"));
+  cards.push(...dungeon("d-infinite", "Dungeon: Dimension of Hoarding", "There is no hand size limit! The Charity phase is completely skipped."));
   return cards;
 };
 

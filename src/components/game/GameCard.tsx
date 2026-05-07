@@ -85,38 +85,67 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
         {card.type === "monster" && (() => {
           const m = card as MonsterCard;
-          let diff = 0; // Holder styr på, om level er ændret
+          let diff = 0; 
+          let treasureDiff = 0; // NYT: Holder styr på bonus skatte
           
           if (activeDungeons.length > 0) {
             let modifiedLevel = m.level;
-            // Tjekker for de forskellige Dungeons
             if (activeDungeons.some((d: any) => d.cardId === "d-martial")) modifiedLevel += 2;
             if (activeDungeons.some((d: any) => d.cardId === "d-feeble")) modifiedLevel = Math.max(1, modifiedLevel - 5);
             if (activeDungeons.some((d: any) => d.cardId === "d-goblin") && m.name.toLowerCase().includes("goblin")) {
               modifiedLevel += 3;
             }
-            diff = modifiedLevel - m.level; // Find forskellen mellem original og modificeret
+            diff = modifiedLevel - m.level; 
+
+            // NYT: Tjek for Wealth Dungeon!
+            if (activeDungeons.some((d: any) => d.cardId === "d-wealth")) {
+              treasureDiff = 1;
+            }
           }
           
-          // Formater teksten: Skriv kun noget, hvis diff er over eller under 0
           const diffText = diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : "";
+          // NYT: Tekst til ekstra skatte
+          const tDiffText = treasureDiff > 0 ? ` (+${treasureDiff})` : "";
 
           return (
             <>
-              {/* Nu med dynamisk bonus/straf parentes! */}
               <div className="font-bold">Lvl {m.level}<span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : ""}>{diffText}</span></div>
-              <div>+{m.levelsAwarded} lvl · {m.treasures} tr</div>
+              
+              {/* NYT: Nu med treasureDiff variablen flettet ind og farvet gul/guld! */}
+              <div>+{m.levelsAwarded} lvl · {m.treasures}<span className="text-yellow-400">{tDiffText}</span> tr</div>
+              
               <div className="opacity-75 line-clamp-2 italic">{m.badStuffText}</div>
             </>
           );
         })()}
-        {card.type === "equipment" && (
-          <>
-            <div className="font-bold">+{(card as EquipmentCard).bonus}</div>
-            <div>{(card as EquipmentCard).slot}{(card as EquipmentCard).isBig ? " · BIG" : ""}</div>
-            <div>{(card as EquipmentCard).goldValue}g</div>
-          </>
-        )}
+        {card.type === "equipment" && (() => {
+          const eq = card as EquipmentCard;
+          let price = eq.goldValue;
+          let priceColor = "";
+          let label = `${price}g`;
+
+          // Tjek dungeons for prisændringer
+          if (activeDungeons.some((d: any) => d.cardId === "d-poverty")) {
+            price = 0;
+            priceColor = "text-red-500 font-bold";
+            label = "CANNOT SELL";
+          } else if (activeDungeons.some((d: any) => d.cardId === "d-lavish")) {
+            price = eq.goldValue * 2;
+            priceColor = "text-green-400 font-bold";
+            label = `${price}g (x2)`;
+          } else if (activeDungeons.some((d: any) => d.cardId === "d-clipping")) {
+            price = Math.max(0, eq.goldValue - 100);
+            priceColor = "text-orange-400";
+            label = `${price}g (-100)`;
+          }
+
+          return (
+            <>
+              <div className="font-bold">{eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot}{eq.isBig ? " · BIG" : ""}</div>
+              <div className={priceColor}>{label}</div>
+            </>
+          );
+        })()}
         {card.type === "oneshot" && <div className="font-bold">+{(card as any).bonus} · {(card as any).goldValue}g</div>}
         {card.type === "enhancer" && <div className="font-bold">{(card as any).bonus > 0 ? "+" : ""}{(card as any).bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{(card as any).effectText}</div>}
