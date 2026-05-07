@@ -124,7 +124,7 @@ export const buildDoorDeck = (): Card[] => {
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
-  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
+  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 50));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   // Special Cards
