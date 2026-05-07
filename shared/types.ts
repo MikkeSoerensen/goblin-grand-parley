@@ -48,9 +48,12 @@ export interface MateCard {
 
 export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
-  | { kind: "loseItem"; slot: Slot | "any" | "biggest" }
+  | { kind: "loseItem"; slot: string } // (Din ser måske lidt anderledes ud her)
   | { kind: "loseAllItems" }
-  | { kind: "death" };
+  | { kind: "death" }
+  // NYE:
+  | { kind: "loseClass" }
+  | { kind: "robinHood" };
 
 export interface MonsterCard extends BaseCard {
   type: "monster";

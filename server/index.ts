@@ -294,6 +294,48 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       }
       break;
     }
+    case "loseClass": {
+      if (p.playerClass) {
+        log(room, `💀 ${p.name} suffers AMNESIA and forgets how to be a ${p.playerClass.name}!`);
+        room.discards.door.push(p.playerClass);
+        p.playerClass = null as any;
+      } else {
+        log(room, `💀 ${p.name} suffers Amnesia, but they already had no class to forget!`);
+      }
+      break;
+    }
+    case "robinHood": {
+      const equipped = allEquipped(p);
+      if (equipped.length === 0) {
+        log(room, `💀 ${p.name} has no equipped items for Robin Hood to steal.`);
+        break;
+      }
+      
+      // Find den dyreste genstand
+      const targetItem = equipped.reduce((prev, curr) => (curr.goldValue > prev.goldValue ? curr : prev));
+      
+      // Find modstanderen med det laveste level
+      const opponents = room.players.filter(op => op.id !== p.id && !op.isDead);
+      if (opponents.length === 0) {
+        removeEquipped(p, targetItem.id);
+        room.discards.treasure.push(targetItem);
+        log(room, `💀 Robin Hood steals ${targetItem.name} from ${p.name}, but there's no one to give it to! It goes to the discard pile.`);
+        break;
+      }
+      
+      let lowest = opponents[0];
+      for (const op of opponents) {
+         if (op.level < lowest.level) lowest = op;
+      }
+      
+      // Fjern genstanden og giv den til den fattige spiller (i deres rygsæk)
+      removeEquipped(p, targetItem.id);
+      lowest.backpack.push(targetItem);
+      log(room, `💀 ROBIN HOOD'S REVENGE! ${targetItem.name} is taken from ${p.name} and given to ${lowest.name} (Lvl ${lowest.level})!`);
+      
+      refreshDerived(lowest);
+      break;
+    }
   }
   refreshDerived(p);
 };

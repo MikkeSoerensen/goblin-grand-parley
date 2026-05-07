@@ -117,6 +117,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...curse("c-level2",   "Curse! Income Tax", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
   cards.push(...curse("c-loseAny",  "Curse! Malign Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
 
+  // --- Modbydelige Curses ---
+  cards.push(...curse("c-amnesia", "Curse! Amnesia", { kind: "loseClass" }, "You forget who you are. Lose your Class.", 2));
+  cards.push(...curse("c-robin-hood", "Curse! Robin Hood's Revenge", { kind: "robinHood" }, "Give your most expensive equipped item to the player with the lowest level.", 2));
+
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
