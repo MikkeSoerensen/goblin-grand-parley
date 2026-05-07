@@ -421,13 +421,13 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (room.status !== "lobby") return "Already started.";
       if (room.players.length < 2) return "Need at least 2 players.";
       
-      // TVUNGET START-DUNGEON (Til test eller husregler):
-      // Du kan skifte "d-goblin" ud med f.eks. "d-wealth" for at teste andre
+       // TVUNGET START-DUNGEON (Til test eller husregler):
+      /* // Du kan skifte "d-goblin" ud med f.eks. "d-wealth" for at teste andre
       const startDungeon = room.decks.dungeon.find(d => d.cardId === "d-swapping"); // Start dungeon
       if (startDungeon) {
         room.activeDungeons.push(startDungeon as any);
-        log(room, `🌍 The game starts in the ${startDungeon.name}!`);
-      }
+        log(room, `🌍 The game starts in the ${startDungeon.name}!`); 
+      } */
 
       // Deal 4 cards each (2 door + 2 treasure)
       for (const p of room.players) {
