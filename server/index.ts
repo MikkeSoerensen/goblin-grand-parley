@@ -772,43 +772,23 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         return null;
       }
 
-      // NY LOGIK: Flask of Glue
+      // NY LOGIK: Flask of Glue (Opdateret til Mulighed 1)
       if (card.cardId === "o-flask-glue") {
-        if (room.status !== "runAwayRoll") return "Flask of Glue can only be played when someone is running away!";
+        if (!room.combat) return "Flask of Glue can only be played during a combat!";
         
-        // Her forventer vi at modtage et targetId fra frontenden (ligesom Curses gør)
         const msgTarget = (msg as any).targetId;
         if (!msgTarget) return "You must specify who to glue!";
         
         const target = room.players.find(p => p.id === msgTarget);
         if (!target) return "Target not found.";
         
-        log(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! They AUTOMATICALLY FAIL to run away!`);
-        
-        // Giv dem al "Bad Stuff" med det samme
-        for (const m of room.combat!.monsters) {
-          applyBadStuff(room, target, m.badStuff);
+        // Marker spilleren som limet internt på kamp-objektet
+        (room.combat as any).gluedPlayers = (room.combat as any).gluedPlayers || [];
+        if (!(room.combat as any).gluedPlayers.includes(target.id)) {
+          (room.combat as any).gluedPlayers.push(target.id);
         }
         
-        // Marker spilleren som værende færdig med at flygte
-        const c = room.combat!;
-        (c as any)._ran = (c as any)._ran ?? new Set<string>();
-        ((c as any)._ran as Set<string>).add(target.id);
-        
-        const attackerDone = ((c as any)._ran as Set<string>).has(c.attackerId);
-        const helperDone = !c.helperId || ((c as any)._ran as Set<string>).has(c.helperId);
-        
-        // Hvis alle er færdige, ryd op!
-        if (attackerDone && helperDone) {
-          for (const m of c.monsters) room.discards.door.push(m);
-          room.table = room.table.filter(t => !c.monsters.some(m => m.id === t.id));
-          room.combat = null;
-          
-          if ((room.status as string) !== "looting" && (room.status as string) !== "gameOver") {
-            room.status = "normalTurn";
-            room.currentPhase = 3;
-          }
-        }
+        log(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! If they have to run away, they will automatically fail!`);
         
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
@@ -1312,52 +1292,65 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
-    case "runAway": {
+case "runAway": {
       if (!room.combat) return "No combat.";
       if ((room.status as string) !== "runAwayRoll") return "Not run-away phase.";
       if (playerId !== room.combat.attackerId && playerId !== room.combat.helperId) return "Not in this combat.";
       
-      let roll = 1 + Math.floor(Math.random() * 6);
-      
-      // NYT: Boots of Running Really Fast giver +2!
-      if (player.equipment.feet?.cardId === "e-boots-run") {
-        roll += 2;
-        log(room, `👟 ${player.name}'s Boots of Running Really Fast gives them +2 to escape!`);
-      }
+      // NYT: Tjek om spilleren har fået smidt lim på sig!
+      const gluedPlayers = (room.combat as any).gluedPlayers || [];
+      const isGlued = gluedPlayers.includes(playerId);
 
-     
-      // DUNGEON: d-chaos (Discard et kort for at slå to terninger og tage den højeste)
-      if (hasDungeon(room, "d-chaos") && msg.discardId) {
-        const idx = player.hand.findIndex(c => c.id === msg.discardId);
-        if (idx >= 0) {
-          const [discarded] = player.hand.splice(idx, 1);
-          if (discarded.deck === "door") room.discards.door.push(discarded);
-          else room.discards.treasure.push(discarded);
-          
-          const roll2 = 1 + Math.floor(Math.random() * 6);
-          log(room, `🌪️ ${player.name} discarded ${discarded.name} for Chaos Advantage! Rolled ${roll} & ${roll2}.`);
-          roll = Math.max(roll, roll2); // Tag det højeste slag!
-          refreshDerived(player);
-        }
-      }
-
-      // DUNGEONS: Ændrer terningeslaget (Elven Excess & Poultry)
-      if (hasDungeon(room, "d-elven")) roll++;
-      if (hasDungeon(room, "d-poultry")) roll--;
-      
-      io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Run Away" });
-      log(room, `🎲 ${player.name} rolls ${roll} to run away.`);
-      
-      if (roll >= 5) {
-        log(room, `${player.name} escapes!`);
-      } else {
-        log(room, `${player.name} fails to escape — Bad Stuff!`);
+      if (isGlued) {
+        log(room, `🧴 ${player.name} is covered in GLUE and automatically fails to escape!`);
         for (const m of room.combat.monsters) {
           applyBadStuff(room, player, m.badStuff);
           if ((room.status as string) === "looting" || (room.status as string) === "gameOver") return null; 
         }
-      }
+      } else {
+        // Hvis de IKKE er limet, får de lov til at slå med terningen normalt
+        let roll = 1 + Math.floor(Math.random() * 6);
+        
+        // Boots of Running Really Fast giver +2!
+        if (player.equipment.feet?.cardId === "e-boots-run") {
+          roll += 2;
+          log(room, `👟 ${player.name}'s Boots of Running Really Fast gives them +2 to escape!`);
+        }
+
+        // DUNGEON: d-chaos (Discard et kort for at slå to terninger og tage den højeste)
+        if (hasDungeon(room, "d-chaos") && msg.discardId) {
+          const idx = player.hand.findIndex(c => c.id === msg.discardId);
+          if (idx >= 0) {
+            const [discarded] = player.hand.splice(idx, 1);
+            if (discarded.deck === "door") room.discards.door.push(discarded);
+            else room.discards.treasure.push(discarded);
+            
+            const roll2 = 1 + Math.floor(Math.random() * 6);
+            log(room, `🌪️ ${player.name} discarded ${discarded.name} for Chaos Advantage! Rolled ${roll} & ${roll2}.`);
+            roll = Math.max(roll, roll2); // Tag det højeste slag!
+            refreshDerived(player);
+          }
+        }
+
+        // DUNGEONS: Ændrer terningeslaget (Elven Excess & Poultry)
+        if (hasDungeon(room, "d-elven")) roll++;
+        if (hasDungeon(room, "d-poultry")) roll--;
+        
+        io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Run Away" });
+        log(room, `🎲 ${player.name} rolls ${roll} to run away.`);
+        
+        if (roll >= 5) {
+          log(room, `${player.name} escapes!`);
+        } else {
+          log(room, `${player.name} fails to escape — Bad Stuff!`);
+          for (const m of room.combat.monsters) {
+            applyBadStuff(room, player, m.badStuff);
+            if ((room.status as string) === "looting" || (room.status as string) === "gameOver") return null; 
+          }
+        }
+      } // Slut på lim-else-blok
       
+      // Fælles oprydning uanset om man flygtede, blev fanget, eller var limet
       (room.combat as any)._ran = (room.combat as any)._ran ?? new Set<string>();
       ((room.combat as any)._ran as Set<string>).add(playerId);
       

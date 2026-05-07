@@ -24,7 +24,7 @@ export function PlayerHand() {
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
   const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
 
-  const playableInCombat = (c: Card) => (c.type === "oneshot" || c.type === "enhancer") && c.cardId !== "o-friendship";
+  const playableInCombat = (c: Card) => (c.type === "oneshot" || c.type === "enhancer") && c.cardId !== "o-friendship" && c.cardId !== "o-flask-glue";
 
   const handleAction = (action: string) => {
     if (!card) return;
@@ -172,7 +172,7 @@ export function PlayerHand() {
           )}
 
           {/* Level up / Oneshots / Portaler (uden for kamp) */}
-          {(card.type === "oneshot" || card.type === "go-up-a-level" || card.type === "portal") && isMyTurn && !inCombat && (
+          {(card.type === "oneshot" || card.type === "go-up-a-level" || card.type === "portal") && isMyTurn && !inCombat && card.cardId !== "o-friendship" && card.cardId !== "o-flask-glue" && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
           )}
 
@@ -302,7 +302,7 @@ export function PlayerHand() {
           )}
 
           {/* SPECIAL: Flask of Glue */}
-          {card.cardId === "o-flask-glue" && view.status === "runAwayRoll" && (
+          {card.cardId === "o-flask-glue" && view.combat && (
             <div className="flex flex-col gap-2 border-l-2 border-yellow-500 pl-2 ml-1 mt-2 w-full">
               <span className="text-sm font-bold text-yellow-500">Throw glue at:</span>
               <div className="flex flex-wrap gap-2">

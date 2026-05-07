@@ -186,15 +186,13 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...oneShot("o-potion-i", "Instant Wall",        3, 300, "either", 1));
   cards.push(...oneShot("o-flaming",  "Flaming Poison Potion",3, 100, "monster", 2));
   cards.push(...oneShot("o-shouting", "Potion of Shouting",  3, 100, "monster", 1));
-  cards.push(...oneShot("o-friendship","Potion of Friendship",2, 200, "ally", 2));
   cards.push(...oneShot("o-yuppie",   "Yuppie Water",        2, 200, "monster", 1));
   cards.push(...oneShot("o-magic",    "Magic Missile",       5, 300, "monster", 1));
   cards.push(...oneShot("o-loaded",   "Loaded Die",          1, 100, "ally", 2));
 
   // --- Trolling Potions ---
-  // --- Trolling Potions ---
   cards.push(...oneShot("o-friendship", "Friendship Potion", 0, 300, "ally", 1, "Play during any combat. The combat ends immediately. No levels or treasure are awarded."));
-  cards.push(...oneShot("o-flask-glue", "Flask of Glue", 0, 100, "either", 1, "Play when someone is trying to run away. They automatically fail their roll!"));
+  cards.push(...oneShot("o-flask-glue", "Flask of Glue", 0, 100, "ally", 1, "Play when someone is trying to run away. They automatically fail their roll!"));
   
   // Enhancers (added to monster level — typically negative for player to weaken,
   //   but stored as positive bonus — opponents play to strengthen monster)
