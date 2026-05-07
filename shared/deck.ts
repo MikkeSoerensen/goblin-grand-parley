@@ -212,7 +212,7 @@ export const buildDungeonDeck = (): Card[] => {
   const cards: Card[] = [];
   cards.push(...dungeon("d-elven", "Dungeon of Elvish Excess", "All players get +1 to their Run Away rolls."));
   cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
-  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level.", 9999));
+  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level.",));
   cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure.",));
   cards.push(...dungeon("d-feeble", "Dungeon of Feeble Foes", "All monsters are -5 Level (minimum Level 1)."));
   cards.push(...dungeon("d-misanthropy", "Dungeon of Misanthropic Misery", "No one can ask for help in combat! Everyone fights alone."));

@@ -423,7 +423,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       
       // TVUNGET START-DUNGEON (Til test eller husregler):
       // Du kan skifte "d-goblin" ud med f.eks. "d-wealth" for at teste andre
-      const startDungeon = room.decks.dungeon.find(d => d.cardId === "d-goblin");
+      const startDungeon = room.decks.dungeon.find(d => d.cardId === "d-swapping"); // Start dungeon
       if (startDungeon) {
         room.activeDungeons.push(startDungeon as any);
         log(room, `🌍 The game starts in the ${startDungeon.name}!`);

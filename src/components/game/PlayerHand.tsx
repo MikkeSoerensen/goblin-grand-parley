@@ -72,7 +72,17 @@ export function PlayerHand() {
 
   const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
-    return s + (c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0);
+    let val = c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0;
+    
+    // Vi spørger lige dommeren (serveren) om de aktuelle guld-regler!
+    if (view.activeDungeons?.some((d: any) => d.cardId === "d-clipping")) {
+      val = Math.max(0, val - 100);
+    }
+    if (view.activeDungeons?.some((d: any) => d.cardId === "d-lavish")) {
+      val *= 2;
+    }
+    
+    return s + val;
   }, 0);
 
   return (
