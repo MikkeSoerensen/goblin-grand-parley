@@ -363,6 +363,12 @@ const monsterTotal = (room: Room, c: CombatState): number => {
     let lvl = m.level;
     if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
     if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
+    
+    // NYT: Goblin Land Portal!
+    if (hasDungeon(room, "d-goblin") && m.name.toLowerCase().includes("goblin")) {
+       lvl += 3;
+    }
+    
     return s + lvl;
   }, 0) + c.monsterBonuses;
   return total;
@@ -569,7 +575,10 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       if (room.players[room.activePlayerIndex].id !== playerId) return "Not your turn.";
       if (room.status === "inCombat" || room.status === "waitingForInterrupts") return "Combat in progress.";
       // Charity check
-      const charityLimit = hasDungeon(room, "d-charity") ? 4 : 5;
+      let charityLimit = 5;
+      if (hasDungeon(room, "d-charity")) charityLimit = 4;
+      if (hasDungeon(room, "d-infinite")) charityLimit = 999; // Dimension of Hoarding!
+      
       if (player.hand.length > charityLimit) {
         const minLevel = Math.min(...room.players.filter(p => p.id !== playerId).map(p => p.level));
         const candidates = room.players.filter(p => p.id !== playerId && p.level === minLevel).map(p => p.id);

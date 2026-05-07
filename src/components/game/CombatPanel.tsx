@@ -19,8 +19,22 @@ export function CombatPanel() {
   const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
-  const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
+
+  const monsterTotal = c.monsters.reduce((sum, m) => {
+    let lvl = m.level;
+    // Tjekker alle de Dungeons, der ændrer monstrenes level!
+    if (view.activeDungeons?.some((d: any) => d.cardId === "d-martial")) lvl += 2;
+    if (view.activeDungeons?.some((d: any) => d.cardId === "d-feeble")) lvl = Math.max(1, lvl - 5);
+    
+    // Vores nye Goblin Land portal!
+    if (view.activeDungeons?.some((d: any) => d.cardId === "d-goblin") && m.name.toLowerCase().includes("goblin")) {
+      lvl += 3;
+    }
+    
+    return sum + lvl;
+  }, 0) + c.monsterBonuses;
   const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
+  
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;

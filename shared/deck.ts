@@ -102,10 +102,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
 
   // Goblin Swarm!
-  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 4)); 
-  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 2));
-  cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
-  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 1));
+  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 99)); 
+  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 99));
+  cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 99));
+  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 99));
 
   // Curses (~14)
   cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
@@ -135,7 +135,6 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
   cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 3));
   cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 3));
-
   return cards;
 };
 
@@ -231,6 +230,8 @@ export const buildDungeonDeck = (): Card[] => {
   cards.push(...dungeon("d-healing", "Dungeon of Heavenly Healing", "When you resurrect a card (Cleric), draw an extra face-down Door card as a bonus."));
   cards.push(...dungeon("d-doom", "Dungeon of Impending Doom", "If you die in this dungeon, you lose 2 Levels instead of keeping your level."));
   cards.push(...dungeon("d-poverty", "Dungeon of Pathetic Poverty", "You cannot sell items for levels while this Dungeon is active."));
+  cards.push(...dungeon("d-goblin", "Dungeon: Goblin Land", "All monsters with the 'Goblin' tag get +3 to their combat strength!", 999));
+  cards.push(...dungeon("d-infinite", "Dungeon: Dimension of Hoarding", "There is no hand size limit! The Charity phase is completely skipped.", 2));
   return cards;
 };
 
