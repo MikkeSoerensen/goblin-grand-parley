@@ -1251,14 +1251,6 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       const attacker = room.players.find(p => p.id === c.attackerId)!;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;
       
-      // DUNGEON: Sudden Swaps (Sker før resultatet gøres op)
-      if (hasDungeon(room, "d-swapping") && helper && helper.hand.length > 0) {
-        const rIdx = Math.floor(Math.random() * helper.hand.length);
-        const stolen = helper.hand.splice(rIdx, 1)[0];
-        attacker.hand.push(stolen);
-        log(room, `🔄 Sudden Swaps! ${attacker.name} blindly stole a card from ${helper.name}'s hand!`);
-      }
-
       // VIGTIGT: monsterTotal kræver nu room som parameter!
       const ms = monsterTotal(room, c);
       const ps = playerSideTotal(room, c);
@@ -1429,6 +1421,28 @@ case "runAway": {
         const dead = room.players.find(p => p.isDead);
         if (dead && dead.id === room.players[room.activePlayerIndex].id) advanceTurn(room);
       }
+      return null;
+    }
+
+    case "suddenSwap": {
+      if (!room.combat) return "No combat.";
+      if (room.combat.attackerId !== playerId) return "Only the attacker can use Sudden Swaps.";
+      if (!room.combat.helperId) return "You don't have a helper to steal from.";
+      if (!hasDungeon(room, "d-swapping")) return "Dungeon of Sudden Swaps is not active.";
+      if ((room.combat as any).swapUsed) return "You already stole a card this combat!";
+
+      const helper = room.players.find(p => p.id === room.combat!.helperId);
+      if (!helper || helper.hand.length === 0) return "Helper has no cards in hand.";
+
+      const rIdx = Math.floor(Math.random() * helper.hand.length);
+      const stolen = helper.hand.splice(rIdx, 1)[0];
+      player.hand.push(stolen);
+
+      (room.combat as any).swapUsed = true;
+      log(room, `🔄 Sudden Swaps! ${player.name} blindly stole a card from ${helper.name}'s hand!`);
+      
+      refreshDerived(player);
+      refreshDerived(helper);
       return null;
     }
 

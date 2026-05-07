@@ -16,6 +16,7 @@ export function CombatPanel() {
   const isFighter = isAttacker || isHelper;
   const hasCowards = view.activeDungeons?.some((d: any) => d.cardId === "d-cowards");
   const hasChaos = view.activeDungeons?.some((d: any) => d.cardId === "d-chaos");
+  const hasSwapping = view.activeDungeons?.some((d: any) => d.cardId === "d-swapping");
   const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
@@ -211,6 +212,13 @@ export function CombatPanel() {
         {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
+          </Button>
+        )}
+
+        {/* NY KNAP: d-swapping (Steal from helper) */}
+        {hasSwapping && isAttacker && c.helperId && !(c as any).swapUsed && (
+          <Button size="sm" variant="outline" className="border-blue-500 text-blue-400 hover:bg-blue-900/40" onClick={() => send({ type: "suddenSwap" })}>
+            🔄 Steal Card from Helper
           </Button>
         )}
         

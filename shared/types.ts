@@ -263,6 +263,8 @@ export type ClientToServer =
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
   | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
+  | { type: "suddenSwap" } // Bruges til d-swapping dungeon-kortet
+
   
 export type ServerToClient =
   | { type: "state"; view: ClientView }
