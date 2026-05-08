@@ -126,6 +126,13 @@ export const buildDoorDeck = (): Card[] => {
     2, undefined, { className: "Cleric", bonus: 5 }
   ));
 
+  cards.push(...monster(
+    "m-anti-wizard", "The Arcane Devourer", 14, 3, 1, 
+    { kind: "loseHandEquipAndLevel", amount: 1 }, 
+    "Feeds purely on magical energy. Discard your entire hand, all your equipped items, AND lose 1 Level!", 
+    99, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
+  ));
+
   // Goblin Swarm!
   cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 
   cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
@@ -150,7 +157,7 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
-  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
+  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 99));
 
   // Special Cards
   cards.push(...wanderingMonster(2));

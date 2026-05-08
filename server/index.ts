@@ -249,6 +249,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       } else log(room, `${p.name} has no matching item to lose.`);
       break;
     }
+
     case "loseAllItems": {
       const all = [...allEquipped(p), ...p.backpack.filter(c => c.type === "equipment")] as EquipmentCard[];
       for (const c of all) {
@@ -261,6 +262,37 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       log(room, `${p.name} loses ALL equipment!`);
       break;
     }
+
+    case "loseHandEquipAndLevel": {
+      // 1. Mister level
+      const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
+      if (lost > 0) {
+        p.level = Math.max(1, p.level - bs.amount);
+        log(room, `🩸 The Devourer drains ${p.name}'s magic! They lose ${lost} level(s) → Level ${p.level}.`);
+      }
+      
+      // 2. Mister hele hånden
+      if (p.hand.length > 0) {
+        log(room, `🃏 All ${p.hand.length} cards in ${p.name}'s hand are consumed by the Devourer!`);
+        p.hand.forEach(c => {
+          if (c.deck === "door") room.discards.door.push(c);
+          if (c.deck === "treasure") room.discards.treasure.push(c);
+        });
+        p.hand = [];
+      }
+      
+      // 3. Mister alt equipped udstyr
+      const equipped = allEquipped(p);
+      if (equipped.length > 0) {
+        log(room, `🛡️ All of ${p.name}'s equipped items disintegrate!`);
+        for (const c of equipped) {
+          removeEquipped(p, c.id);
+          room.discards.treasure.push(c);
+        }
+      }
+      break;
+    }
+
     case "loseClassAndLevels": {
       if (p.playerClass) {
         log(room, `💀 ${p.name} gets crushed and forgets how to be a ${p.playerClass.name}!`);
@@ -1186,6 +1218,11 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          const mIdx = c.monsters.findIndex(m => m.id === msg.monsterId);
          if (mIdx < 0) return "Monster not in combat.";
          const monster = c.monsters[mIdx];
+         
+         // NYT: Tjek om monsteret er immunt (The Arcane Devourer)!
+         if (monster.immuneToCharm) {
+           return `The ${monster.name} is IMMUNE to your Charm spell!`;
+         }
          
          const handSize = player.hand.length;
          for (const card of player.hand) {
