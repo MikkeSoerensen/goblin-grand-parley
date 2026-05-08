@@ -21,9 +21,10 @@ const monster = (
 
 const equipment = (
   cardId: string, name: string, bonus: number, goldValue: number, slot: Slot, isBig = false, copies = 1, flavor?: string,
+  classReq?: "Warrior" | "Cleric" | "Thief" | "Wizard" // <--- NY
 ): EquipmentCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "equipment", deck: "treasure",
-  bonus, goldValue, slot, isBig, flavor,
+  bonus, goldValue, slot, isBig, flavor, classReq // <--- NY
 }));
 
 const wanderingMonster = (copies = 1): WanderingMonsterCard[] =>
@@ -211,6 +212,23 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...equipment("e-two-hand-sword", "Two-Handed Sword... of One-Handedness", 4, 400, "hand", false, 1, "It's big, but strangely light. Only takes 1 hand!"));
   cards.push(...equipment("e-boots-run", "Boots of Running Really Fast", 0, 400, "feet", false, 1, "Gives +2 to all your Run Away rolls."));
   cards.push(...equipment("e-kneepads", "Kneepads of Allure", 0, 600, "feet", false, 1, "Not usable by Warriors. Force any player to help you in combat!"));
+
+  // --- CLASS UNIQUE EQUIPMENT ---
+  // Warrior
+  cards.push(...equipment("e-bloodaxe", "The Berserker's Bloodaxe", 3, 800, "twoHands", false, 1, "Your Berserk ability gives +2 per card instead of +1!", "Warrior"));
+  cards.push(...equipment("e-blood-plate", "Blood-Spattered Plate", 3, 600, "armor", false, 1, "Gives +3 extra bonus if fighting more than 1 monster.", "Warrior"));
+  
+  // Thief
+  cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 1, "Gives +1 to all Run Away rolls.", "Thief"));
+  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 1, "Your Steal ability succeeds on a roll of 3-6.", "Thief"));
+  
+  // Cleric
+  cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 1, "Gives +3 extra bonus when helping another player.", "Cleric"));
+  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 1, "If you are about to die, discard this to survive with 1 HP.", "Cleric"));
+  
+  // Wizard
+  cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 1, "Immune to face-up Curses drawn from the door deck.", "Wizard"));
+  cards.push(...equipment("e-archmage-staff", "Staff of the Archmage", 4, 800, "twoHands", false, 1, "Your Charm spell only costs 2 cards instead of 3.", "Wizard"));
 
   // One-shots
   cards.push(...oneShot("o-potion-h", "Potion of Halitosis", 2, 100, "monster", 2));

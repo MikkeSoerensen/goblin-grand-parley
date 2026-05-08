@@ -1,7 +1,7 @@
 // Shared game types — used by both server and client.
 // Single source of truth for card and state shapes.
 
-export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem";
+export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem" | "none"; // None bruges til amuleter 
 export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon";
 export type DeckType = "door" | "treasure" | "dungeon";
 
@@ -78,6 +78,7 @@ export interface EquipmentCard extends BaseCard {
   goldValue: number;
   slot: Slot;
   isBig: boolean;
+  classReq?: "Warrior" | "Cleric" | "Thief" | "Wizard"; // NY: Klassebegrænsning på udstyr
 }
 
 export interface CurseCard extends BaseCard {
@@ -165,8 +166,9 @@ export interface PlayerEquipment {
   head: EquipmentCard | null;
   armor: EquipmentCard | null;
   feet: EquipmentCard | null;
-  hands: EquipmentCard[];        // up to 2 single-hand or 1 twoHands
+  hands: EquipmentCard[];        
   bigItem: EquipmentCard | null;
+  none: EquipmentCard[];         // <--- NY: Plads til slotless items!
 }
 
 export interface PublicPlayer {

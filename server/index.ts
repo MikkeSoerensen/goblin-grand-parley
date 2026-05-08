@@ -161,6 +161,9 @@ const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
   if (card.cardId === "e-kneepads" && p.playerClass?.name === "Warrior") {
     return "Warriors are too proud to wear the Kneepads of Allure!";
   }
+  if (card.classReq && p.playerClass?.className !== card.classReq) {
+    return `Only a ${card.classReq} can equip this item!`;
+  }
   if (card.isBig && p.equipment.bigItem) return "You already have a Big item equipped.";
   switch (card.slot) {
     case "head":
@@ -190,11 +193,13 @@ const removeEquipped = (p: PrivatePlayer, cardId: string): EquipmentCard | null 
     const eq = p.equipment[s] as EquipmentCard | null;
     if (eq && eq.id === cardId) { p.equipment[s] = null as any; return eq; }
   }
-  const idx = p.equipment.hands.findIndex(h => h.id === cardId);
-  if (idx >= 0) {
-    const [h] = p.equipment.hands.splice(idx, 1);
-    return h;
-  }
+  let idx = p.equipment.hands.findIndex(h => h.id === cardId);
+  if (idx >= 0) return p.equipment.hands.splice(idx, 1)[0];
+  
+  // NYT: Fjern fra "none" slot!
+  idx = p.equipment.none.findIndex(h => h.id === cardId);
+  if (idx >= 0) return p.equipment.none.splice(idx, 1)[0];
+  
   return null;
 };
 
@@ -205,7 +210,18 @@ const allEquipped = (p: PrivatePlayer): EquipmentCard[] => {
   if (p.equipment.feet) arr.push(p.equipment.feet);
   if (p.equipment.bigItem) arr.push(p.equipment.bigItem);
   arr.push(...p.equipment.hands);
+  arr.push(...p.equipment.none); // NYT!
   return arr;
+};
+
+const validateClassEquipment = (room: Room, p: PrivatePlayer) => {
+  for (const eq of allEquipped(p)) {
+    if (eq.classReq && p.playerClass?.className !== eq.classReq) {
+      removeEquipped(p, eq.id);
+      p.backpack.push(eq);
+      log(room, `🎒 ${p.name} is no longer a ${eq.classReq}! Their ${eq.name} slides off into their backpack!`);
+    }
+  }
 };
 
 // ---------- bad stuff ----------
@@ -298,6 +314,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         log(room, `💀 ${p.name} gets crushed and forgets how to be a ${p.playerClass.name}!`);
         room.discards.door.push(p.playerClass);
         p.playerClass = null as any;
+        validateClassEquipment(room, p);
       }
       
       const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
@@ -313,6 +330,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         log(room, `💀 The Sphinx strips ${p.name} of their Class!`);
         room.discards.door.push(p.playerClass);
         p.playerClass = null as any;
+        validateClassEquipment(room, p);
       }
       
       if (p.hand.length > 0) {
@@ -340,6 +358,13 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
     }
 
     case "death": {
+      if (p.equipment.head?.cardId === "e-halo") {
+        log(room, `👼 MIRACLE! ${p.name}'s Halo of Righteousness shatters with a blinding light, saving their life!`);
+        const halo = p.equipment.head;
+        removeEquipped(p, halo.id);
+        room.discards.treasure.push(halo);
+        break; // Bryder ud! Spilleren dør ikke!
+      }
       log(room, `💀 ${p.name} has DIED.`);
       
       // d-doom: Mister 2 levels ved død!
@@ -352,7 +377,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       const pile: Card[] = [
         ...allEquipped(p), ...p.backpack, ...p.hand,
       ];
-      p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null };
+      p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
       p.backpack = []; p.hand = [];
       p.isDead = true;
       // Looting order: highest level opponents first, excluding dead one.
@@ -378,6 +403,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         log(room, `💀 ${p.name} suffers AMNESIA and forgets how to be a ${p.playerClass.name}!`);
         room.discards.door.push(p.playerClass);
         p.playerClass = null as any;
+        validateClassEquipment(room, p);
       } else {
         log(room, `💀 ${p.name} suffers Amnesia, but they already had no class to forget!`);
       }
@@ -610,6 +636,14 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
         room.table.push(card);
         startCombat(room, player, card as any);
       } else if (card.type === "curse") {
+        // NYT: Amulet of Spell Reflection!
+        if (player.equipment.none.some(e => e.cardId === "e-spell-amulet")) {
+           log(room, `🛡️ ${player.name}'s Amulet of Spell Reflection DESTROYS ${card.name} instantly!`);
+           room.discards.door.push(card);
+           room.currentPhase = 2;
+           refreshDerived(player);
+           return null;
+        }
         if (hasDungeon(room, "d-curses")) {
           log(room, `💀 DUNGEON OF CURSES: ${card.name} hits EVERYONE!`);
           for (const target of room.players.filter(p => !p.isDead)) {
@@ -807,7 +841,6 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
 
     case "playCard": {
       if (!msg.cardId) return "No card specified.";
-      
       const idx = player.hand.findIndex(c => c.id === msg.cardId);
       if (idx < 0) return "Card not in hand.";
       const card = player.hand[idx];
@@ -1133,7 +1166,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          if (hasDungeon(room, "d-thieves")) roll += 2; // Thieving Thugs
          io.to(roomSocketIds(room)).emit("msg", { type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
 
-         if (roll >= 4) {
+          const reqRoll = player.equipment.hands.some(h => h.cardId === "e-lockpicks") ? 3 : 4;
+          if (roll >= reqRoll) {
            // Succes! Kortet lægges i tyvens rygsæk
            player.backpack.push(targetEq);
            log(room, `🗡️ ${player.name} rolls ${roll} and successfully STEALS ${targetEq.name} from ${target.name}!`);
@@ -1175,7 +1209,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          if (discarded === 0) return "No valid cards discarded.";
          
          c.warriorDiscardCount[playerId] = currentUsed + discarded;
-         c.attackerBonuses += discarded;
+        const bonusMult = player.equipment.hands.some(h => h.cardId === "e-bloodaxe") ? 2 : 1;
+        c.attackerBonuses += (discarded * bonusMult);
          log(room, `⚔️ ${player.name} goes BERSERK! Discards ${discarded} card(s) for +${discarded} bonus.`);
          refreshDerived(player);
          return null;
@@ -1213,7 +1248,8 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
          if (player.playerClass?.name !== "Wizard") return "Not a Wizard.";
          if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to charm.";
          if (!msg.monsterId) return "No monster selected.";
-         if (player.hand.length < 3) return "Need at least 3 cards in hand to Charm.";
+        const reqCards = player.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
+        if (player.hand.length < reqCards) return "Need at least " + reqCards + " cards in hand to Charm.";
          
          const mIdx = c.monsters.findIndex(m => m.id === msg.monsterId);
          if (mIdx < 0) return "Monster not in combat.";
@@ -1617,7 +1653,7 @@ io.on("connection", (socket) => {
           player = {
             id: rid(), name: raw.name.slice(0, 20) || "Player",
             level: 1,
-            equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null },
+            equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] },
             hand: [], backpack: [], handCount: 0, backpackCount: 0,
             combatPower: 1, isDead: false, connected: true,
             playerClass: null, // <--- Starter uden en Class
