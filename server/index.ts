@@ -276,6 +276,24 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       break;
     }
 
+    case "loseClassAndHand": {
+      if (p.playerClass) {
+        log(room, `💀 The Sphinx strips ${p.name} of their Class!`);
+        room.discards.door.push(p.playerClass);
+        p.playerClass = null as any;
+      }
+      
+      if (p.hand.length > 0) {
+        log(room, `🃏 The Sphinx's gaze scatters all ${p.hand.length} cards from ${p.name}'s hand!`);
+        p.hand.forEach(c => {
+          if (c.deck === "door") room.discards.door.push(c);
+          if (c.deck === "treasure") room.discards.treasure.push(c);
+        });
+        p.hand = []; // Tømmer hånden helt
+      }
+      break;
+    }
+
     case "death": {
       log(room, `💀 ${p.name} has DIED.`);
       

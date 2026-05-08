@@ -48,12 +48,13 @@ export interface MateCard {
 
 export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
-  | { kind: "loseItem"; slot: string } // (Din ser måske lidt anderledes ud her)
+  | { kind: "loseItem"; slot: string }
   | { kind: "loseAllItems" }
   | { kind: "death" }
   | { kind: "loseClass" }
   | { kind: "robinHood" }
-  | { kind: "loseClassAndLevels"; amount: number }; 
+  | { kind: "loseClassAndLevels"; amount: number }
+  | { kind: "loseClassAndHand" };
 
 export interface MonsterCard extends BaseCard {
   type: "monster";
@@ -176,7 +177,7 @@ export interface PublicPlayer {
   combatPower: number;
   isDead: boolean;
   connected: boolean;
-  playerClass: ClassCard | null; // <--- Lige her!
+  playerClass: ClassCard | null; // <--- Lige her!The All-Seeing Sphinx
 }
 
 export interface PrivatePlayer extends PublicPlayer {

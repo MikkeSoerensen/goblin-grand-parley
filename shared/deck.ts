@@ -112,6 +112,13 @@ export const buildDoorDeck = (): Card[] => {
     2, undefined, { className: "Warrior", bonus: 5 } // Bonus imod warrior
   ));
 
+  cards.push(...monster(
+    "m-anti-thief", "The All-Seeing Sphinx", 12, 3, 1, 
+    { kind: "loseClassAndHand" }, 
+    "It sees through every shadow and trick. Lose your Class card AND discard ALL cards in your hand.", 
+    2, undefined, { className: "Thief", bonus: 5 }
+  ));
+
   // Goblin Swarm!
   cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 
   cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
