@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export function PlayerHand() {
   const view = useGame(s => s.view);
+  const isMobile = useIsMobile();
   const [selected, setSelected] = useState<string | null>(null);
   const [showBackpack, setShowBackpack] = useState(false);
   const [sellMode, setSellMode] = useState<string[]>([]);
