@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export function PlayerHand() {
   const view = useGame(s => s.view);
