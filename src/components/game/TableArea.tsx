@@ -110,11 +110,11 @@ export function TableArea() {
           </div>
           <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
         </div>
-
-        {/* Game log */}
-        <div className="w-full mt-auto shrink-0 min-h-[6rem] bg-black/40 rounded-lg p-2 max-h-32 overflow-y-auto scroll-thin text-xs font-ui max-w-2xl mx-auto border border-white/5 relative z-10">
-        {view.log.slice(-8).map((l, i) => <div key={i} className="opacity-80 pb-1">{l}</div>)}
       </div>
+
+      {/* Game log — sibling of deck row, not nested inside it */}
+      <div className="w-full mt-auto shrink-0 min-h-[5rem] bg-black/40 rounded-lg p-2 max-h-32 overflow-y-auto scroll-thin text-xs font-ui max-w-2xl mx-auto border border-white/5 relative z-10">
+        {view.log.slice(-8).map((l, i) => <div key={i} className="opacity-80 pb-1">{l}</div>)}
       </div>
     </section>
   );
