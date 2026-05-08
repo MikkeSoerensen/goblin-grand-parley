@@ -75,7 +75,11 @@ export function PlayerHand() {
   }, 0);
 
   return (
-    <div className="bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-3 shadow-card">
+    <div className={
+      isMobile
+        ? "bg-popover/95 backdrop-blur p-3 min-h-full flex flex-col gap-2"
+        : "bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-3 shadow-card"
+    }>
       <div className="flex items-center justify-between mb-2 gap-2">
         <h3 className="font-display text-lg brass-text flex items-center gap-2">
           <Hand className="w-5 h-5"/> {showBackpack ? "Backpack" : "Hand"} ({showBackpack ? self.backpack.length : self.hand.length})
