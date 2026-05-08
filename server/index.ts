@@ -489,9 +489,23 @@ const monsterTotal = (room: Room, c: CombatState): number => {
 const playerSideTotal = (room: Room, c: CombatState): number => {
   const a = room.players.find(p => p.id === c.attackerId)!;
   let total = a.combatPower + c.attackerBonuses;
+
+  const multiMonster = c.monsters.length > 1;
+  if (multiMonster && a.equipment.armor?.cardId === "e-blood-plate") {
+    total += 3;
+  }
+
   if (c.helperId) {
     const h = room.players.find(p => p.id === c.helperId);
-    if (h) total += h.combatPower;
+    if (h) {
+      total += h.combatPower;
+      if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) {
+        total += 3;
+      }
+      if (multiMonster && h.equipment.armor?.cardId === "e-blood-plate") {
+        total += 3;
+      }
+    }
   }
   return total;
 };
@@ -1444,9 +1458,21 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
           applyBadStuff(room, player, m.badStuff);
           if ((room.status as string) === "looting" || (room.status as string) === "gameOver") return null; 
         }
-      } else {
+        } else {
         // Hvis de IKKE er limet, får de lov til at slå med terningen normalt
-        let roll = 1 + Math.floor(Math.random() * 6);
+        let roll = Math.floor(Math.random() * 6) + 1;
+
+        // NYT: Tjekker efter Cloak of Shadows!
+        if (allEquipped(player).some(e => e.cardId === "e-shadow-cloak")) {
+          roll += 1;
+          log(room, `🦇 ${player.name}'s Cloak of Shadows swirls, granting +1 to the escape roll!`);
+        }
+      
+        // NYT: Tjekker efter Cloak of Shadows!
+        if (allEquipped(player).some(e => e.cardId === "e-shadow-cloak")) {
+          roll += 1;
+          log(room, `🦇 ${player.name}'s Cloak of Shadows swirls, granting +1 to the escape roll!`);
+        }
         
         // Boots of Running Really Fast giver +2!
         if (player.equipment.feet?.cardId === "e-boots-run") {

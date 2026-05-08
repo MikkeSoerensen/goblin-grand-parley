@@ -42,7 +42,15 @@ export function CombatPanel() {
     return sum + lvl;
   }, 0) + c.monsterBonuses;
 
-  const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
+  // NYT: Dynamiske Udstyrs Bonusser!
+  const multiMonster = c.monsters.length > 1;
+  let dynamicBonus = 0;
+  
+  if (multiMonster && attacker.equipment?.armor?.cardId === "e-blood-plate") dynamicBonus += 3;
+  if (multiMonster && helper?.equipment?.armor?.cardId === "e-blood-plate") dynamicBonus += 3;
+  if (helper?.equipment?.hands?.some((h: any) => h.cardId === "e-martyr-mace")) dynamicBonus += 3;
+
+  const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses + dynamicBonus;
   
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
@@ -177,30 +185,40 @@ export function CombatPanel() {
           <div className="flex gap-2 flex-wrap">
             
             {/* Wizard: Charm Monster (Knap direkte i panelet) */}
-            {self.playerClass.name === "Wizard" && isFighter && self.handCount >= 3 && c.monsters.map(m => (
-              <Button 
-                key={m.id} 
-                size="sm" 
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={() => {
-                  if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
-                    send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
-                  }
-                }}
-              >
-                🪄 Charm {m.name} (Discard Hand)
-              </Button>
-            ))}
-            {self.playerClass.name === "Wizard" && isFighter && self.handCount < 3 && (
-               <div className="text-xs font-ui text-muted-foreground italic">You need at least 3 cards in hand to use Charm.</div>
-            )}
+            {self.playerClass.name === "Wizard" && isFighter && (() => {
+              const charmCost = self.equipment.hands.some((h: any) => h.cardId === "e-archmage-staff") ? 2 : 3;
+              
+              if (self.handCount >= charmCost) {
+                return c.monsters.map(m => (
+                  <Button 
+                    key={m.id} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => {
+                      if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
+                        send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
+                      }
+                    }}
+                  >
+                    🪄 Charm {m.name} (Discard Hand)
+                  </Button>
+                ));
+              } else {
+                return (
+                  <div className="text-xs font-ui text-muted-foreground italic">
+                    You need at least {charmCost} cards in hand to use Charm.
+                  </div>
+                );
+              }
+            })()}
 
             {/* Warrior: Berserk (Guide-tekst) */}
-            {self.playerClass.name === "Warrior" && isFighter && (
-              <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
-                💡 <b>Berserk:</b> Click on cards in your hand to discard them for +1 combat power (max 3 per combat).
-              </div>
-            )}
+            {self.playerClass.name === "Warrior" && isFighter && (() => {
+              const hasAxe = self.equipment.hands.some((h: any) => h.cardId === "e-bloodaxe");
+              return (
+                <div className="text-xs font-ui px-3 py-2 bg-orange-900/30 rounded border border-orange-500/30 text-orange-200">
+                  💡 <b>Berserk:</b> Click on cards in your hand to discard them for {hasAxe ? <b>+2</b> : <b>+1</b>} combat power (max 3 per combat). {hasAxe && "🪓 Axe active!"}
+                </div>
+              );
+            })()}
 
             {/* Thief: Backstab (Guide-tekst) */}
             {self.playerClass.name === "Thief" && (
