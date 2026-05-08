@@ -135,8 +135,13 @@ export function PlayerHand() {
       </div>
 
       {card && !isSelling && (
-        <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
-          <span className="font-display text-sm opacity-80">{card.name}:</span>
+        <div className={cn(
+          "flex flex-wrap gap-2 border-t border-border pt-2 items-center",
+          isMobile
+            ? "sticky bottom-0 left-0 right-0 bg-popover/98 backdrop-blur -mx-3 -mb-3 px-3 pb-3 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.4)] z-20 max-h-[40vh] overflow-y-auto"
+            : "mt-2",
+        )}>
+          <span className="font-display text-sm opacity-80 w-full sm:w-auto">{card.name}:</span>
           
           {/* Udstyr - NYT: Tjekker Class Requirements! */}
           {card.type === "equipment" && isMyTurn && !inCombat && (
