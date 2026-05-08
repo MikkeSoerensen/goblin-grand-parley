@@ -83,41 +83,50 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
+
         {card.type === "monster" && (() => {
           const m = card as MonsterCard;
           let diff = 0; 
-          let treasureDiff = 0; // NYT: Holder styr på bonus skatte
+          let treasureDiff = 0; 
           
-          if (activeDungeons.length > 0) {
+          // 1. Tjekker Dungeon Bonusser
+          if (activeDungeons && activeDungeons.length > 0) {
             let modifiedLevel = m.level;
             if (activeDungeons.some((d: any) => d.cardId === "d-martial")) modifiedLevel += 2;
             if (activeDungeons.some((d: any) => d.cardId === "d-feeble")) modifiedLevel = Math.max(1, modifiedLevel - 5);
             if (activeDungeons.some((d: any) => d.cardId === "d-goblin") && m.name.toLowerCase().includes("goblin")) {
               modifiedLevel += 3;
             }
-            diff = modifiedLevel - m.level; 
+            diff += (modifiedLevel - m.level); 
 
-            // NYT: Tjek for Wealth Dungeon!
             if (activeDungeons.some((d: any) => d.cardId === "d-wealth")) {
               treasureDiff = 1;
             }
           }
+
+          // 2. NYT: Tjekker Anti-Class Bonus (Kun når monsteret er i kamp!)
+          if (m.antiClass && view?.combat && view.combat.monsters.some(c => c.id === m.id)) {
+            const atk = view.players.find(p => p.id === view.combat!.attackerId);
+            const hlp = view.combat.helperId ? view.players.find(p => p.id === view.combat!.helperId) : null;
+            
+            // Hvis angriberen eller hjælperen er den hadede class, får den sin bonus!
+            if (atk?.playerClass?.name === m.antiClass.className || hlp?.playerClass?.name === m.antiClass.className) {
+              diff += m.antiClass.bonus;
+            }
+          }
           
           const diffText = diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : "";
-          // NYT: Tekst til ekstra skatte
           const tDiffText = treasureDiff > 0 ? ` (+${treasureDiff})` : "";
 
           return (
             <>
               <div className="font-bold">Lvl {m.level}<span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : ""}>{diffText}</span></div>
-              
-              {/* NYT: Nu med treasureDiff variablen flettet ind og farvet gul/guld! */}
               <div>+{m.levelsAwarded} lvl · {m.treasures}<span className="text-yellow-400">{tDiffText}</span> tr</div>
-              
               <div className="opacity-75 line-clamp-2 italic">{m.badStuffText}</div>
             </>
           );
         })()}
+
         {card.type === "equipment" && (() => {
           const eq = card as EquipmentCard;
           let price = eq.goldValue;

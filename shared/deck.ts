@@ -11,9 +11,12 @@ const uid = () => `c${++_id}`;
 const monster = (
   cardId: string, name: string, level: number, treasures: number, levelsAwarded: number,
   badStuff: BadStuffKind, badStuffText: string, copies = 1, flavor?: string,
+  antiClass?: { className: string; bonus: number }, // NY
+  immuneToCharm?: boolean                           // NY
 ): MonsterCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "monster", deck: "door",
   level, treasures, levelsAwarded, badStuff, badStuffText, flavor,
+  antiClass, immuneToCharm // NY
 }));
 
 const equipment = (
@@ -100,6 +103,14 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-laser","Laser Spider",       6, 1, 1, { kind: "loseLevel", amount: 1 }, "Pew pew. Lose a level.", 2));
   cards.push(...monster("m-clown","Clown Prince",      14, 3, 2, { kind: "loseAllItems" }, "Honked to nakedness.", 1));
   cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
+
+// --- ANTI-CLASS BOSSES ---
+  cards.push(...monster(
+    "m-anti-warrior", "The Iron Juggernaut", 14, 3, 1,  //Monster level, treasures og level den giver 
+    { kind: "loseClassAndLevels", amount: 2 },  //Mister levels
+    "It crushes your martial pride and your skull! Lose your Class card AND lose 2 Levels!", 
+    2, undefined, { className: "Warrior", bonus: 5 } // Bonus imod warrior
+  ));
 
   // Goblin Swarm!
   cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 

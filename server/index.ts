@@ -261,6 +261,21 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       log(room, `${p.name} loses ALL equipment!`);
       break;
     }
+    case "loseClassAndLevels": {
+      if (p.playerClass) {
+        log(room, `💀 ${p.name} gets crushed and forgets how to be a ${p.playerClass.name}!`);
+        room.discards.door.push(p.playerClass);
+        p.playerClass = null as any;
+      }
+      
+      const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
+      if (lost > 0) {
+        p.level = Math.max(1, p.level - bs.amount);
+        log(room, `🩸 The Juggernaut smashes ${p.name} down ${lost} level(s) → Level ${p.level}.`);
+      }
+      break;
+    }
+
     case "death": {
       log(room, `💀 ${p.name} has DIED.`);
       
@@ -292,6 +307,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
           else room.discards.treasure.push(c);
         }
       }
+      
       break;
     }
     case "loseClass": {
@@ -357,16 +373,23 @@ const startCombat = (room: Room, attacker: PrivatePlayer, monsterCard: MonsterCa
   room.combatFought = true;
 };
 
-// VIGTIGT: Den kræver nu 'room' som det første argument!
 const monsterTotal = (room: Room, c: CombatState): number => {
   let total = c.monsters.reduce((s, m) => {
     let lvl = m.level;
-    if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
-    if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
+    if (hasDungeon(room, "d-martial")) lvl += 2; 
+    if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); 
     
-    // NYT: Goblin Land Portal!
     if (hasDungeon(room, "d-goblin") && m.name.toLowerCase().includes("goblin")) {
        lvl += 3;
+    }
+
+    // NYT: Anti-Class logik! Får bonus hvis angriber ELLER hjælper er den forhadte class.
+    if (m.antiClass) {
+      const attacker = room.players.find(p => p.id === c.attackerId);
+      const helper = c.helperId ? room.players.find(p => p.id === c.helperId) : null;
+      if (attacker?.playerClass?.className === m.antiClass.className || helper?.playerClass?.className === m.antiClass.className) {
+        lvl += m.antiClass.bonus;
+      }
     }
     
     return s + lvl;

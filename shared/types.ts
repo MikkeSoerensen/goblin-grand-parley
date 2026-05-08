@@ -51,18 +51,21 @@ export type BadStuffKind =
   | { kind: "loseItem"; slot: string } // (Din ser måske lidt anderledes ud her)
   | { kind: "loseAllItems" }
   | { kind: "death" }
-  // NYE:
   | { kind: "loseClass" }
-  | { kind: "robinHood" };
+  | { kind: "robinHood" }
+  | { kind: "loseClassAndLevels"; amount: number }; 
 
 export interface MonsterCard extends BaseCard {
   type: "monster";
   deck: "door";
-  level: number;            // monster combat level
-  treasures: number;        // # treasure cards on defeat
-  levelsAwarded: number;    // # levels on defeat
+  level: number;            
+  treasures: number;        
+  levelsAwarded: number;    
   badStuff: BadStuffKind;
   badStuffText: string;
+  // NYE: Usynlige særregler til boss-monstre!
+  antiClass?: { className: string; bonus: number };
+  immuneToCharm?: boolean;
 }
 
 export interface EquipmentCard extends BaseCard {
