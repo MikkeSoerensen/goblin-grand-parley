@@ -7,7 +7,7 @@ export function Scoreboard() {
   if (!view) return null;
 
   return (
-    <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-3 w-full md:w-72 max-h-[40vh] md:max-h-[80vh] overflow-y-auto scroll-thin shrink-0">
+    <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-3 w-full md:w-72 md:max-h-[80vh] overflow-y-auto scroll-thin shrink-0">
       <h2 className="font-display text-lg brass-text mb-2 flex items-center gap-2">
         <Crown className="w-5 h-5 text-primary" /> Scoreboard
       </h2>
