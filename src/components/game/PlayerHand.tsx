@@ -12,14 +12,11 @@ export function PlayerHand() {
   const [sellMode, setSellMode] = useState<string[]>([]);
   const [isSelling, setIsSelling] = useState(false);
 
-  // 1. Definer self én gang for alle. Vi sørger for, at komponenten stopper her, hvis der ikke er en spiller.
   if (!view?.self) return null;
   const self = view.self;
 
-  // 2. Nu er 'self' defineret og garanteret at eksistere, så vi kan trygt lede efter kortet.
   const wanderingMonsterCard = self.hand.find(c => c.type === "wandering-monster");
 
-  // 3. Definer resten af de variabler, du skal bruge til komponenten.
   const isMyTurn = view.players[view.activePlayerIndex]?.id === self.id;
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
   const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
@@ -43,6 +40,7 @@ export function PlayerHand() {
       if (eqCard.slot === "feet" && eq.feet) collision = true;
       if (eqCard.slot === "hand" && currentHandsUsed >= 2) collision = true;
       if (eqCard.slot === "twoHands" && currentHandsUsed > 0) collision = true;
+      // Bemærk: "none" slot vil aldrig forårsage collision, hvilket er perfekt til Amuletten!
 
       if (collision) {
         if (window.confirm("Du har i forvejen udstyr på denne plads.\n\nVil du automatisk pakke det gamle udstyr ned i rygsækken og tage dette på i stedet?")) {
@@ -56,7 +54,6 @@ export function PlayerHand() {
     if (action === "backpack") send({ type: "toBackpack", cardId: card.id });
     if (action === "discard") send({ type: "discard", cardId: card.id });
     
-    // Sætter spillet direkte i "Sell Mode" og markerer kortet
     if (action === "sell") {
       setIsSelling(true);
       setSellMode([card.id]);
@@ -72,17 +69,7 @@ export function PlayerHand() {
 
   const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
-    let val = c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0;
-    
-    // Vi spørger lige dommeren (serveren) om de aktuelle guld-regler!
-    if (view.activeDungeons?.some((d: any) => d.cardId === "d-clipping")) {
-      val = Math.max(0, val - 100);
-    }
-    if (view.activeDungeons?.some((d: any) => d.cardId === "d-lavish")) {
-      val *= 2;
-    }
-    
-    return s + val;
+    return s + (c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0);
   }, 0);
 
   return (
@@ -134,27 +121,30 @@ export function PlayerHand() {
         )}
       </div>
 
-      {/* Action menu for selected card */}
       {card && !isSelling && (
         <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
           <span className="font-display text-sm opacity-80">{card.name}:</span>
           
-          {/* Udstyr */}
+          {/* Udstyr - NYT: Tjekker Class Requirements! */}
           {card.type === "equipment" && isMyTurn && !inCombat && (
             <>
-              <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
+              {(card as any).classReq && self.playerClass?.name !== (card as any).classReq ? (
+                <Button size="sm" variant="secondary" disabled className="opacity-50">
+                  <Shield className="w-4 h-4 mr-1"/>Requires {(card as any).classReq}
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
+              )}
               <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>To Backpack</Button>
             </>
           )}
 
-          {/* Alt med en guldværdi (Både udstyr og oneshots!) */}
           {(card as any).goldValue !== undefined && isMyTurn && !inCombat && (
             <Button size="sm" variant="outline" onClick={() => handleAction("sell")}>
               <Coins className="w-4 h-4 mr-1"/>Sell ({(card as any).goldValue}g)
             </Button>
           )}
 
-          {/* Forbandelser (Curses) */}
           {card.type === "curse" && (
             <div className="flex items-center gap-2 border-l-2 border-destructive pl-2 ml-1">
               <span className="text-sm font-bold text-destructive">Cast on:</span>
@@ -174,19 +164,16 @@ export function PlayerHand() {
             </div>
           )}
 
-          {/* Classes */}
           {card.type === "class" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
               <Zap className="w-4 h-4 mr-1"/> Become {card.name}
             </Button>
           )}
 
-          {/* Level up / Oneshots / Portaler (uden for kamp) */}
           {(card.type === "oneshot" || card.type === "go-up-a-level" || card.type === "portal") && isMyTurn && !inCombat && card.cardId !== "o-friendship" && card.cardId !== "o-flask-glue" && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
           )}
 
-          {/* Knap til Goblin-Sværm */}
           {card.type === "monster" && card.name.toLowerCase().includes("goblin") && view.combat && view.combat.monsters.some(m => m.name.toLowerCase().includes("goblin")) && (
             <Button size="sm" variant="outline" className="border-green-500 text-green-500" onClick={() => {
               send({ type: "playInCombat", cardId: card.id });
@@ -196,12 +183,10 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* Monstre */}
           {card.type === "monster" && isMyTurn && view.currentPhase === 2 && view.status === "normalTurn" && (
             <Button size="sm" variant="default" onClick={() => handleAction("lookForTrouble")}>👁️ Look for Trouble</Button>
           )}
 
-          {/* Kamp-specifikke kort */}
           {inCombat && playableInCombat(card) && (
             <>
               <Button size="sm" onClick={() => handleAction("playAttacker")}>⚔️ Play for attacker</Button>
@@ -209,15 +194,19 @@ export function PlayerHand() {
             </>
           )}
 
-          {/* CLASS ABILITIES (Vises under kamp når man vælger et kort) */}
-          {view.combat && self.playerClass?.name === "Warrior" && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (
-            <Button size="sm" variant="outline" className="border-orange-500 text-orange-500" onClick={() => {
-              send({ type: "useClassAbility", ability: "berserk", cardIds: [card.id] });
-              setSelected(null);
-            }}>
-              ⚔️ Berserk (+1)
-            </Button>
-          )}
+          {/* CLASS ABILITIES */}
+          {view.combat && self.playerClass?.name === "Warrior" && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (() => {
+            // NYT: Tjekker om de har The Berserker's Bloodaxe!
+            const hasAxe = self.equipment.hands.some((h: any) => h.cardId === "e-bloodaxe");
+            return (
+              <Button size="sm" variant="outline" className="border-orange-500 text-orange-500" onClick={() => {
+                send({ type: "useClassAbility", ability: "berserk", cardIds: [card.id] });
+                setSelected(null);
+              }}>
+                ⚔️ Berserk ({hasAxe ? "+2" : "+1"})
+              </Button>
+            );
+          })()}
 
           {view.combat && self.playerClass?.name === "Thief" && (
             <Button size="sm" variant="outline" className="border-purple-500 text-purple-500" onClick={() => {
@@ -228,44 +217,42 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* Thief: STEAL MENU (Uden for kamp) */}
-          {self.playerClass?.name === "Thief" && !inCombat && (
-            <div className="w-full mt-2 border-t border-purple-500/30 pt-2">
-              <span className="text-sm font-bold text-purple-500 flex items-center mb-1">🗡️ Steal from: (Costs this card)</span>
-              <div className="flex flex-col gap-2">
-                {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => {
-                  // Saml alt modstanderens aktive udstyr
-                  const eqs = [p.equipment.head, p.equipment.armor, p.equipment.feet, p.equipment.bigItem, ...p.equipment.hands].filter(Boolean) as EquipmentCard[];
-                  // Tyve kan kun stjæle ting, der IKKE er "Big"
-                  const stealable = eqs.filter(e => !e.isBig);
-                  
-                  if (stealable.length === 0) return null;
-                  
-                  return (
-                    <div key={p.id} className="flex flex-wrap items-center gap-1 bg-purple-900/20 p-1.5 rounded">
-                      <span className="text-xs text-muted-foreground w-16 truncate">{p.name}:</span>
-                      {stealable.map(eq => (
-                        <Button 
-                          key={eq.id} 
-                          size="sm" 
-                          variant="outline" 
-                          className="border-purple-500/50 h-6 text-[10px] px-2" 
-                          onClick={() => {
-                            send({ type: "useClassAbility", ability: "steal", cardIds: [card.id], targetId: p.id, targetCardId: eq.id } as any);
-                            setSelected(null);
-                          }}
-                        >
-                          {eq.name}
-                        </Button>
-                      ))}
-                    </div>
-                  );
-                })}
+          {/* Thief: STEAL MENU */}
+          {self.playerClass?.name === "Thief" && !inCombat && (() => {
+             // NYT: Tjekker om de har Master Thief's Lockpicks
+             const hasPicks = self.equipment.hands.some((h: any) => h.cardId === "e-lockpicks");
+             return (
+              <div className="w-full mt-2 border-t border-purple-500/30 pt-2">
+                <span className="text-sm font-bold text-purple-500 flex items-center mb-1">
+                  🗡️ Steal from: (Costs this card{hasPicks ? " - 3+ to succeed!" : ""})
+                </span>
+                <div className="flex flex-col gap-2">
+                  {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => {
+                    const eqs = [p.equipment.head, p.equipment.armor, p.equipment.feet, p.equipment.bigItem, ...p.equipment.hands].filter(Boolean) as EquipmentCard[];
+                    const stealable = eqs.filter(e => !e.isBig);
+                    if (stealable.length === 0) return null;
+                    return (
+                      <div key={p.id} className="flex flex-wrap items-center gap-1 bg-purple-900/20 p-1.5 rounded">
+                        <span className="text-xs text-muted-foreground w-16 truncate">{p.name}:</span>
+                        {stealable.map(eq => (
+                          <Button 
+                            key={eq.id} size="sm" variant="outline" className="border-purple-500/50 h-6 text-[10px] px-2" 
+                            onClick={() => {
+                              send({ type: "useClassAbility", ability: "steal", cardIds: [card.id], targetId: p.id, targetCardId: eq.id } as any);
+                              setSelected(null);
+                            }}
+                          >
+                            {eq.name}
+                          </Button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+             );
+          })()}
 
-          {/* Cleric: Resurrection (Må kun bruges i Phase 1, i stedet for Kick Open the Door) */}
           {self.playerClass?.name === "Cleric" && isMyTurn && view.currentPhase === 1 && view.status === "normalTurn" && (
             <Button size="sm" variant="outline" className="border-yellow-500 text-yellow-500" onClick={() => {
               send({ type: "useClassAbility", ability: "resurrect", cardIds: [card.id] });
@@ -275,13 +262,11 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* Generelle knapper */}
           {isMyTurn && !inCombat && (
             <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Discard</Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
 
-          {/* Knap til Wandering Monster */}
           {card.type === "monster" && view.combat && wanderingMonsterCard && (
             <Button size="sm" variant="outline" className="border-red-500 text-red-500" onClick={() => {
               send({ type: "playInCombat", cardId: wanderingMonsterCard.id, extraCardId: card.id });
@@ -291,7 +276,6 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* Knap til Mate */}
           {card.type === "mate" && view.combat && (
             <Button size="sm" variant="outline" className="border-pink-500 text-pink-500" onClick={() => {
               send({ type: "playInCombat", cardId: card.id });
@@ -301,7 +285,6 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* SPECIAL: Friendship Potion */}
           {card.cardId === "o-friendship" && inCombat && (
             <Button size="sm" variant="outline" className="border-pink-500 text-pink-500 hover:bg-pink-900/40 w-full mt-2" onClick={() => {
               send({ type: "playInCombat", cardId: card.id });
@@ -311,7 +294,6 @@ export function PlayerHand() {
             </Button>
           )}
 
-          {/* SPECIAL: Flask of Glue */}
           {card.cardId === "o-flask-glue" && view.combat && (
             <div className="flex flex-col gap-2 border-l-2 border-yellow-500 pl-2 ml-1 mt-2 w-full">
               <span className="text-sm font-bold text-yellow-500">Throw glue at:</span>
@@ -321,10 +303,7 @@ export function PlayerHand() {
                   if (!p || p.isDead) return null;
                   return (
                     <Button 
-                      key={p.id} 
-                      size="sm" 
-                      variant="outline" 
-                      className="border-yellow-500 text-yellow-500 hover:bg-yellow-900/40"
+                      key={p.id} size="sm" variant="outline" className="border-yellow-500 text-yellow-500 hover:bg-yellow-900/40"
                       onClick={() => {
                         send({ type: "playCard", cardId: card.id, targetId: p.id } as any);
                         setSelected(null);
