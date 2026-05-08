@@ -99,9 +99,9 @@ export function PlayerHand() {
       </div>
 
       {/* Ændret fra flex-wrap til flex-nowrap md:flex-wrap og tilføjet gap-2 */}
-      <div className="flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6">
+        <div className="flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6 w-full">
         {(showBackpack ? self.backpack : self.hand).map(c => (
-          /* Pakket ind i shrink-0 så kortene aldrig mases sammen på mobilen, men tvinger et scroll frem */
+          
           <div key={c.id} className="shrink-0 transition-transform hover:-translate-y-2">
             <GameCard
               card={c}

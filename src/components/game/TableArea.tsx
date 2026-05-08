@@ -79,35 +79,36 @@ export function TableArea() {
       )}
 
       {/* Center: decks + table cards */}
-      <div className="flex items-center gap-8 my-6 flex-wrap justify-center">
+      <div className="flex items-center gap-3 md:gap-8 my-6 flex-wrap justify-center relative z-0 pb-16 md:pb-0 w-full px-2">
+        
         {/* Door deck */}
-        <div className="flex items-center gap-8 my-6 flex-wrap justify-center pb-24 md:pb-0">
-          <div className="card-base w-32 h-44 bg-gradient-to-br from-door to-door/60 flex items-center justify-center font-display text-xl text-door-foreground border-2 border-door-foreground/30">
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-to-br from-door to-door/60 flex items-center justify-center font-display text-lg md:text-xl text-door-foreground border-2 border-door-foreground/30">
             🚪 Door
           </div>
-          <span className="text-xs opacity-70 font-ui">{view.doorDeckCount} cards</span>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.doorDeckCount} cards</span>
         </div>
         
         {/* Table */}
-        <div className="flex gap-2 min-w-[10rem] min-h-[12rem] items-center justify-center">
-          {view.table.length === 0 && <div className="opacity-40 italic font-ui">— table empty —</div>}
+        <div className="flex gap-2 min-w-[5rem] min-h-[12rem] items-center justify-center shrink-0">
+          {view.table.length === 0 && <div className="opacity-40 italic font-ui text-sm">— table empty —</div>}
           {view.table.map(c => <GameCard key={c.id} card={c} size="md"/>)}
         </div>
         
         {/* Treasure deck */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="card-base w-32 h-44 bg-gradient-treasure flex items-center justify-center font-display text-xl text-treasure-foreground border-2 border-treasure-foreground/30">
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-treasure flex items-center justify-center font-display text-lg md:text-xl text-treasure-foreground border-2 border-treasure-foreground/30">
             💰 Treasure
           </div>
-          <span className="text-xs opacity-70 font-ui">{view.treasureDeckCount} cards</span>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.treasureDeckCount} cards</span>
         </div>
 
-        {/* --- NYT: DUNGEON DECK --- */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="card-base w-32 h-44 bg-gradient-to-br from-indigo-900 to-purple-950 flex items-center justify-center font-display text-xl text-white border-2 border-purple-500/30">
+        {/* DUNGEON DECK */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-to-br from-indigo-900 to-purple-950 flex items-center justify-center font-display text-lg md:text-xl text-white border-2 border-purple-500/30">
             🏰 Dungeon
           </div>
-          <span className="text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
         </div>
       </div>
 

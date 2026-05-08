@@ -86,7 +86,7 @@ export function CombatPanel() {
   };
 
   return (
-    <div className="bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
+    <div className="relative z-50 mx-auto bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-display text-xl brass-text flex items-center gap-2">
           <Swords className="w-5 h-5"/> Combat
