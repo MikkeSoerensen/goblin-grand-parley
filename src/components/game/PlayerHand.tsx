@@ -98,26 +98,29 @@ export function PlayerHand() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end hand-strip min-h-[12rem] py-2 px-1 overflow-x-auto scroll-thin">
+      {/* Ændret fra flex-wrap til flex-nowrap md:flex-wrap og tilføjet gap-2 */}
+      <div className="flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6">
         {(showBackpack ? self.backpack : self.hand).map(c => (
-          <GameCard
-            key={c.id}
-            card={c}
-            size="md"
-            selected={selected === c.id || sellMode.includes(c.id)}
-            onClick={() => {
-              if (isSelling) {
-                if ((c as any).goldValue !== undefined) {
-                  setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
+          /* Pakket ind i shrink-0 så kortene aldrig mases sammen på mobilen, men tvinger et scroll frem */
+          <div key={c.id} className="shrink-0 transition-transform hover:-translate-y-2">
+            <GameCard
+              card={c}
+              size="md"
+              selected={selected === c.id || sellMode.includes(c.id)}
+              onClick={() => {
+                if (isSelling) {
+                  if ((c as any).goldValue !== undefined) {
+                    setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
+                  }
+                  return;
                 }
-                return;
-              }
-              setSelected(s => s === c.id ? null : c.id);
-            }}
-          />
+                setSelected(s => s === c.id ? null : c.id);
+              }}
+            />
+          </div>
         ))}
         {(showBackpack ? self.backpack : self.hand).length === 0 && (
-          <div className="text-muted-foreground italic px-4 py-8">Empty.</div>
+          <div className="text-muted-foreground italic px-4 py-8 w-full text-center">Empty.</div>
         )}
       </div>
 
