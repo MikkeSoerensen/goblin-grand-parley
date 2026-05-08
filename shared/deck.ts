@@ -119,6 +119,13 @@ export const buildDoorDeck = (): Card[] => {
     2, undefined, { className: "Thief", bonus: 5 }
   ));
 
+  cards.push(...monster(
+    "m-anti-cleric", "The Heretic Archfiend", 16, 4, 2, 
+    { kind: "loseLevelsOrDie", amount: 2, threshold: 2 }, 
+    "Feeds on righteous anger. Lose 2 Levels (or die instantly if you are Level 2 or below).", 
+    2, undefined, { className: "Cleric", bonus: 5 }
+  ));
+
   // Goblin Swarm!
   cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 
   cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));

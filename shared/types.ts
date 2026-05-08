@@ -50,11 +50,12 @@ export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
   | { kind: "loseItem"; slot: string }
   | { kind: "loseAllItems" }
-  | { kind: "death" }
+  | { kind: "death" } 
   | { kind: "loseClass" }
   | { kind: "robinHood" }
   | { kind: "loseClassAndLevels"; amount: number }
-  | { kind: "loseClassAndHand" };
+  | { kind: "loseClassAndHand" }
+  | { kind: "loseLevelsOrDie"; amount: number; threshold: number };
 
 export interface MonsterCard extends BaseCard {
   type: "monster";

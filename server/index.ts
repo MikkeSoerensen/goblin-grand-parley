@@ -294,6 +294,19 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       break;
     }
 
+    case "loseLevelsOrDie": {
+      if (p.level <= bs.threshold) {
+        log(room, `💀 The Archfiend's dark presence is too much! ${p.name} DIES instantly!`);
+        // Vi genbruger din eksisterende death-logik ved at kalde funktionen igen!
+        applyBadStuff(room, p, { kind: "death" }); 
+      } else {
+        const oldLevel = p.level;
+        p.level = Math.max(1, p.level - bs.amount);
+        log(room, `🩸 ${p.name}'s faith is shattered! They lose ${oldLevel - p.level} level(s) → Level ${p.level}.`);
+      }
+      break;
+    }
+
     case "death": {
       log(room, `💀 ${p.name} has DIED.`);
       
@@ -1343,7 +1356,7 @@ const handle = (room: Room, playerId: string, msg: ClientToServer): string | nul
       return null;
     }
 
-case "runAway": {
+    case "runAway": {
       if (!room.combat) return "No combat.";
       if ((room.status as string) !== "runAwayRoll") return "Not run-away phase.";
       if (playerId !== room.combat.attackerId && playerId !== room.combat.helperId) return "Not in this combat.";
