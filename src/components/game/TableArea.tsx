@@ -14,9 +14,9 @@ export function TableArea() {
   const handHasMonster = view.self?.hand.some(c => c.type === "monster") ?? false;
 
   return (
-    <section className="felt-table p-6 flex-1 flex flex-col items-center justify-between min-h-[60vh] relative">
+    <section className="felt-table p-4 md:p-6 flex-1 flex flex-col items-center justify-start gap-4 overflow-y-auto relative min-h-[60vh]">
       {/* Phase / turn banner */}
-      <header className="w-full flex items-center justify-between gap-4">
+      <header className="w-full flex items-center justify-between gap-4 shrink-0">
         <div>
           <div className="text-xs opacity-70 font-ui uppercase tracking-wider">Active</div>
           <div className="font-display text-2xl brass-text">{active?.name}{isMyTurn && " (you)"}</div>
@@ -110,11 +110,11 @@ export function TableArea() {
           </div>
           <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
         </div>
-      </div>
 
-      {/* Game log */}
-      <div className="w-full bg-black/30 rounded-lg p-2 mt-4 max-h-24 overflow-y-auto scroll-thin text-xs font-ui">
-        {view.log.slice(-8).map((l, i) => <div key={i} className="opacity-80">{l}</div>)}
+        {/* Game log */}
+        <div className="w-full mt-auto shrink-0 min-h-[6rem] bg-black/40 rounded-lg p-2 max-h-32 overflow-y-auto scroll-thin text-xs font-ui max-w-2xl mx-auto border border-white/5 relative z-10">
+        {view.log.slice(-8).map((l, i) => <div key={i} className="opacity-80 pb-1">{l}</div>)}
+      </div>
       </div>
     </section>
   );
