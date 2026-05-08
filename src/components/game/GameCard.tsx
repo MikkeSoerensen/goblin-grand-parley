@@ -134,15 +134,15 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
           let label = `${price}g`;
 
           // Tjek dungeons for prisændringer
-          if (activeDungeons.some((d: any) => d.cardId === "d-poverty")) {
+          if (activeDungeons?.some((d: any) => d.cardId === "d-poverty")) {
             price = 0;
             priceColor = "text-red-500 font-bold";
             label = "CANNOT SELL";
-          } else if (activeDungeons.some((d: any) => d.cardId === "d-lavish")) {
+          } else if (activeDungeons?.some((d: any) => d.cardId === "d-lavish")) {
             price = eq.goldValue * 2;
             priceColor = "text-green-400 font-bold";
             label = `${price}g (x2)`;
-          } else if (activeDungeons.some((d: any) => d.cardId === "d-clipping")) {
+          } else if (activeDungeons?.some((d: any) => d.cardId === "d-clipping")) {
             price = Math.max(0, eq.goldValue - 100);
             priceColor = "text-orange-400";
             label = `${price}g (-100)`;
@@ -150,8 +150,22 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
 
           return (
             <>
-              <div className="font-bold">{eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot}{eq.isBig ? " · BIG" : ""}</div>
+              <div className="font-bold">
+                {eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot !== "none" ? eq.slot : ""}{eq.isBig ? " · BIG" : ""}
+              </div>
               <div className={priceColor}>{label}</div>
+              
+              {/* NYT: Viser Class Requirement og effekten (flavor) */}
+              {eq.classReq && (
+                <div className="text-[10px] font-bold text-orange-300 mt-1">
+                  Requires {eq.classReq}
+                </div>
+              )}
+              {eq.flavor && (
+                <div className="text-[10px] italic opacity-80 mt-1 leading-tight line-clamp-3">
+                  {eq.flavor}
+                </div>
+              )}
             </>
           );
         })()}

@@ -131,11 +131,11 @@ export const buildDoorDeck = (): Card[] => {
     "m-anti-wizard", "The Arcane Devourer", 14, 3, 1, 
     { kind: "loseHandEquipAndLevel", amount: 1 }, 
     "Feeds purely on magical energy. Discard your entire hand, all your equipped items, AND lose 1 Level!", 
-    99, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
+    2, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
   ));
 
   // Goblin Swarm!
-  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 3)); 
+  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 6)); 
   cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
   cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
   cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 2));
@@ -155,10 +155,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...curse("c-robin-hood", "Curse! Robin Hood's Revenge", { kind: "robinHood" }, "Give your most expensive equipped item to the player with the lowest level.", 2));
 
   // Classes
-  cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
+  cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 30));
   cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
-  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 99));
+  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   // Special Cards
   cards.push(...wanderingMonster(2));
@@ -215,20 +215,20 @@ export const buildTreasureDeck = (): Card[] => {
 
   // --- CLASS UNIQUE EQUIPMENT ---
   // Warrior
-  cards.push(...equipment("e-bloodaxe", "The Berserker's Bloodaxe", 3, 800, "twoHands", false, 1, "Your Berserk ability gives +2 per card instead of +1!", "Warrior"));
-  cards.push(...equipment("e-blood-plate", "Blood-Spattered Plate", 3, 600, "armor", false, 1, "Gives +3 extra bonus if fighting more than 1 monster.", "Warrior"));
+  cards.push(...equipment("e-bloodaxe", "The Berserker's Bloodaxe", 3, 800, "twoHands", false, 2, "Your Berserk ability gives +2 per card instead of +1!", "Warrior"));
+  cards.push(...equipment("e-blood-plate", "Blood-Spattered Plate", 3, 600, "armor", false, 200, "Gives +3 extra bonus if fighting more than 1 monster.", "Warrior"));
   
   // Thief
-  cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 1, "Gives +1 to all Run Away rolls.", "Thief"));
-  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 1, "Your Steal ability succeeds on a roll of 3-6.", "Thief"));
+  cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 2, "Gives +1 to all Run Away rolls.", "Thief"));
+  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 2, "Your Steal ability succeeds on a roll of 3-6.", "Thief"));
   
   // Cleric
-  cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 1, "Gives +3 extra bonus when helping another player.", "Cleric"));
-  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 1, "If you are about to die, discard this to survive with 1 HP.", "Cleric"));
+  cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 2, "Gives +3 extra bonus when helping another player.", "Cleric"));
+  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 2, "If you are about to die, discard this to survive with 1 HP.", "Cleric"));
   
   // Wizard
-  cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 1, "Immune to face-up Curses drawn from the door deck.", "Wizard"));
-  cards.push(...equipment("e-archmage-staff", "Staff of the Archmage", 4, 800, "twoHands", false, 1, "Your Charm spell only costs 2 cards instead of 3.", "Wizard"));
+  cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 2, "Immune to face-up Curses drawn from the door deck.", "Wizard"));
+  cards.push(...equipment("e-archmage-staff", "Staff of the Archmage", 4, 800, "twoHands", false, 2, "Your Charm spell only costs 2 cards instead of 3.", "Wizard"));
 
   // One-shots
   cards.push(...oneShot("o-potion-h", "Potion of Halitosis", 2, 100, "monster", 2));
