@@ -104,10 +104,14 @@ export function PlayerHand() {
         </div>
       </div>
 
-      {/* Ændret fra flex-wrap til flex-nowrap md:flex-wrap og tilføjet gap-2 */}
-        <div className="flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6 w-full">
+      {/* Cards: wrap on mobile (vertical scroll), horizontal-scroll strip on desktop */}
+        <div className={
+          isMobile
+            ? "flex flex-wrap items-start gap-2 py-2 px-1 overflow-y-auto flex-1 min-h-0 justify-center content-start"
+            : "flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6 w-full"
+        }>
         {(showBackpack ? self.backpack : self.hand).map(c => (
-          
+
           <div key={c.id} className="shrink-0 transition-transform hover:-translate-y-2">
             <GameCard
               card={c}
