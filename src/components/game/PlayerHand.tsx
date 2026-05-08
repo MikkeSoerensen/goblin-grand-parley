@@ -4,9 +4,12 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export function PlayerHand() {
   const view = useGame(s => s.view);
+  const isMobile = useIsMobile();
   const [selected, setSelected] = useState<string | null>(null);
   const [showBackpack, setShowBackpack] = useState(false);
   const [sellMode, setSellMode] = useState<string[]>([]);
@@ -73,7 +76,11 @@ export function PlayerHand() {
   }, 0);
 
   return (
-    <div className="bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-3 shadow-card">
+    <div className={
+      isMobile
+        ? "bg-popover/95 backdrop-blur p-3 min-h-full flex flex-col gap-2"
+        : "bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-3 shadow-card"
+    }>
       <div className="flex items-center justify-between mb-2 gap-2">
         <h3 className="font-display text-lg brass-text flex items-center gap-2">
           <Hand className="w-5 h-5"/> {showBackpack ? "Backpack" : "Hand"} ({showBackpack ? self.backpack.length : self.hand.length})
@@ -98,10 +105,14 @@ export function PlayerHand() {
         </div>
       </div>
 
-      {/* Ændret fra flex-wrap til flex-nowrap md:flex-wrap og tilføjet gap-2 */}
-        <div className="flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6 w-full">
+      {/* Cards: wrap on mobile (vertical scroll), horizontal-scroll strip on desktop */}
+        <div className={
+          isMobile
+            ? "flex flex-wrap items-start gap-2 py-2 px-1 overflow-y-auto flex-1 min-h-0 justify-center content-start"
+            : "flex flex-nowrap md:flex-wrap items-end gap-3 min-h-[14rem] py-4 px-2 overflow-x-auto scroll-thin pb-6 w-full"
+        }>
         {(showBackpack ? self.backpack : self.hand).map(c => (
-          
+
           <div key={c.id} className="shrink-0 transition-transform hover:-translate-y-2">
             <GameCard
               card={c}
@@ -125,8 +136,13 @@ export function PlayerHand() {
       </div>
 
       {card && !isSelling && (
-        <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-2 items-center">
-          <span className="font-display text-sm opacity-80">{card.name}:</span>
+        <div className={cn(
+          "flex flex-wrap gap-2 border-t border-border pt-2 items-center",
+          isMobile
+            ? "sticky bottom-0 left-0 right-0 bg-popover/98 backdrop-blur -mx-3 -mb-3 px-3 pb-3 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.4)] z-20 max-h-[40vh] overflow-y-auto"
+            : "mt-2",
+        )}>
+          <span className="font-display text-sm opacity-80 w-full sm:w-auto">{card.name}:</span>
           
           {/* Udstyr - NYT: Tjekker Class Requirements! */}
           {card.type === "equipment" && isMyTurn && !inCombat && (
