@@ -166,8 +166,9 @@ export default function Index() {
       </div>
 
       {/* Bottom tab bar */}
+{/* Bottom tab bar */}
       <nav
-        className="shrink-0 grid grid-cols-4 bg-popover/95 backdrop-blur border-t border-border"
+        className="shrink-0 flex flex-row justify-center items-center gap-4 bg-popover/95 backdrop-blur border-t border-border px-2"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {tabs.map(t => {
@@ -180,7 +181,7 @@ export default function Index() {
               disabled={t.disabled}
               onClick={() => setTab(t.id)}
               className={cn(
-                "relative flex flex-col items-center justify-center py-2 gap-0.5 transition-colors min-h-[56px]",
+                "relative flex flex-col items-center justify-center py-2 gap-0.5 transition-colors min-h-[56px] min-w-[4.5rem]", /* Tilføjet min-w så de får en flot, ensartet bredde */
                 active ? "text-primary" : "text-muted-foreground",
                 t.disabled && "opacity-40",
                 !t.disabled && !active && "hover:text-foreground active:bg-muted/40",
@@ -191,7 +192,7 @@ export default function Index() {
               {t.badge && !active && (
                 <span className="absolute top-1 right-1/2 translate-x-5 w-2.5 h-2.5 rounded-full bg-accent shadow-glow-brass animate-pulse" />
               )}
-              {active && <span className="absolute top-0 left-3 right-3 h-0.5 bg-primary rounded-full" />}
+              {active && <span className="absolute top-0 left-2 right-2 h-0.5 bg-primary rounded-full" />}
             </button>
           );
         })}
