@@ -10,7 +10,7 @@ const tid = (p: string) => `t-${p}-${++seq}`;
 
 export const monster = (level: number, badStuff: BadStuffKind = { kind: "loseLevel", amount: 1 }, extra: Partial<MonsterCard> = {}): MonsterCard => ({
   id: tid("m"), cardId: "m-test", name: `Test Monster ${level}`, type: "monster", deck: "door",
-  level, treasures: 1, levelsAwarded: 1, badStuff, badStuffText: "test", ...extra,
+  level, treasures: 1, levelsAwarded: 1, badStuff, badStuffText: "test", ...extra, tags: extra.tags ?? [],
 });
 
 export const equipment = (bonus: number, goldValue: number, slot: Slot = "head", extra: Partial<EquipmentCard> = {}): EquipmentCard => ({

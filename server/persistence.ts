@@ -4,6 +4,8 @@
 import { promises as fs, renameSync, writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 
+import { MONSTER_TAGS } from "../shared/deck.js";
+import type { Card } from "../shared/types.js";
 import type { Room } from "./engine.js";
 
 const SNAPSHOT_VERSION = 1;
@@ -27,6 +29,26 @@ export const serializeRooms = (rooms: Map<string, Room>): string => {
   return JSON.stringify(snap);
 };
 
+// Every card instance in a room, wherever it currently is.
+const allCards = (r: Room): Card[] => [
+  ...r.decks.door, ...r.decks.treasure, ...r.decks.dungeon,
+  ...r.discards.door, ...r.discards.treasure, ...r.discards.dungeon,
+  ...r.table, ...(r.combat?.monsters ?? []), ...(r.looting?.pile ?? []),
+  ...r.players.flatMap(p => [...p.hand, ...p.backpack]),
+];
+
+// Brings snapshots written by older versions up to the current shape.
+const migrateRoom = (r: Room) => {
+  r.statusBeforeLooting = r.statusBeforeLooting ?? null;
+  for (const p of r.players) {
+    p.equipment.none = p.equipment.none ?? []; // before slotless items existed
+    p.effects = p.effects ?? [];               // before lasting effects existed
+  }
+  for (const c of allCards(r)) {
+    if (c.type === "monster" && !Array.isArray(c.tags)) c.tags = [...(MONSTER_TAGS[c.cardId] ?? [])];
+  }
+};
+
 // Restored players start offline; they come back via their session token.
 export const deserializeRooms = (json: string, now = Date.now()): Map<string, Room> => {
   const data: unknown = JSON.parse(json);
@@ -39,11 +61,8 @@ export const deserializeRooms = (json: string, now = Date.now()): Map<string, Ro
   for (const r of snap.rooms) {
     if (!isRoomLike(r)) continue;
     if (now - (r.updatedAt ?? 0) > ROOM_TTL_MS) continue;
-    r.statusBeforeLooting = r.statusBeforeLooting ?? null;
-    for (const p of r.players) {
-      p.connected = false;
-      p.equipment.none = p.equipment.none ?? []; // saves from before slotless items existed
-    }
+    migrateRoom(r);
+    for (const p of r.players) p.connected = false;
     rooms.set(r.code, r);
   }
   return rooms;

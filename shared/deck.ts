@@ -1,11 +1,20 @@
 import type {
   Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
   GoUpLevelCard, BadStuffKind, Slot, ClassCard, WanderingMonsterCard, MateCard,
-  PortalCard, DungeonCard // <--- NYE
+  PortalCard, DungeonCard, MonsterTag,
 } from "./types";
 
 let _id = 0;
 const uid = () => `c${++_id}`;
+
+// Rule tags per monster (catalog id). Untagged monsters simply have no tags.
+export const MONSTER_TAGS: Readonly<Record<string, MonsterTag[]>> = {
+  "m-baby": ["goblin"], "m-gob-grunt": ["goblin"], "m-gob-archer": ["goblin"],
+  "m-gob-cripple": ["goblin"], "m-gob-king": ["goblin"],
+  "m-undead": ["undead"], "m-wraith": ["undead"], "m-mummy": ["undead"], "m-vamp": ["undead"],
+  "m-anti-wizard": ["magical"], "m-floating": ["magical"], "m-laser": ["magical"],
+  "m-pit": ["beast"], "m-flying": ["beast"], "m-large": ["beast"], "m-snails": ["beast"], "m-flat": ["beast"],
+};
 
 // ---------- helpers ----------
 const monster = (
@@ -16,7 +25,7 @@ const monster = (
 ): MonsterCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "monster", deck: "door",
   level, treasures, levelsAwarded, badStuff, badStuffText, flavor,
-  antiClass, immuneToCharm // NY
+  antiClass, immuneToCharm, tags: [...(MONSTER_TAGS[cardId] ?? [])],
 }));
 
 const equipment = (
@@ -95,7 +104,7 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-pit",   "Pit Bull",          8, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your boots off.", 3));
   cards.push(...monster("m-large", "Large Angry Chicken", 2, 1, 1, { kind: "loseLevel", amount: 1 }, "Pecked. Lose 1 level.", 3));
   cards.push(...monster("m-net",   "Net Troll",         8, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
-  cards.push(...monster("m-amazon","Amazon",           8, 2, 1, { kind: "loseAllItems" }, "Lose all hand items.", 1));
+  cards.push(...monster("m-amazon","Amazon",           8, 2, 1, { kind: "loseHandItems" }, "Lose all hand items.", 1));
   cards.push(...monster("m-leper", "Leperchaun",        4, 1, 1, { kind: "loseItem", slot: "any" }, "Steals one item.", 2));
   cards.push(...monster("m-snails","Maul Rat",          1, 1, 1, { kind: "loseLevel", amount: 1 }, "Bitten. Lose 1 level.", 3));
   cards.push(...monster("m-flat",  "Flying Squirrel",   2, 1, 1, { kind: "loseItem", slot: "head" }, "Knocks your hat off.", 2));
@@ -156,7 +165,7 @@ export const buildDoorDeck = (): Card[] => {
 
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
-  cards.push(...classCard("c-cleric", "Cleric", "When drawing face-up, you may draw the top discard instead by discarding one card.", 3));
+  cards.push(...classCard("c-cleric", "Cleric", "Resurrection: at the start of your turn, instead of kicking open the door, discard a card to take the top card of the Door discard pile.", 3));
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
@@ -189,7 +198,6 @@ export const buildTreasureDeck = (): Card[] => {
 
   // Equipment — feet
   cards.push(...equipment("e-boots",   "Boots of Butt-Kicking", 2, 400, "feet", false, 2));
-  cards.push(...equipment("e-running", "Boots of Running Really Fast", 0, 400, "feet", false, 1));
   cards.push(...equipment("e-stomping","Stomping Boots",    3, 700, "feet", true, 1));
 
   // Equipment — hands (single)
@@ -224,7 +232,7 @@ export const buildTreasureDeck = (): Card[] => {
   
   // Cleric
   cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 2, "Gives +3 extra bonus when helping another player.", "Cleric"));
-  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 2, "If you are about to die, discard this to survive with 1 HP.", "Cleric"));
+  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 2, "If you would die, discard this instead. You survive with everything else.", "Cleric"));
   
   // Wizard
   cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 2, "Immune to face-up Curses drawn from the door deck.", "Wizard"));

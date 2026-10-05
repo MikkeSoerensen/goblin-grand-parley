@@ -1,4 +1,5 @@
-import { Card, EquipmentCard, MonsterCard, ClassCard } from "../../../shared/types";
+import { Card, EquipmentCard, MonsterCard, ClassCard, ClassName } from "../../../shared/types";
+import { hasClass, hasTag } from "../../../shared/rules";
 import { cn } from "@/lib/utils";
 import { useGame } from "@/lib/store";
 
@@ -94,7 +95,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
             let modifiedLevel = m.level;
             if (activeDungeons.some(d => d.cardId === "d-martial")) modifiedLevel += 2;
             if (activeDungeons.some(d => d.cardId === "d-feeble")) modifiedLevel = Math.max(1, modifiedLevel - 5);
-            if (activeDungeons.some(d => d.cardId === "d-goblin") && m.name.toLowerCase().includes("goblin")) {
+            if (activeDungeons.some(d => d.cardId === "d-goblin") && hasTag(m, "goblin")) {
               modifiedLevel += 3;
             }
             diff += (modifiedLevel - m.level); 
@@ -110,7 +111,8 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
             const hlp = view.combat.helperId ? view.players.find(p => p.id === view.combat!.helperId) : null;
             
             // Hvis angriberen eller hjælperen er den hadede class, får den sin bonus!
-            if (atk?.playerClass?.name === m.antiClass.className || hlp?.playerClass?.name === m.antiClass.className) {
+            const hated = m.antiClass.className as ClassName;
+            if ((atk && hasClass(atk, hated)) || (hlp && hasClass(hlp, hated))) {
               diff += m.antiClass.bonus;
             }
           }

@@ -50,6 +50,7 @@ export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
   | { kind: "loseItem"; slot: Slot | "any" | "biggest" }
   | { kind: "loseAllItems" }
+  | { kind: "loseHandItems" }
   | { kind: "death" } 
   | { kind: "loseClass" }
   | { kind: "robinHood" }
@@ -57,6 +58,9 @@ export type BadStuffKind =
   | { kind: "loseClassAndHand" }
   | { kind: "loseLevelsOrDie"; amount: number; threshold: number }
   | { kind: "loseHandEquipAndLevel"; amount: number };
+
+// Rule tags on monsters; dungeons, races and items key off these (never off the name).
+export type MonsterTag = "goblin" | "undead" | "magical" | "beast";
 
 export interface MonsterCard extends BaseCard {
   type: "monster";
@@ -69,6 +73,7 @@ export interface MonsterCard extends BaseCard {
   // NYE: Usynlige særregler til boss-monstre!
   antiClass?: { className: string; bonus: number };
   immuneToCharm?: boolean;
+  tags: MonsterTag[];
 }
 
 export interface EquipmentCard extends BaseCard {
@@ -88,10 +93,32 @@ export interface CurseCard extends BaseCard {
   effectText: string;
 }
 
+export type ClassName = "Warrior" | "Cleric" | "Thief" | "Wizard";
+
 export interface ClassCard extends BaseCard {
   type: "class";
-  className: "Warrior" | "Cleric" | "Thief" | "Wizard";
+  className: ClassName;
   effectText: string;
+}
+
+// Lasting status effects on a player (persistent curses etc.). Visible to everyone.
+export type EffectKind =
+  | "dicePenalty"     // −amount on every die roll (Run Away, Steal)
+  | "combatPenalty"   // −amount to your side in combat
+  | "noHelp"          // nobody can help you in combat
+  | "halfSellValue";  // your items sell for half
+export type EffectExpiry =
+  | "permanent"       // until removed by a card
+  | "afterNextCombat" // removed when a combat you fought in ends
+  | "afterCombatWin"; // removed when you win a combat
+
+export interface PlayerEffect {
+  id: string;
+  kind: EffectKind;
+  amount: number;
+  name: string;         // shown to players, e.g. "Goblin on Your Head"
+  sourceCardId: string; // catalog id of the card that caused it
+  expires: EffectExpiry;
 }
 
 export interface PortalCard extends BaseCard {
@@ -182,6 +209,7 @@ export interface PublicPlayer {
   isDead: boolean;
   connected: boolean;
   playerClass: ClassCard | null;
+  effects: PlayerEffect[];
 }
 
 export interface PrivatePlayer extends PublicPlayer {

@@ -5,10 +5,11 @@
 import { randomBytes, randomUUID } from "crypto";
 
 import { buildAllDecks } from "../shared/deck.js";
+import { effectTotal, hasClass, hasEffect, hasTag } from "../shared/rules.js";
 import type {
-  Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
+  ClassName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
-  NegotiationOffer, BadStuffKind, GameAction, ServerToClient,
+  NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect,
 } from "../shared/types.js";
 
 // ---------- randomness (injectable for deterministic tests) ----------
@@ -104,6 +105,7 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   handCount: p.hand.length, backpackCount: p.backpack.length,
   combatPower: computePower(p), isDead: p.isDead, connected: p.connected,
   playerClass: p.playerClass,
+  effects: p.effects,
 });
 
 const monsterTotal = (room: Room, c: CombatState): number => {
@@ -112,22 +114,23 @@ const monsterTotal = (room: Room, c: CombatState): number => {
     let lvl = m.level;
     if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
     if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
-    if (hasDungeon(room, "d-goblin") && m.name.toLowerCase().includes("goblin")) lvl += 3; // Goblin Land
+    if (hasDungeon(room, "d-goblin") && hasTag(m, "goblin")) lvl += 3; // Goblin Land
     // Anti-Class: bonus hvis angriber ELLER hjælper er den forhadte class.
-    if (m.antiClass && fighters.some(f => f?.playerClass?.className === m.antiClass!.className)) lvl += m.antiClass.bonus;
+    const hated = m.antiClass;
+    if (hated && fighters.some(f => f && hasClass(f, hated.className as ClassName))) lvl += hated.bonus;
     return s + lvl;
   }, 0) + c.monsterBonuses;
 };
 
 const playerSideTotal = (room: Room, c: CombatState): number => {
   const a = room.players.find(p => p.id === c.attackerId);
-  let total = (a ? computePower(a) : 0) + c.attackerBonuses;
+  let total = (a ? computePower(a) - effectTotal(a, "combatPenalty") : 0) + c.attackerBonuses;
   const multiMonster = c.monsters.length > 1;
   if (a && multiMonster && a.equipment.armor?.cardId === "e-blood-plate") total += 3;
   if (c.helperId) {
     const h = room.players.find(p => p.id === c.helperId);
     if (h) {
-      total += computePower(h);
+      total += computePower(h) - effectTotal(h, "combatPenalty");
       if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) total += 3;
       if (multiMonster && h.equipment.armor?.cardId === "e-blood-plate") total += 3;
     }
@@ -263,7 +266,7 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
     level: 1,
     equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] },
     hand: [], backpack: [], handCount: 0, backpackCount: 0,
-    combatPower: 1, isDead: false, connected: true,
+    combatPower: 1, isDead: false, connected: true, effects: [],
     playerClass: null,
   };
   const token = newToken();
@@ -284,15 +287,35 @@ export const setConnected = (room: Room, playerId: string, connected: boolean) =
   room.updatedAt = Date.now();
 };
 
+// ---------- lasting effects ----------
+export const addEffect = (room: Room, p: PrivatePlayer, effect: Omit<PlayerEffect, "id">): PlayerEffect => {
+  const e: PlayerEffect = { ...effect, id: newId() };
+  p.effects.push(e);
+  log(room, `🌀 ${p.name} is now affected by ${e.name}.`);
+  return e;
+};
+
+export const removeEffect = (room: Room, p: PrivatePlayer, effectId: string): boolean => {
+  const idx = p.effects.findIndex(e => e.id === effectId);
+  if (idx < 0) return false;
+  const [e] = p.effects.splice(idx, 1);
+  log(room, `✨ ${e.name} is lifted from ${p.name}.`);
+  return true;
+};
+
+const expireEffects = (room: Room, p: PrivatePlayer, when: EffectExpiry) => {
+  for (const e of p.effects.filter(x => x.expires === when)) removeEffect(room, p, e.id);
+};
+
 // ---------- equipment helpers ----------
 const handsUsed = (p: PrivatePlayer): number =>
   p.equipment.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
 
 const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
-  if (card.cardId === "e-kneepads" && p.playerClass?.name === "Warrior") {
+  if (card.cardId === "e-kneepads" && hasClass(p, "Warrior")) {
     return "Warriors are too proud to wear the Kneepads of Allure!";
   }
-  if (card.classReq && p.playerClass?.className !== card.classReq) {
+  if (card.classReq && !hasClass(p, card.classReq)) {
     return `Only a ${card.classReq} can equip this item!`;
   }
   if (card.isBig && p.equipment.bigItem) return "You already have a Big item equipped.";
@@ -349,7 +372,7 @@ const allEquipped = (p: PrivatePlayer): EquipmentCard[] => {
 // Udstyr med classReq glider ned i rygsækken, når spilleren ikke længere har den class.
 const validateClassEquipment = (room: Room, p: PrivatePlayer) => {
   for (const eq of allEquipped(p)) {
-    if (eq.classReq && p.playerClass?.className !== eq.classReq) {
+    if (eq.classReq && !hasClass(p, eq.classReq)) {
       removeEquipped(p, eq.id);
       p.backpack.push(eq);
       log(room, `🎒 ${p.name} is no longer a ${eq.classReq}! Their ${eq.name} slides off into their backpack!`);
@@ -413,6 +436,14 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         room.discards.treasure.push(target);
         log(room, `${p.name} loses ${target.name}.`);
       } else log(room, `${p.name} has no matching item to lose.`);
+      break;
+    }
+    case "loseHandItems": {
+      const hands = [...p.equipment.hands];
+      if (hands.length === 0) { log(room, `${p.name} has nothing in their hands to lose.`); break; }
+      p.equipment.hands = [];
+      for (const h of hands) room.discards.treasure.push(h);
+      log(room, `${p.name} loses everything in their hands: ${hands.map(h => h.name).join(", ")}.`);
       break;
     }
     case "loseAllItems": {
@@ -522,6 +553,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
       p.backpack = []; p.hand = [];
       p.isDead = true;
+      p.effects = [];
       // Looting order: highest level opponents first, excluding dead one.
       const order = room.players
         .filter(o => o.id !== p.id && !o.isDead)
@@ -610,9 +642,15 @@ const discardMonster = (room: Room, m: MonsterCard) => {
   if (!m.id.includes(MATE_CLONE_MARK)) room.discards.door.push(m);
 };
 
-const endCombat = (room: Room) => {
+const endCombat = (room: Room, won = false) => {
   const c = room.combat;
   if (!c) return;
+  for (const id of [c.attackerId, c.helperId]) {
+    const f = id ? room.players.find(p => p.id === id) : undefined;
+    if (!f) continue;
+    expireEffects(room, f, "afterNextCombat");
+    if (won) expireEffects(room, f, "afterCombatWin");
+  }
   for (const m of c.monsters) discardMonster(room, m);
   room.table = room.table.filter(t => !c.monsters.some(m => m.id === t.id));
   room.combat = null;
@@ -882,6 +920,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         let val = goldValueOf(c);
         if (hasDungeon(room, "d-clipping")) val = Math.max(0, val - 100);
         if (hasDungeon(room, "d-lavish")) val *= 2;
+        if (hasEffect(player, "halfSellValue")) val = Math.floor(val / 2);
         totalGold += val;
       }
 
@@ -1036,8 +1075,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (card.type === "monster") {
         // Undead-dungeon, eller GOBLIN-SVÆRMEN: en Goblin må spilles direkte ind, hvis der allerede er en Goblin i kampen.
         const undead = hasDungeon(room, "d-undead");
-        const goblinSwarm = card.name.toLowerCase().includes("goblin")
-          && combat.monsters.some(m => m.name.toLowerCase().includes("goblin"));
+        const goblinSwarm = hasTag(card, "goblin") && combat.monsters.some(m => hasTag(m, "goblin"));
         if (!undead && !goblinSwarm) return "Card cannot be played in combat.";
 
         player.hand.splice(idx, 1);
@@ -1080,7 +1118,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     case "useClassAbility": {
       // 1. Cleric (Kræver IKKE kamp)
       if (msg.ability === "resurrect") {
-        if (player.playerClass?.name !== "Cleric") return "Not a Cleric.";
+        if (!hasClass(player, "Cleric")) return "Not a Cleric.";
         if (!isActive(room, playerId)) return "Not your turn.";
         if (room.status !== "normalTurn" || room.currentPhase !== 1) return "Can only resurrect Door cards at the start of your turn (Phase 1).";
         if (room.discards.door.length === 0) return "Door discard pile is empty.";
@@ -1119,7 +1157,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       // TYV: Steal (Må KUN gøres UDEN for kamp)
       if (msg.ability === "steal") {
-        if (player.playerClass?.name !== "Thief") return "Not a Thief.";
+        if (!hasClass(player, "Thief")) return "Not a Thief.";
         if (room.combat) return "Cannot steal while a combat is active.";
         if (msg.cardIds.length !== 1) return "Must discard exactly 1 card to steal.";
         if (!msg.targetId || !msg.targetCardId) return "Target player or item missing.";
@@ -1139,6 +1177,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         // Slå med terningen! (Sendes ud til alle ligesom "Run Away")
         let roll = rollD6();
         if (hasDungeon(room, "d-thieves")) roll += 2; // Thieving Thugs
+        roll -= effectTotal(player, "dicePenalty");
         pendingEvents.push({ type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
 
         const reqRoll = player.equipment.hands.some(h => h.cardId === "e-lockpicks") ? 3 : 4;
@@ -1163,7 +1202,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const c = room.combat;
 
       if (msg.ability === "berserk") {
-        if (player.playerClass?.name !== "Warrior") return "Not a Warrior.";
+        if (!hasClass(player, "Warrior")) return "Not a Warrior.";
         if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to go berserk.";
 
         c.warriorDiscardCount = c.warriorDiscardCount || {};
@@ -1191,7 +1230,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       if (msg.ability === "backstab") {
-        if (player.playerClass?.name !== "Thief") return "Not a Thief.";
+        if (!hasClass(player, "Thief")) return "Not a Thief.";
         if (!msg.targetId) return "No target specified.";
         const target = room.players.find(p => p.id === msg.targetId);
         if (!target) return "Target not found.";
@@ -1216,7 +1255,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       if (msg.ability === "charm") {
-        if (player.playerClass?.name !== "Wizard") return "Not a Wizard.";
+        if (!hasClass(player, "Wizard")) return "Not a Wizard.";
         if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to charm.";
         if (!msg.monsterId) return "No monster selected.";
         const reqCards = player.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
@@ -1250,6 +1289,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (hasDungeon(room, "d-bribery") && msg.treasures < 2) return "Dungeon of Blatant Bribery: You must offer at least 2 treasures!";
       if (!room.combat || room.combat.attackerId !== playerId) return "Only attacker may request help.";
       if (combatDecided(room)) return "The fight is decided — time to run!";
+      if (hasEffect(player, "noHelp")) return "Nobody is willing to help you right now (Social Pariah).";
       if (room.combat.helperId) return "Already have a helper.";
       const helper = room.players.find(p => p.id === msg.helperId);
       if (!helper || helper.id === playerId || helper.isDead) return "Invalid helper.";
@@ -1268,6 +1308,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     case "forceHelp": {
       if (!room.combat || room.combat.attackerId !== playerId) return "Only attacker can force help.";
       if (combatDecided(room)) return "The fight is decided — time to run!";
+      if (hasEffect(player, "noHelp")) return "Nobody is willing to help you right now (Social Pariah).";
       if (room.combat.helperId) return "Already have a helper.";
       if (player.equipment.feet?.cardId !== "e-kneepads") return "You do not have the Kneepads of Allure equipped.";
 
@@ -1332,7 +1373,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const ms = monsterTotal(room, c);
       const ps = playerSideTotal(room, c);
 
-      const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
+      const hasWarrior = hasClass(attacker, "Warrior") || (helper !== null && hasClass(helper, "Warrior"));
 
       log(room, `Resolution: Players ${ps} vs Monsters ${ms}.${hasWarrior ? " (Warrior tie-breaker active!)" : ""}`);
 
@@ -1356,7 +1397,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         attacker.level += totalLevels;
         log(room, `🏆 Victory! +${totalLevels} level(s), +${attackerShare} treasure(s) to ${attacker.name}${helper ? `, +${helperShare} to ${helper.name}` : ""}.`);
 
-        endCombat(room);
+        endCombat(room, true);
         refreshDerived(attacker);
         if (helper) refreshDerived(helper);
         room.status = "normalTurn";
@@ -1407,6 +1448,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       // DUNGEONS: Ændrer terningeslaget (Elven Excess & Poultry)
       if (hasDungeon(room, "d-elven")) roll++;
       if (hasDungeon(room, "d-poultry")) roll--;
+      roll -= effectTotal(player, "dicePenalty");
 
       pendingEvents.push({ type: "rolled", playerId, result: roll, reason: "Run Away" });
       log(room, `🎲 ${player.name} rolls ${roll} to run away.`);

@@ -238,7 +238,7 @@ describe("newer dungeons and curses", () => {
   it("Goblin Land gives goblins +3", () => {
     const t = startedTable(2);
     t.room.activeDungeons.push(dungeon("d-goblin"));
-    fight(t, 1, { name: "Goblin Grunt" });
+    fight(t, 1, { name: "Goblin Grunt", tags: ["goblin"] });
     expect(totals(t).monsters).toBe(4);
   });
 

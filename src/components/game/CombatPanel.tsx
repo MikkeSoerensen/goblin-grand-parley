@@ -2,6 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useState } from "react";
+import { hasClass } from "../../../shared/rules";
 import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
 export function CombatPanel() {
@@ -25,7 +26,7 @@ export function CombatPanel() {
   const { monsterTotal, playerTotal } = c;
   
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
-  const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
+  const hasWarrior = hasClass(attacker, "Warrior") || (!!helper && hasClass(helper, "Warrior"));
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
   
   let totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);

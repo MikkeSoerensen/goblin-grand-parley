@@ -1,6 +1,19 @@
 import { useGame } from "@/lib/store";
+import type { EffectExpiry, EffectKind } from "../../../shared/types";
 import { cn } from "@/lib/utils";
 import { Crown, Heart, Swords, Wifi, WifiOff } from "lucide-react";
+
+const EFFECT_TEXT: Record<EffectKind, (amount: number) => string> = {
+  dicePenalty: n => `−${n} on every die roll`,
+  combatPenalty: n => `−${n} in combat`,
+  noHelp: () => "nobody can help you in combat",
+  halfSellValue: () => "your items sell for half",
+};
+const EXPIRY_TEXT: Record<EffectExpiry, string> = {
+  permanent: "until removed",
+  afterNextCombat: "until your next combat ends",
+  afterCombatWin: "until you win a combat",
+};
 
 export function Scoreboard() {
   const view = useGame(s => s.view);
@@ -49,6 +62,21 @@ export function Scoreboard() {
                 )}
               </div>
               
+              {/* Lasting effects (persistent curses etc.) — the tooltip says when they wear off */}
+              {p.effects.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {p.effects.map(e => (
+                    <span
+                      key={e.id}
+                      className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive border border-destructive/40 cursor-help"
+                      title={`${e.name}: ${EFFECT_TEXT[e.kind](e.amount)} — ${EXPIRY_TEXT[e.expires]}`}
+                    >
+                      🌀 {e.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Public equipment */}
               {(p.equipment.head || p.equipment.armor || p.equipment.feet || p.equipment.bigItem || p.equipment.hands.length > 0) && (
                 <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-ui opacity-80">

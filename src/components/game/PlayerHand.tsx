@@ -3,6 +3,7 @@ import { GameCard } from "./GameCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
+import { hasClass, hasTag } from "../../../shared/rules";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -149,7 +150,7 @@ export function PlayerHand() {
           {/* Udstyr - NYT: Tjekker Class Requirements! */}
           {card.type === "equipment" && isMyTurn && !inCombat && (
             <>
-              {card.classReq && self.playerClass?.className !== card.classReq ? (
+              {card.classReq && !hasClass(self, card.classReq) ? (
                 <Button size="sm" variant="secondary" disabled className="opacity-50">
                   <Shield className="w-4 h-4 mr-1"/>Requires {card.classReq}
                 </Button>
@@ -195,7 +196,7 @@ export function PlayerHand() {
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
           )}
 
-          {card.type === "monster" && card.name.toLowerCase().includes("goblin") && view.combat && view.combat.monsters.some(m => m.name.toLowerCase().includes("goblin")) && (
+          {card.type === "monster" && hasTag(card, "goblin") && view.combat && view.combat.monsters.some(m => hasTag(m, "goblin")) && (
             <Button size="sm" variant="outline" className="border-green-500 text-green-500" onClick={() => {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
@@ -216,7 +217,7 @@ export function PlayerHand() {
           )}
 
           {/* CLASS ABILITIES */}
-          {view.combat && self.playerClass?.name === "Warrior" && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (() => {
+          {view.combat && hasClass(self, "Warrior") && (view.combat.attackerId === self.id || view.combat.helperId === self.id) && (() => {
             // NYT: Tjekker om de har The Berserker's Bloodaxe!
             const hasAxe = self.equipment.hands.some(h => h.cardId === "e-bloodaxe");
             return (
@@ -229,7 +230,7 @@ export function PlayerHand() {
             );
           })()}
 
-          {view.combat && self.playerClass?.name === "Thief" && (
+          {view.combat && hasClass(self, "Thief") && (
             <Button size="sm" variant="outline" className="border-purple-500 text-purple-500" onClick={() => {
               send({ type: "useClassAbility", ability: "backstab", cardIds: [card.id], targetId: view.combat!.attackerId });
               setSelected(null);
@@ -239,7 +240,7 @@ export function PlayerHand() {
           )}
 
           {/* Thief: STEAL MENU */}
-          {self.playerClass?.name === "Thief" && !inCombat && (() => {
+          {hasClass(self, "Thief") && !inCombat && (() => {
              // NYT: Tjekker om de har Master Thief's Lockpicks
              const hasPicks = self.equipment.hands.some(h => h.cardId === "e-lockpicks");
              return (
@@ -274,7 +275,7 @@ export function PlayerHand() {
              );
           })()}
 
-          {self.playerClass?.name === "Cleric" && isMyTurn && view.currentPhase === 1 && view.status === "normalTurn" && (
+          {hasClass(self, "Cleric") && isMyTurn && view.currentPhase === 1 && view.status === "normalTurn" && (
             <Button size="sm" variant="outline" className="border-yellow-500 text-yellow-500" onClick={() => {
               send({ type: "useClassAbility", ability: "resurrect", cardIds: [card.id] });
               setSelected(null);
