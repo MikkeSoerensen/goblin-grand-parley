@@ -100,6 +100,13 @@ export function CombatPanel() {
         </div>
       </div>
 
+      {/* Why the monster side is as strong as it is (threat, pack hunters, turncoats …) */}
+      {c.modifiers.length > 0 && (
+        <ul className="mb-3 space-y-0.5 text-xs font-ui rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2" aria-label="Monster modifiers">
+          {c.modifiers.map(m => <li key={m}>⚠️ {m}</li>)}
+        </ul>
+      )}
+
       {/* Monster cards */}
       <div className="flex gap-2 justify-center mb-3 flex-wrap">
         {c.monsters.map(m => <GameCard key={m.id} card={m} size="md"/>)}

@@ -9,7 +9,7 @@ import { PlayerHand } from "@/components/game/PlayerHand";
 import { CombatPanel } from "@/components/game/CombatPanel";
 import { CharityModal, LootingModal } from "@/components/game/Modals";
 import { CardDetails } from "@/components/game/CardDetails";
-import { INTERRUPT_CHOICES, WIN_LEVELS } from "../../shared/types";
+import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
@@ -89,6 +89,18 @@ export default function Index() {
                     variant={view.settings.winLevel === level ? "default" : "secondary"}
                     onClick={() => send({ type: "updateSettings", settings: { winLevel: level } })}>
                     {level}{level === 10 ? " (normal)" : level === 20 ? " (epic)" : ""}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-ui opacity-70 mb-1">Monster threat (monsters grow with the attacker's level)</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Monster threat">
+                {THREAT_CHOICES.map(t => (
+                  <Button key={t} size="sm" role="radio" aria-checked={view.settings.threat === t}
+                    variant={view.settings.threat === t ? "default" : "secondary"}
+                    onClick={() => send({ type: "updateSettings", settings: { threat: t } })}>
+                    {t === "calm" ? "Calm" : t === "normal" ? "Normal" : "Brutal"}
                   </Button>
                 ))}
               </div>

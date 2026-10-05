@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { buildAllDecks } from "../shared/deck.js";
-import type { MonsterCard, OneShotCard } from "../shared/types.js";
+import { DEFAULT_SETTINGS, type MonsterCard, type OneShotCard } from "../shared/types.js";
 import { buildView, expireInterrupts, handleAction, joinRoom, requiredPasses, setClock, setConnected, setRandomSource, type Room } from "./engine.js";
 import { deserializeRooms, serializeRooms } from "./persistence.js";
 import { ROLL_1, monster, oneShot, startedTable, type Table } from "./test-helpers.js";
@@ -196,7 +196,7 @@ describe("save migration (phase 1)", () => {
     delete old.rooms[0].settings;
     for (const c of old.rooms[0].players[0].hand) delete c.ignoresLevelAtOrBelow;
     const restored = deserializeRooms(JSON.stringify(old)).get("TEST")!;
-    expect(restored.settings).toEqual({ winLevel: 10, interruptSeconds: 15 });
+    expect(restored.settings).toEqual(DEFAULT_SETTINGS);
     const back = restored.players[0].hand.find(c => c.id === dragon.id) as MonsterCard;
     expect(back.ignoresLevelAtOrBelow).toBe(5);
   });

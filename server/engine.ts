@@ -11,7 +11,7 @@ import type {
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
   NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
 } from "../shared/types.js";
-import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, WIN_LEVELS } from "../shared/types.js";
+import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../shared/types.js";
 
 // ---------- randomness (injectable for deterministic tests) ----------
 let random: () => number = Math.random;
@@ -55,8 +55,17 @@ export interface Room {
   combatFought: boolean; // tracks if current turn already had combat
   statusBeforeLooting: AppStatus | null; // restored when looting a body is finished
   settings: RoomSettings;
+  stats: RoomStats;
   updatedAt: number;
 }
+
+export interface RoomStats {
+  bounties: number;   // treasures paid out to saboteurs of the leader
+  turncoats: number;  // helpers who switched sides (Siren)
+  tableHits: number;  // Bad Stuff that hit everyone
+  sabotages: number;  // cards played by non-fighters to strengthen a monster
+}
+export const emptyStats = (): RoomStats => ({ bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0 });
 
 export type RoomEvent = Extract<ServerToClient, { type: "rolled" }>;
 
@@ -114,19 +123,69 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   effects: p.effects,
 });
 
-const monsterTotal = (room: Room, c: CombatState): number => {
+// The single player strictly ahead of everyone else (null on a tie).
+export const leaderOf = (room: Room): PrivatePlayer | null => {
+  const top = Math.max(...room.players.map(p => p.level));
+  const leaders = room.players.filter(p => p.level === top);
+  return leaders.length === 1 ? leaders[0] : null;
+};
+
+// Threat: monsters push back harder the higher the attacker's level.
+const THREAT_DIVISOR: Record<RoomSettings["threat"], number> = { calm: 0, normal: 3, brutal: 2 };
+const threatBonus = (room: Room, attacker: PrivatePlayer | undefined): number => {
+  const d = THREAT_DIVISOR[room.settings.threat];
+  return d && attacker ? Math.floor(attacker.level / d) : 0;
+};
+
+/** Monster side total plus a readable list of every modifier, for the combat panel. */
+const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: string[] } => {
+  const mods: string[] = [];
+  const attacker = room.players.find(p => p.id === c.attackerId);
   const fighters = [c.attackerId, c.helperId].map(id => room.players.find(p => p.id === id)).filter(Boolean);
-  return c.monsters.reduce((s, m) => {
+  const isLeader = !!attacker && leaderOf(room)?.id === attacker.id;
+  const goblins = c.monsters.filter(m => hasTag(m, "goblin")).length;
+
+  let total = c.monsters.reduce((s, m) => {
     let lvl = m.level;
     if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
     if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
     if (hasDungeon(room, "d-goblin") && hasTag(m, "goblin")) lvl += 3; // Goblin Land
     // Anti-Class: bonus hvis angriber ELLER hjælper er den forhadte class.
     const hated = m.antiClass;
-    if (hated && fighters.some(f => f && hasClass(f, hated.className as ClassName))) lvl += hated.bonus;
+    if (hated && fighters.some(f => f && hasClass(f, hated.className as ClassName))) {
+      lvl += hated.bonus;
+      mods.push(`${m.name} hates ${hated.className}s: +${hated.bonus}`);
+    }
+    if (m.packHunter && !c.helperId) {
+      lvl += m.packHunter;
+      mods.push(`${m.name} hunts in a pack — fighting alone: +${m.packHunter}`);
+    }
+    if (m.huntsLeader && isLeader) {
+      lvl += m.huntsLeader;
+      mods.push(`${m.name} hunts the leader: +${m.huntsLeader}`);
+    }
+    if (m.swarmBonus && goblins > 1) {
+      lvl += m.swarmBonus * (goblins - 1);
+      mods.push(`${m.name} commands ${goblins - 1} goblin(s): +${m.swarmBonus * (goblins - 1)}`);
+    }
     return s + lvl;
   }, 0) + c.monsterBonuses;
+
+  const threat = threatBonus(room, attacker);
+  if (threat > 0) {
+    total += threat;
+    mods.push(`Threat (${attacker!.name} is level ${attacker!.level}): +${threat}`);
+  }
+  const turncoat = c.turncoatId ? room.players.find(p => p.id === c.turncoatId) : undefined;
+  if (turncoat) {
+    const power = computePower(turncoat);
+    total += power;
+    mods.push(`${turncoat.name} fights for the monster: +${power}`);
+  }
+  return { total, modifiers: mods };
 };
+
+const monsterTotal = (room: Room, c: CombatState): number => monsterSide(room, c).total;
 
 const playerSideTotal = (room: Room, c: CombatState): number => {
   const a = room.players.find(p => p.id === c.attackerId);
@@ -196,6 +255,7 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
         playerTotal: playerSideTotal(room, room.combat),
         requiredPasses: requiredPasses(room),
         interruptMsLeft: room.combat.interruptDeadline ? Math.max(0, room.combat.interruptDeadline - now()) : null,
+        modifiers: monsterSide(room, room.combat).modifiers,
       }
     : null;
   return {
@@ -245,6 +305,7 @@ export const createRoom = (code: string): Room => {
     combatFought: false,
     statusBeforeLooting: null,
     settings: { ...DEFAULT_SETTINGS },
+    stats: emptyStats(),
     updatedAt: Date.now(),
   };
 };
@@ -467,6 +528,15 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       } else log(room, `${p.name} has no matching item to lose.`);
       break;
     }
+    case "everyoneLosesLevel": {
+      log(room, `🐉 ${p.name}'s failure angers the beast — EVERYONE loses ${bs.amount} level(s)!`);
+      room.stats.tableHits++;
+      for (const o of room.players.filter(x => !x.isDead)) {
+        o.level = Math.max(1, o.level - bs.amount);
+        refreshDerived(o);
+      }
+      break;
+    }
     case "loseHandItems": {
       const hands = [...p.equipment.hands];
       if (hands.length === 0) { log(room, `${p.name} has nothing in their hands to lose.`); break; }
@@ -656,11 +726,59 @@ const resetPasses = (room: Room) => {
 };
 
 // Called after any card is added to an undecided combat.
+// A non-fighter made the monster side stronger: remember them for the leader bounty.
+const markSaboteur = (room: Room, playerId: string) => {
+  const c = room.combat;
+  if (!c || playerId === c.attackerId || playerId === c.helperId) return;
+  c.saboteurs = c.saboteurs ?? [];
+  if (!c.saboteurs.includes(playerId)) c.saboteurs.push(playerId);
+  room.stats.sabotages++;
+};
+
+// Bounty on the leader: when the leader loses a fight, everyone who worked against them gets a treasure.
+const payBounty = (room: Room) => {
+  const c = room.combat;
+  if (!c || c.bountyPaid) return;
+  c.bountyPaid = true;
+  if (leaderOf(room)?.id !== c.attackerId) return;
+  for (const id of c.saboteurs ?? []) {
+    const p = room.players.find(x => x.id === id);
+    if (!p || p.isDead) continue;
+    const t = drawFromDeck(room, "treasure");
+    if (!t) continue;
+    p.hand.push(t);
+    refreshDerived(p);
+    room.stats.bounties++;
+    log(room, `💰 BOUNTY! ${p.name} helped bring down the leader and claims a treasure.`);
+  }
+};
+
 const reopenInterrupts = (room: Room) => {
   resetPasses(room);
   room.status = "waitingForInterrupts";
   if (room.combat) room.combat.interruptDeadline = null; // the countdown restarts
   syncCombatGate(room);
+};
+
+// Siren's Call: whoever just joined as helper rolls; on 1-3 they turn on the attacker.
+const sirenCheck = (room: Room) => {
+  const c = room.combat;
+  if (!c || !c.helperId || !c.monsters.some(m => m.sirenCall)) return;
+  const helper = room.players.find(p => p.id === c.helperId);
+  if (!helper) return;
+  const roll = rollD6();
+  pendingEvents.push({ type: "rolled", playerId: helper.id, result: roll, reason: "Siren's Call" });
+  if (roll >= 4) {
+    log(room, `🎶 ${helper.name} resists the Siren's song (rolled ${roll}).`);
+    return;
+  }
+  log(room, `🎶 ${helper.name} succumbs to the Siren (rolled ${roll}) and now fights FOR the monster!`);
+  c.turncoatId = helper.id;
+  c.helperId = null;
+  c.contract = null;
+  c.passes[helper.id] = false;
+  room.stats.turncoats++;
+  reopenInterrupts(room);
 };
 
 // Once Run Away is rolled (or the attacker gave up) the fight is decided.
@@ -746,8 +864,9 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const next = { ...room.settings, ...msg.settings };
       if (!(WIN_LEVELS as readonly number[]).includes(next.winLevel)) return "Invalid winning level.";
       if (!(INTERRUPT_CHOICES as readonly number[]).includes(next.interruptSeconds)) return "Invalid countdown.";
+      if (!(THREAT_CHOICES as readonly string[]).includes(next.threat)) return "Invalid threat.";
       room.settings = next;
-      log(room, `⚙️ ${player.name}: play to level ${next.winLevel}, pass countdown ${next.interruptSeconds ? `${next.interruptSeconds}s` : "off"}.`);
+      log(room, `⚙️ ${player.name}: play to level ${next.winLevel}, pass countdown ${next.interruptSeconds ? `${next.interruptSeconds}s` : "off"}, monster threat ${next.threat}.`);
       return null;
     }
 
@@ -1088,6 +1207,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         player.hand = player.hand.filter(c => c.id !== card.id && c.id !== newMonster.id);
 
         combat.monsters.push(newMonster);
+        markSaboteur(room, player.id);
         combat.log.push(`🐉 ${player.name} plays Wandering Monster! ${newMonster.name} (Lvl ${newMonster.level}) joins the fight!`);
         room.discards.door.push(card);
 
@@ -1119,6 +1239,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         player.hand.splice(idx, 1);
         combat.monsters.push(clonedMonster);
+        markSaboteur(room, player.id);
         combat.log.push(`💞 ${player.name} plays Mate! A second ${targetMonster.name} appears!`);
         room.discards.door.push(card);
 
@@ -1135,6 +1256,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         player.hand.splice(idx, 1);
         combat.monsters.push(card);
+        markSaboteur(room, player.id);
         combat.log.push(undead
           ? `🧟 ${player.name} plays ${card.name} directly into combat thanks to the Undead!`
           : `👺 GOBLIN SWARM! ${player.name} plays ${card.name} directly into combat!`);
@@ -1160,6 +1282,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       } else {
         // Alle må spille kort på monsteret (både for at buffe og debuffe)
         combat.monsterBonuses += bonusAmount;
+        if (bonusAmount > 0) markSaboteur(room, player.id);
         combat.log.push(`👹 ${player.name} plays ${card.name} on the monster (${sign}${bonusAmount}).`);
       }
 
@@ -1380,6 +1503,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       reopenInterrupts(room);
 
       log(room, `💖 ${player.name} uses the Kneepads of Allure to FORCE ${target.name} to help them!`);
+      sirenCheck(room);
       return null;
     }
 
@@ -1395,6 +1519,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         reopenInterrupts(room);
         log(room, `🩸 BLOOD OATH: ${player.name} joins for ${offer.treasures} treasure(s). Cannot withdraw.`);
         room.negotiations = [];
+        sirenCheck(room);
         return null;
       }
       room.negotiations = room.negotiations.filter(o => o.status === "pending");
@@ -1463,6 +1588,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       } else {
         room.status = "runAwayRoll";
         log(room, `Defeat! ${attacker.name}${helper ? ` and ${helper.name}` : ""} must Run Away.`);
+        payBounty(room);
       }
       return null;
     }
@@ -1544,6 +1670,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (combatDecided(room)) return "Already running away.";
       room.status = "runAwayRoll";
       room.combat.log.push(`💨 ${player.name} giver op og gør klar til at flygte!`);
+      payBounty(room);
       return null;
     }
 
@@ -1554,6 +1681,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (combatDecided(room)) return "Already running away.";
       room.status = "runAwayRoll";
       room.combat.log.push(`🐔 ${player.name} uses the Dungeon of Cowardly Combat to instantly flee without asking!`);
+      payBounty(room);
       return null;
     }
 

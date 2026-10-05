@@ -6,7 +6,7 @@ import path from "path";
 
 import { MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
 import { DEFAULT_SETTINGS, type Card } from "../shared/types.js";
-import type { Room } from "./engine.js";
+import { emptyStats, type Room } from "./engine.js";
 
 const SNAPSHOT_VERSION = 1;
 const ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000; // rooms untouched for a week are dropped
@@ -41,6 +41,7 @@ const allCards = (r: Room): Card[] => [
 const migrateRoom = (r: Room) => {
   r.statusBeforeLooting = r.statusBeforeLooting ?? null;
   r.settings = { ...DEFAULT_SETTINGS, ...r.settings }; // before waiting-room settings existed
+  r.stats = { ...emptyStats(), ...r.stats };
   for (const p of r.players) {
     p.equipment.none = p.equipment.none ?? []; // before slotless items existed
     p.effects = p.effects ?? [];               // before lasting effects existed

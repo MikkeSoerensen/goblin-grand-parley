@@ -14,6 +14,7 @@ export const MONSTER_TAGS: Readonly<Record<string, MonsterTag[]>> = {
   "m-undead": ["undead"], "m-wraith": ["undead"], "m-mummy": ["undead"], "m-vamp": ["undead"],
   "m-anti-wizard": ["magical"], "m-floating": ["magical"], "m-laser": ["magical"],
   "m-pit": ["beast"], "m-flying": ["beast"], "m-large": ["beast"], "m-snails": ["beast"], "m-flat": ["beast"],
+  "m-wolfpack": ["beast"], "m-hydra": ["beast"], "m-siren": ["magical"], "m-gob-warlord": ["goblin"],
 };
 
 // Big monsters that don't bother with weak players: at or below this level you escape automatically.
@@ -151,6 +152,22 @@ export const buildDoorDeck = (): Card[] => {
     2, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
   ));
 
+  // --- ELITE MONSTERS: built to make the table work together (or against each other) ---
+  cards.push(...monster("m-wolfpack", "Alpha Wolf Pack", 10, 3, 1, { kind: "loseLevel", amount: 2 },
+    "Mauled. Lose 2 levels.", 2, "Pack hunter: +6 while you fight alone. Get a friend.")
+    .map(c => ({ ...c, packHunter: 6 })));
+  cards.push(...monster("m-bounty", "The Bounty Hunter", 12, 3, 2, { kind: "loseItem", slot: "biggest" },
+    "Collects your best item as payment.", 2, "Hunts the leader: +6 if the attacker has the highest level.")
+    .map(c => ({ ...c, huntsLeader: 6 })));
+  cards.push(...monster("m-hydra", "The Hydra of Grudges", 18, 5, 2, { kind: "everyoneLosesLevel", amount: 1 },
+    "If you fail to escape, EVERY player loses a level.", 1, "Everyone has a stake in this fight."));
+  cards.push(...monster("m-siren", "The Siren of Broken Oaths", 14, 3, 2, { kind: "loseLevel", amount: 2 },
+    "Lose 2 levels.", 2, "Siren's call: anyone who joins as helper rolls a die — on 1-3 they switch sides and fight for the monster.")
+    .map(c => ({ ...c, sirenCall: true })));
+  cards.push(...monster("m-gob-warlord", "Goblin Warlord", 14, 4, 2, { kind: "death" },
+    "Executed by the horde. You die.", 1, "Commands the swarm: +2 for every other goblin in the fight.")
+    .map(c => ({ ...c, swarmBonus: 2 })));
+
   // Goblin Swarm!
   cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 6)); 
   cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
@@ -178,8 +195,8 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   // Special Cards
-  cards.push(...wanderingMonster(2));
-  cards.push(...mate(1));
+  cards.push(...wanderingMonster(4));
+  cards.push(...mate(2));
 
   // Portaler
   cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
@@ -267,8 +284,8 @@ export const buildTreasureDeck = (): Card[] => {
   
   // Enhancers (added to monster level — typically negative for player to weaken,
   //   but stored as positive bonus — opponents play to strengthen monster)
-  cards.push(...enhancer("h-ancient",  "Ancient",  +5, 200, 1));
-  cards.push(...enhancer("h-enraged",  "Enraged",  +5, 100, 1));
+  cards.push(...enhancer("h-ancient",  "Ancient",  +5, 200, 2));
+  cards.push(...enhancer("h-enraged",  "Enraged",  +5, 100, 2));
   cards.push(...enhancer("h-humongous","Humongous",+10, 300, 1));
   cards.push(...enhancer("h-baby",     "Baby",     -5, 100, 1));   // weakens monster (good for attacker)
   cards.push(...enhancer("h-intelligent","Intelligent", +5, 200, 1));

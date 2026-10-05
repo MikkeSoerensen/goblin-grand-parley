@@ -1,8 +1,8 @@
 // Balance simulator: plays many complete bot games through the real engine and
 // summarizes how the rules behave (game length, class win rates, monster difficulty).
 
-import type { WinLevel } from "../../shared/types.js";
-import { createRoom, handleAction, joinRoom, setRandomSource, type Room } from "../engine.js";
+import type { Threat, WinLevel } from "../../shared/types.js";
+import { createRoom, handleAction, joinRoom, leaderOf, setRandomSource, type Room } from "../engine.js";
 import { botStep, newMemory, type Rng } from "./bot.js";
 
 export const mulberry32 = (seed: number): Rng => {
@@ -27,12 +27,17 @@ export interface GameResult {
   helpedCombats: number;
   deaths: number;
   monsterFights: Record<string, { fights: number; wins: number }>;
+  leadChanges: number;    // how often a different player took the sole lead
+  bounties: number;
+  turncoats: number;
+  tableHits: number;
+  sabotages: number;
 }
 
 const MAX_TURNS = 1200;
 const MAX_STEPS = 60_000;
 
-export const playGame = (players: number, seed: number, winLevel: WinLevel = 10): GameResult => {
+export const playGame = (players: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal"): GameResult => {
   setRandomSource(mulberry32(seed));
   const rnd = mulberry32(seed ^ 0x9e3779b9);
   const rooms = new Map<string, Room>();
@@ -41,7 +46,7 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10)
     if (!r.ok) throw new Error(r.error);
   }
   const room = rooms.get("SIM") ?? createRoom("SIM");
-  const settingsErr = handleAction(room, room.players[0].id, { type: "updateSettings", settings: { winLevel } }).error;
+  const settingsErr = handleAction(room, room.players[0].id, { type: "updateSettings", settings: { winLevel, threat } }).error;
   if (settingsErr) throw new Error(settingsErr);
   const err = handleAction(room, room.players[0].id, { type: "startGame" }).error;
   if (err) throw new Error(err);
@@ -50,7 +55,9 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10)
   const res: GameResult = {
     finished: false, stuck: false, turns: 0, winnerClass: null, classesAtEnd: [],
     combats: 0, combatWins: 0, helpedCombats: 0, deaths: 0, monsterFights: {},
+    leadChanges: 0, bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0,
   };
+  let lastLeader: string | null = null;
 
   let lastActive = room.activePlayerIndex;
   let combatStart: { attackerId: string; level: number; monster: string } | null = null;
@@ -63,7 +70,12 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10)
     idle = acted ? 0 : idle + 1;
     if (idle > 50) { res.stuck = true; break; }
 
-    if (room.activePlayerIndex !== lastActive) { res.turns++; lastActive = room.activePlayerIndex; }
+    if (room.activePlayerIndex !== lastActive) {
+      res.turns++;
+      lastActive = room.activePlayerIndex;
+      const lead = leaderOf(room)?.id ?? null;
+      if (lead && lead !== lastLeader) { if (lastLeader) res.leadChanges++; lastLeader = lead; }
+    }
 
     if (room.combat && !combatStart) {
       const attacker = room.players.find(p => p.id === room.combat!.attackerId)!;
@@ -89,6 +101,10 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10)
   const winner = room.players.find(p => p.id === room.winnerId);
   res.winnerClass = winner ? winner.playerClass?.className ?? "none" : null;
   res.classesAtEnd = room.players.map(p => p.playerClass?.className ?? "none");
+  Object.assign(res, {
+    bounties: room.stats.bounties, turncoats: room.stats.turncoats,
+    tableHits: room.stats.tableHits, sabotages: room.stats.sabotages,
+  });
   setRandomSource(Math.random);
   return res;
 };
@@ -104,6 +120,12 @@ const quantile = (xs: number[], q: number) => {
 export interface Summary {
   players: number;
   winLevel: WinLevel;
+  threat: Threat;
+  leadChanges: number;
+  bounties: number;
+  turncoats: number;
+  tableHits: number;
+  sabotages: number;
   games: number;
   finished: number;
   stuck: number;
@@ -118,8 +140,8 @@ export interface Summary {
   monsters: [string, { fights: number; wins: number }][];
 }
 
-export const runBatch = (players: number, games: number, seed: number, winLevel: WinLevel = 10): Summary => {
-  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919, winLevel));
+export const runBatch = (players: number, games: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal"): Summary => {
+  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919, winLevel, threat));
   const done = results.filter(r => r.finished);
   const classWinRate: Summary["classWinRate"] = {};
   for (const r of results) {
@@ -137,7 +159,12 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
   const rounds = done.map(r => r.turns / players);
   const sum = (f: (r: GameResult) => number) => results.reduce((s, r) => s + f(r), 0);
   return {
-    players, games, winLevel,
+    players, games, winLevel, threat,
+    leadChanges: sum(r => r.leadChanges) / games,
+    bounties: sum(r => r.bounties) / games,
+    turncoats: sum(r => r.turncoats) / games,
+    tableHits: sum(r => r.tableHits) / games,
+    sabotages: sum(r => r.sabotages) / games,
     finished: done.length,
     stuck: results.filter(r => r.stuck).length,
     roundsMedian: quantile(rounds, 0.5),
@@ -154,10 +181,14 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
 
 export const formatReport = (summaries: Summary[], title: string): string => {
   const lines: string[] = [`# ${title}`, ""];
-  lines.push("| Spillere | Mål | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
-  lines.push("|---|---|---|---|---|---|---|---|---|---|---|");
+  lines.push("| Spillere | Mål | Threat | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
+  lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {
-    lines.push(`| ${s.players} | ${s.winLevel} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
+    lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
+  }
+  lines.push("", "## Socialt kaos (pr. spil)", "", "| Spillere | Mål | Threat | Føring skifter hænder | Sabotage-kort | Dusører udbetalt | Overløbere (Siren) | Hele bordet ramt |", "|---|---|---|---|---|---|---|---|");
+  for (const s of summaries) {
+    lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.leadChanges.toFixed(1)} | ${s.sabotages.toFixed(1)} | ${s.bounties.toFixed(2)} | ${s.turncoats.toFixed(2)} | ${s.tableHits.toFixed(2)} |`);
   }
   for (const s of summaries) {
     lines.push("", `## Class ved spillets slutning — ${s.players} spillere, mål ${s.winLevel}`, "", "| Class | Spillere med den | Vandt | Vinderrate |", "|---|---|---|---|");

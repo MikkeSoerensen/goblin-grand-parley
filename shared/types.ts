@@ -51,6 +51,7 @@ export type BadStuffKind =
   | { kind: "loseItem"; slot: Slot | "any" | "biggest" }
   | { kind: "loseAllItems" }
   | { kind: "loseHandItems" }
+  | { kind: "everyoneLosesLevel"; amount: number } // the whole table pays
   | { kind: "death" } 
   | { kind: "loseClass" }
   | { kind: "robinHood" }
@@ -75,6 +76,11 @@ export interface MonsterCard extends BaseCard {
   immuneToCharm?: boolean;
   tags: MonsterTag[];
   ignoresLevelAtOrBelow?: number; // won't pursue weak players: they escape automatically
+  // Elite keywords (social chaos)
+  packHunter?: number;  // +N while the attacker fights alone
+  huntsLeader?: number; // +N when the attacker is the leader
+  sirenCall?: boolean;  // anyone who joins as helper rolls: 1-3 they switch sides
+  swarmBonus?: number;  // +N for every OTHER goblin in the same fight
 }
 
 export interface EquipmentCard extends BaseCard {
@@ -175,14 +181,18 @@ export const WIN_LEVELS = [10, 15, 20] as const;
 export type WinLevel = (typeof WIN_LEVELS)[number];
 export const INTERRUPT_CHOICES = [0, 10, 15, 30] as const;
 export type InterruptSeconds = (typeof INTERRUPT_CHOICES)[number];
+// How hard monsters push back as the attacker levels up.
+export const THREAT_CHOICES = ["calm", "normal", "brutal"] as const;
+export type Threat = (typeof THREAT_CHOICES)[number];
 
 // Chosen in the waiting room; fixed once the game starts.
 export interface RoomSettings {
   winLevel: WinLevel;
   interruptSeconds: InterruptSeconds; // 0 = no countdown; otherwise opponents auto-pass after this long
+  threat: Threat;
 }
 
-export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15 };
+export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15, threat: "normal" };
 
 export interface PublicGameState {
   status: AppStatus;
@@ -258,6 +268,9 @@ export interface CombatState {
   gluedPlayers?: string[];          // Flask of Glue: these fighters automatically fail Run Away
   swapUsed?: boolean;               // Dungeon of Sudden Swaps: attacker already stole from the helper
   interruptDeadline?: number | null; // epoch ms when everyone still to pass is passed automatically
+  turncoatId?: string | null;        // Siren: a helper who switched sides; their power counts for the monster
+  saboteurs?: string[];              // non-fighters who strengthened the monster side (bounty)
+  bountyPaid?: boolean;
 }
 
 // Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
@@ -266,6 +279,7 @@ export interface CombatView extends CombatState {
   playerTotal: number;
   requiredPasses: string[];         // connected, living non-fighters who must pass before resolution
   interruptMsLeft: number | null;   // countdown for the UI (relative, so device clocks don't matter)
+  modifiers: string[];              // human-readable breakdown of everything changing the totals
 }
 
 export interface NegotiationOffer {

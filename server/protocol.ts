@@ -58,13 +58,15 @@ const schema = z.discriminatedUnion("type", [
     settings: z.object({
       winLevel: z.union([z.literal(10), z.literal(15), z.literal(20)]).optional(),
       interruptSeconds: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(30)]).optional(),
+      threat: z.enum(["calm", "normal", "brutal"]).optional(),
     }).strict(),
   }),
 ]);
 
 // Compile-time guarantee that the schema and the wire type never drift apart.
 type Parsed = z.infer<typeof schema>;
-type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+// Strict equality: also catches an optional field that exists on one side only.
+type AssertEqual<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : never;
 const _schemaMatchesProtocol: AssertEqual<Parsed, ClientToServer> = true;
 void _schemaMatchesProtocol;
 

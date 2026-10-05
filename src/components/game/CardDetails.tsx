@@ -81,6 +81,10 @@ export function CardDetails() {
                   )}
                   {card.antiClass && <Row label="Hates">{card.antiClass.className}s (+{card.antiClass.bonus})</Row>}
                   {card.immuneToCharm && <Row label="Charm">Immune</Row>}
+                  {card.packHunter !== undefined && <Row label="Pack hunter">+{card.packHunter} while you fight alone</Row>}
+                  {card.huntsLeader !== undefined && <Row label="Hunts the leader">+{card.huntsLeader} against the player in the lead</Row>}
+                  {card.sirenCall && <Row label="Siren's call">A helper rolls on joining: 1-3 they switch sides</Row>}
+                  {card.swarmBonus !== undefined && <Row label="Commands the swarm">+{card.swarmBonus} per other goblin in the fight</Row>}
                 </>
               )}
               {card.type === "equipment" && (
