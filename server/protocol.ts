@@ -53,6 +53,13 @@ const schema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("forceHelp"), targetId: id }),
   z.object({ type: z.literal("suddenSwap") }),
+  z.object({
+    type: z.literal("updateSettings"),
+    settings: z.object({
+      winLevel: z.union([z.literal(10), z.literal(15), z.literal(20)]).optional(),
+      interruptSeconds: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(30)]).optional(),
+    }).strict(),
+  }),
 ]);
 
 // Compile-time guarantee that the schema and the wire type never drift apart.

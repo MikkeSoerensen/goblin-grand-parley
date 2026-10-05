@@ -197,7 +197,7 @@ Ud over fundamentet (0.1):
 | Fase | Indhold | Hvorfor i den rækkefølge |
 |---|---|---|
 | 0 ✅ | D + fundament (0.1-0.3) + balance-simulator med baseline | Alt andet bygger på det; baseline måles før noget ændres. Baseline: [docs/balance/baseline.md](balance/baseline.md) |
-| 1 | C1, C4, B6, B8 | Lav risiko, størst effekt på spiloplevelsen med det samme |
+| 1 ✅ | C1, C4, B6, B8 | Lav risiko, størst effekt på spiloplevelsen med det samme. Balance: [docs/balance/fase1.md](balance/fase1.md) |
 | 2 | B1, B7, B5 | Racer først, så Dual/Half-Breed og Forged Papers, der bygger på dem |
 | 3 | B2, B4 | Bruger status-effekterne fra fundamentet |
 | 4 | B3 | Største UX-opgave; drager nytte af alt det ovenstående |

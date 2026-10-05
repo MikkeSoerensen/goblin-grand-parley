@@ -74,6 +74,7 @@ export interface MonsterCard extends BaseCard {
   antiClass?: { className: string; bonus: number };
   immuneToCharm?: boolean;
   tags: MonsterTag[];
+  ignoresLevelAtOrBelow?: number; // won't pursue weak players: they escape automatically
 }
 
 export interface EquipmentCard extends BaseCard {
@@ -139,6 +140,8 @@ export interface OneShotCard extends BaseCard {
   bonus: number;            // can be negative when used vs. monster
   goldValue: number;
   target: "ally" | "monster" | "either";
+  // Stronger for the fighters when a monster in the fight has this tag (Holy Water, Goblin Repellent).
+  tagBonus?: { tag: MonsterTag; bonus: number };
 }
 
 export interface EnhancerCard extends BaseCard {
@@ -168,8 +171,22 @@ export type Card =
   | PortalCard
   | DungeonCard;
 
+export const WIN_LEVELS = [10, 15, 20] as const;
+export type WinLevel = (typeof WIN_LEVELS)[number];
+export const INTERRUPT_CHOICES = [0, 10, 15, 30] as const;
+export type InterruptSeconds = (typeof INTERRUPT_CHOICES)[number];
+
+// Chosen in the waiting room; fixed once the game starts.
+export interface RoomSettings {
+  winLevel: WinLevel;
+  interruptSeconds: InterruptSeconds; // 0 = no countdown; otherwise opponents auto-pass after this long
+}
+
+export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15 };
+
 export interface PublicGameState {
   status: AppStatus;
+  settings: RoomSettings;
   players: PublicPlayer[];
   activePlayerIndex: number;
   currentPhase: Phase;
@@ -240,6 +257,7 @@ export interface CombatState {
   ranAway?: string[];               // fighters who have already rolled to run away
   gluedPlayers?: string[];          // Flask of Glue: these fighters automatically fail Run Away
   swapUsed?: boolean;               // Dungeon of Sudden Swaps: attacker already stole from the helper
+  interruptDeadline?: number | null; // epoch ms when everyone still to pass is passed automatically
 }
 
 // Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
@@ -247,6 +265,7 @@ export interface CombatView extends CombatState {
   monsterTotal: number;
   playerTotal: number;
   requiredPasses: string[];         // connected, living non-fighters who must pass before resolution
+  interruptMsLeft: number | null;   // countdown for the UI (relative, so device clocks don't matter)
 }
 
 export interface NegotiationOffer {
@@ -290,7 +309,8 @@ export type ClientToServer =
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
   | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
-  | { type: "suddenSwap" }; // Bruges til d-swapping dungeon-kortet
+  | { type: "suddenSwap" } // Bruges til d-swapping dungeon-kortet
+  | { type: "updateSettings"; settings: Partial<RoomSettings> }; // waiting room only
 
 export type GameAction = Exclude<ClientToServer, { type: "join" }>;
 

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
 import { hasClass, hasTag } from "../../../shared/rules";
+import { useInspect } from "@/lib/inspect";
+import { Info } from "lucide-react";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -12,6 +14,7 @@ const goldValueOf = (c: Card): number | undefined => ("goldValue" in c ? c.goldV
 
 export function PlayerHand() {
   const view = useGame(s => s.view);
+  const inspect = useInspect(s => s.open);
   const isMobile = useIsMobile();
   const [selected, setSelected] = useState<string | null>(null);
   const [showBackpack, setShowBackpack] = useState(false);
@@ -287,6 +290,7 @@ export function PlayerHand() {
           {isMyTurn && !inCombat && (
             <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Discard</Button>
           )}
+          <Button size="sm" variant="ghost" onClick={() => inspect(card)}><Info className="w-4 h-4 mr-1"/>Details</Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
 
           {card.type === "monster" && view.combat && wanderingMonsterCard && (

@@ -2,6 +2,7 @@ import { Card, EquipmentCard, MonsterCard, ClassCard, ClassName } from "../../..
 import { hasClass, hasTag } from "../../../shared/rules";
 import { cn } from "@/lib/utils";
 import { useGame } from "@/lib/store";
+import { useInspect } from "@/lib/inspect";
 
 const typeStyles: Record<string, string> = {
   monster: "bg-gradient-monster text-monster-foreground",
@@ -29,9 +30,13 @@ interface Props {
   selected?: boolean;
   onClick?: () => void;
   className?: string;
+  /** Without an onClick, tapping the card opens its details (default). */
+  inspectable?: boolean;
 }
 
-export function GameCard({ card, size = "md", faceDown, selected, onClick, className }: Props) {
+export function GameCard({ card, size = "md", faceDown, selected, onClick, className, inspectable = true }: Props) {
+  const inspect = useInspect(s => s.open);
+  const handleClick = onClick ?? (inspectable ? () => inspect(card) : undefined);
   const sizes = {
     sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px]",
     md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs",
@@ -53,13 +58,14 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
+      aria-label={!onClick && inspectable ? `${card.name} — show details` : undefined}
       className={cn(
         "card-base flex flex-col items-stretch text-left p-2 border-2 border-card/40",
         typeStyles[card.type] ?? "bg-card text-card-foreground",
         sizes[size],
         selected && "ring-4 ring-primary ring-offset-2 ring-offset-background",
-        onClick && "cursor-pointer",
+        handleClick && "cursor-pointer",
         className,
       )}
     >
@@ -171,7 +177,12 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
             </>
           );
         })()}
-        {card.type === "oneshot" && <div className="font-bold">+{card.bonus} · {card.goldValue}g</div>}
+        {card.type === "oneshot" && (
+          <div className="font-bold">
+            +{card.bonus} · {card.goldValue}g
+            {card.tagBonus && <div className="text-[10px] text-green-300">+{card.tagBonus.bonus} vs {card.tagBonus.tag}</div>}
+          </div>
+        )}
         {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}
         

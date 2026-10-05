@@ -141,6 +141,33 @@ describe("LAN server", () => {
     await c.next("error", m => /Slow down/.test(m.message));
   });
 
+  it("the server's countdown auto-passes a silent opponent and tells everyone", async () => {
+    const s = await start(null);
+    const a = await client(s.port);
+    const b = await client(s.port);
+    await join(a, "Ann");
+    await join(b, "Bo");
+    a.send({ type: "startGame" });
+    await a.next("state", m => m.view.status === "normalTurn");
+
+    // Put Ann in a fight and shorten the countdown so the test doesn't wait 15 s.
+    const room = s.rooms.get("LAN")!;
+    room.players[0].hand.push({
+      id: "t-mon", cardId: "m-test", name: "Test Monster", type: "monster", deck: "door",
+      level: 1, treasures: 1, levelsAwarded: 1, badStuff: { kind: "loseLevel", amount: 1 }, badStuffText: "", tags: [],
+    });
+    room.currentPhase = 2;
+    a.send({ type: "lookForTrouble", cardId: "t-mon" });
+    const started = await b.next("state", m => m.view.status === "waitingForInterrupts");
+    expect(started.view.combat?.interruptMsLeft).toBeGreaterThan(14_000);
+
+    room.combat!.interruptDeadline = Date.now() + 150;
+    b.send({ type: "kickDoor" }); // any message re-arms the server timer (this one is just rejected)
+    const after = await b.next("state", m => m.view.status === "inCombat");
+    expect(after.view.combat?.passes[after.view.self!.id]).toBe(true);
+    expect(after.view.log.some(l => l.includes("Time's up"))).toBe(true);
+  });
+
   it("serves health and LAN address endpoints", async () => {
     const s = await start(null);
     const health = await fetch(`http://127.0.0.1:${s.port}/health`).then(r => r.json() as Promise<{ ok: boolean }>);

@@ -8,6 +8,8 @@ import { TableArea } from "@/components/game/TableArea";
 import { PlayerHand } from "@/components/game/PlayerHand";
 import { CombatPanel } from "@/components/game/CombatPanel";
 import { CharityModal, LootingModal } from "@/components/game/Modals";
+import { CardDetails } from "@/components/game/CardDetails";
+import { INTERRUPT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
@@ -77,6 +79,33 @@ export default function Index() {
             <p className="text-muted-foreground">Room <b className="font-mono tracking-widest text-foreground">{roomCode}</b></p>
           </div>
           <JoinInfo />
+          {/* House rules — anyone in the room can change them until the game starts */}
+          <div className="space-y-2 text-left">
+            <div>
+              <div className="text-xs font-ui opacity-70 mb-1">Play to level</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Play to level">
+                {WIN_LEVELS.map(level => (
+                  <Button key={level} size="sm" role="radio" aria-checked={view.settings.winLevel === level}
+                    variant={view.settings.winLevel === level ? "default" : "secondary"}
+                    onClick={() => send({ type: "updateSettings", settings: { winLevel: level } })}>
+                    {level}{level === 10 ? " (normal)" : level === 20 ? " (epic)" : ""}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-ui opacity-70 mb-1">Auto-pass countdown in fights</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Auto-pass countdown">
+                {INTERRUPT_CHOICES.map(secs => (
+                  <Button key={secs} size="sm" role="radio" aria-checked={view.settings.interruptSeconds === secs}
+                    variant={view.settings.interruptSeconds === secs ? "default" : "secondary"}
+                    onClick={() => send({ type: "updateSettings", settings: { interruptSeconds: secs } })}>
+                    {secs === 0 ? "Off" : `${secs}s`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
           <ul className="space-y-2 text-left">
             {view.players.map(p => (
               <li key={p.id} className="bg-muted/40 rounded px-3 py-2 font-display flex justify-between">
@@ -102,7 +131,7 @@ export default function Index() {
       <main className="min-h-dvh flex items-center justify-center p-4">
         <div className="felt-table p-8 sm:p-10 text-center max-w-lg">
           <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 Victory!</h1>
-          <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} reached Level 10!</p>
+          <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} reached Level {view.settings.winLevel}!</p>
           <Button onClick={leave}>New Game</Button>
         </div>
       </main>
@@ -126,6 +155,7 @@ export default function Index() {
         <PlayerHand />
         <CharityModal />
         <LootingModal />
+        <CardDetails />
       </main>
     );
   }
@@ -213,6 +243,7 @@ export default function Index() {
 
       <CharityModal />
       <LootingModal />
+      <CardDetails />
     </main>
   );
 }

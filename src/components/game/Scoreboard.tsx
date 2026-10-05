@@ -1,5 +1,6 @@
 import { useGame } from "@/lib/store";
-import type { EffectExpiry, EffectKind } from "../../../shared/types";
+import { useInspect } from "@/lib/inspect";
+import type { EffectExpiry, EffectKind, EquipmentCard } from "../../../shared/types";
 import { cn } from "@/lib/utils";
 import { Crown, Heart, Swords, Wifi, WifiOff } from "lucide-react";
 
@@ -17,7 +18,13 @@ const EXPIRY_TEXT: Record<EffectExpiry, string> = {
 
 export function Scoreboard() {
   const view = useGame(s => s.view);
+  const inspect = useInspect(s => s.open);
   if (!view) return null;
+  const chip = (card: EquipmentCard, icon: string) => (
+    <button key={card.id} type="button" title={card.name} onClick={() => inspect(card)} className="hover:text-primary underline-offset-2 hover:underline">
+      {icon}{card.bonus}
+    </button>
+  );
 
   return (
     <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-3 w-full md:w-72 md:max-h-[80vh] overflow-y-auto scroll-thin shrink-0">
@@ -48,7 +55,7 @@ export function Scoreboard() {
               
               {/* Stats og Class Badge */}
               <div className="flex items-center flex-wrap gap-3 text-sm mt-1 font-ui">
-                <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-accent"/> {p.level}/10</span>
+                <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-accent"/> {p.level}/{view.settings.winLevel}</span>
                 <span className="flex items-center gap-1"><Swords className="w-3.5 h-3.5 text-primary"/> {p.combatPower}</span>
                 
                 {/* NYT: Viser spillerens klasse som et flot lille badge! */}
@@ -78,13 +85,14 @@ export function Scoreboard() {
               )}
 
               {/* Public equipment */}
-              {(p.equipment.head || p.equipment.armor || p.equipment.feet || p.equipment.bigItem || p.equipment.hands.length > 0) && (
-                <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-ui opacity-80">
-                  {p.equipment.head && <span title={p.equipment.head.name}>🪖{p.equipment.head.bonus}</span>}
-                  {p.equipment.armor && <span title={p.equipment.armor.name}>🛡️{p.equipment.armor.bonus}</span>}
-                  {p.equipment.feet && <span title={p.equipment.feet.name}>🥾{p.equipment.feet.bonus}</span>}
-                  {p.equipment.hands.map(h => <span key={h.id} title={h.name}>🗡️{h.bonus}</span>)}
-                  {p.equipment.bigItem && <span title={p.equipment.bigItem.name}>📦{p.equipment.bigItem.bonus}</span>}
+              {(p.equipment.head || p.equipment.armor || p.equipment.feet || p.equipment.bigItem || p.equipment.hands.length > 0 || p.equipment.none.length > 0) && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-ui opacity-80">
+                  {p.equipment.head && chip(p.equipment.head, "🪖")}
+                  {p.equipment.armor && chip(p.equipment.armor, "🛡️")}
+                  {p.equipment.feet && chip(p.equipment.feet, "🥾")}
+                  {p.equipment.hands.map(h => chip(h, "🗡️"))}
+                  {p.equipment.bigItem && chip(p.equipment.bigItem, "📦")}
+                  {p.equipment.none.map(n => chip(n, "💍"))}
                 </div>
               )}
             </li>

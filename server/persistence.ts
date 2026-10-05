@@ -4,8 +4,8 @@
 import { promises as fs, renameSync, writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 
-import { MONSTER_TAGS } from "../shared/deck.js";
-import type { Card } from "../shared/types.js";
+import { MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
+import { DEFAULT_SETTINGS, type Card } from "../shared/types.js";
 import type { Room } from "./engine.js";
 
 const SNAPSHOT_VERSION = 1;
@@ -40,12 +40,15 @@ const allCards = (r: Room): Card[] => [
 // Brings snapshots written by older versions up to the current shape.
 const migrateRoom = (r: Room) => {
   r.statusBeforeLooting = r.statusBeforeLooting ?? null;
+  r.settings = { ...DEFAULT_SETTINGS, ...r.settings }; // before waiting-room settings existed
   for (const p of r.players) {
     p.equipment.none = p.equipment.none ?? []; // before slotless items existed
     p.effects = p.effects ?? [];               // before lasting effects existed
   }
   for (const c of allCards(r)) {
-    if (c.type === "monster" && !Array.isArray(c.tags)) c.tags = [...(MONSTER_TAGS[c.cardId] ?? [])];
+    if (c.type !== "monster") continue;
+    if (!Array.isArray(c.tags)) c.tags = [...(MONSTER_TAGS[c.cardId] ?? [])];
+    if (c.ignoresLevelAtOrBelow === undefined && MONSTER_IGNORES[c.cardId] !== undefined) c.ignoresLevelAtOrBelow = MONSTER_IGNORES[c.cardId];
   }
 };
 

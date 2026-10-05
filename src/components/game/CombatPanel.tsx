@@ -1,12 +1,26 @@
 import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { hasClass } from "../../../shared/rules";
 import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
+// Counts down locally from the server's "ms left" (so device clocks never matter).
+function useCountdown(msLeft: number | null): number | null {
+  const [left, setLeft] = useState(msLeft);
+  useEffect(() => {
+    if (msLeft === null) { setLeft(null); return; }
+    const until = Date.now() + msLeft;
+    setLeft(msLeft);
+    const t = setInterval(() => setLeft(Math.max(0, until - Date.now())), 200);
+    return () => clearInterval(t);
+  }, [msLeft]);
+  return left;
+}
+
 export function CombatPanel() {
   const view = useGame(s => s.view);
+  const countdown = useCountdown(view?.combat?.interruptMsLeft ?? null);
   const [helpTreasures, setHelpTreasures] = useState<Record<string, number>>({});
 
   if (!view?.combat || !view.self) return null;
@@ -269,6 +283,20 @@ export function CombatPanel() {
         <div className="flex-1 text-right text-xs opacity-70 font-ui self-center mt-2 w-full">
           Pass votes: {passCount}/{expectedPasses}
         </div>
+        {countdown !== null && view.status === "waitingForInterrupts" && view.settings.interruptSeconds > 0 && (
+          <div className="w-full mt-1" role="timer" aria-label={`${Math.ceil(countdown / 1000)} seconds until everyone passes`}>
+            <div className="flex justify-between text-[11px] font-ui opacity-70 mb-0.5">
+              <span>Auto-pass in</span>
+              <span>{Math.ceil(countdown / 1000)}s</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary transition-[width] duration-200 ease-linear"
+                style={{ width: `${(100 * countdown) / (view.settings.interruptSeconds * 1000)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

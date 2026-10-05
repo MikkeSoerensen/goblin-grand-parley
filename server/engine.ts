@@ -9,8 +9,9 @@ import { effectTotal, hasClass, hasEffect, hasTag } from "../shared/rules.js";
 import type {
   ClassName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
-  NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect,
+  NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
 } from "../shared/types.js";
+import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, WIN_LEVELS } from "../shared/types.js";
 
 // ---------- randomness (injectable for deterministic tests) ----------
 let random: () => number = Math.random;
@@ -25,6 +26,10 @@ const shuffle = <T,>(a: T[]): T[] => {
   }
   return arr;
 };
+
+// Wall clock (injectable so tests can fast-forward the interrupt countdown).
+let now: () => number = Date.now;
+export const setClock = (fn: () => number) => { now = fn; };
 
 const newId = () => randomUUID().replace(/-/g, "").slice(0, 12);
 const newToken = () => randomBytes(24).toString("base64url");
@@ -49,6 +54,7 @@ export interface Room {
   winnerId: string | null;
   combatFought: boolean; // tracks if current turn already had combat
   statusBeforeLooting: AppStatus | null; // restored when looting a body is finished
+  settings: RoomSettings;
   updatedAt: number;
 }
 
@@ -158,7 +164,27 @@ const allPassed = (room: Room): boolean => {
 const syncCombatGate = (room: Room) => {
   if (!room.combat) return;
   if (room.status !== "waitingForInterrupts" && room.status !== "inCombat") return;
+  const wasWaiting = room.status === "waitingForInterrupts";
   room.status = allPassed(room) ? "inCombat" : "waitingForInterrupts";
+  if (room.status === "inCombat") {
+    room.combat.interruptDeadline = null;
+  } else if (!wasWaiting || !room.combat.interruptDeadline) {
+    // A new interrupt window opens: start the countdown.
+    const secs = room.settings.interruptSeconds;
+    room.combat.interruptDeadline = secs > 0 ? now() + secs * 1000 : null;
+  }
+};
+
+/** Countdown ran out: everyone who still had to pass is passed. Returns true if anything changed. */
+export const expireInterrupts = (room: Room): boolean => {
+  const c = room.combat;
+  if (!c || room.status !== "waitingForInterrupts" || !c.interruptDeadline || now() < c.interruptDeadline) return false;
+  for (const id of requiredPasses(room)) c.passes[id] = true;
+  c.interruptDeadline = null;
+  log(room, "⏱️ Time's up — everyone else passes.");
+  syncCombatGate(room);
+  room.updatedAt = Date.now();
+  return true;
 };
 
 export const buildView = (room: Room, selfId: string | null): ClientView => {
@@ -169,10 +195,12 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
         monsterTotal: monsterTotal(room, room.combat),
         playerTotal: playerSideTotal(room, room.combat),
         requiredPasses: requiredPasses(room),
+        interruptMsLeft: room.combat.interruptDeadline ? Math.max(0, room.combat.interruptDeadline - now()) : null,
       }
     : null;
   return {
     status: room.status,
+    settings: room.settings,
     players: room.players.map(toPublic),
     activePlayerIndex: room.activePlayerIndex,
     currentPhase: room.currentPhase,
@@ -216,6 +244,7 @@ export const createRoom = (code: string): Room => {
     winnerId: null,
     combatFought: false,
     statusBeforeLooting: null,
+    settings: { ...DEFAULT_SETTINGS },
     updatedAt: Date.now(),
   };
 };
@@ -630,6 +659,7 @@ const resetPasses = (room: Room) => {
 const reopenInterrupts = (room: Room) => {
   resetPasses(room);
   room.status = "waitingForInterrupts";
+  if (room.combat) room.combat.interruptDeadline = null; // the countdown restarts
   syncCombatGate(room);
 };
 
@@ -658,19 +688,34 @@ const endCombat = (room: Room, won = false) => {
 
 // ---------- victory check ----------
 const checkVictory = (room: Room, p: PrivatePlayer, viaCombat: boolean) => {
-  if (p.level >= 10 && !viaCombat) {
-    p.level = 9; // strict rule: cannot reach 10 except via combat
+  const goal = room.settings.winLevel;
+  if (p.level >= goal && !viaCombat) {
+    p.level = goal - 1; // strict rule: the winning level is only reached by combat
     return;
   }
-  if (p.level >= 10) {
-    p.level = 10;
+  if (p.level >= goal) {
+    p.level = goal;
     room.winnerId = p.id;
     room.status = "gameOver";
-    log(room, `🏆 ${p.name} reaches Level 10 — VICTORY!`);
+    log(room, `🏆 ${p.name} reaches Level ${goal} — VICTORY!`);
   }
 };
 
 const isActive = (room: Room, playerId: string) => room.players[room.activePlayerIndex]?.id === playerId;
+
+// Ends the fight once every fighter has run (or died).
+const finishRunAwayIfDone = (room: Room) => {
+  const combat = room.combat;
+  if (!combat) return;
+  const ran = combat.ranAway ?? [];
+  const done = (id: string | null) => !id || ran.includes(id) || room.players.find(p => p.id === id)?.isDead === true;
+  if (!done(combat.attackerId) || !done(combat.helperId)) return;
+  endCombat(room);
+  room.currentPhase = 3;
+  // applyBadStuff kan have skiftet status til "looting".
+  if (room.status === "looting") room.statusBeforeLooting = "normalTurn";
+  else room.status = "normalTurn";
+};
 
 // ---------- handlers ----------
 export const handleAction = (room: Room, playerId: string, msg: GameAction): { error: string | null; events: RoomEvent[] } => {
@@ -693,6 +738,16 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!name) return "Name cannot be empty.";
       if (room.players.some(p => p.id !== playerId && p.name.toLowerCase() === name.toLowerCase())) return "Name already taken.";
       player.name = name;
+      return null;
+    }
+
+    case "updateSettings": {
+      if (room.status !== "lobby") return "Settings are locked once the game has started.";
+      const next = { ...room.settings, ...msg.settings };
+      if (!(WIN_LEVELS as readonly number[]).includes(next.winLevel)) return "Invalid winning level.";
+      if (!(INTERRUPT_CHOICES as readonly number[]).includes(next.interruptSeconds)) return "Invalid countdown.";
+      room.settings = next;
+      log(room, `⚙️ ${player.name}: play to level ${next.winLevel}, pass countdown ${next.interruptSeconds ? `${next.interruptSeconds}s` : "off"}.`);
       return null;
     }
 
@@ -937,7 +992,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       const levelsGained = Math.floor(totalGold / 1000);
-      const newLevel = Math.min(9, player.level + levelsGained); // Man KAN IKKE vinde på et salg
+      const newLevel = Math.min(room.settings.winLevel - 1, player.level + levelsGained); // Man KAN IKKE vinde på et salg
       log(room, `💰 ${player.name} sells items for ${totalGold}g → +${newLevel - player.level} level(s).`);
       player.level = newLevel;
       refreshDerived(player);
@@ -950,7 +1005,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const card = player.hand[idx];
 
       if (card.type === "go-up-a-level") {
-        if (player.level >= 9) return "Du kan ikke bruge dette kort til at vinde spillet (Level 10)!";
+        if (player.level >= room.settings.winLevel - 1) return `Du kan ikke bruge dette kort til at vinde spillet (Level ${room.settings.winLevel})!`;
         player.level += 1;
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
@@ -1090,7 +1145,9 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       // Både OneShots og Enhancers skal kunne spilles på begge sider!
       if (card.type !== "oneshot" && card.type !== "enhancer") return "Card cannot be played in combat.";
-      const bonusAmount = card.bonus;
+      const tagged = card.type === "oneshot" && card.tagBonus && msg.side === "attacker"
+        && combat.monsters.some(m => hasTag(m, card.tagBonus!.tag));
+      const bonusAmount = tagged && card.type === "oneshot" && card.tagBonus ? card.tagBonus.bonus : card.bonus;
       const sign = bonusAmount > 0 ? "+" : "";
 
       if (msg.side === "attacker") {
@@ -1418,6 +1475,15 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       combat.ranAway = combat.ranAway ?? [];
       if (combat.ranAway.includes(playerId)) return "You already rolled to run away.";
 
+      // Monsters that don't bother with weak players can't hurt them on the way out.
+      const pursuers = combat.monsters.filter(m => m.ignoresLevelAtOrBelow === undefined || player.level > m.ignoresLevelAtOrBelow);
+      if (pursuers.length === 0) {
+        combat.ranAway.push(playerId);
+        log(room, `🐾 ${player.name} is beneath the monsters' notice and simply walks away.`);
+        finishRunAwayIfDone(room);
+        return null;
+      }
+
       const glued = combat.gluedPlayers?.includes(playerId) === true;
       let roll = rollD6();
 
@@ -1462,24 +1528,13 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         log(room, `${player.name} escapes!`);
       } else {
         log(room, `${player.name} fails to escape — Bad Stuff!`);
-        for (const m of combat.monsters) {
+        for (const m of pursuers) {
           applyBadStuff(room, player, m.badStuff);
           if (player.isDead) break;
         }
       }
 
-      const attackerDone = combat.ranAway.includes(combat.attackerId)
-        || room.players.find(p => p.id === combat.attackerId)?.isDead === true;
-      const helperDone = !combat.helperId || combat.ranAway.includes(combat.helperId)
-        || room.players.find(p => p.id === combat.helperId)?.isDead === true;
-
-      if (attackerDone && helperDone) {
-        endCombat(room);
-        room.currentPhase = 3;
-        // applyBadStuff kan have skiftet status til "looting" (TS kan ikke se det gennem kaldet).
-        if ((room.status as AppStatus) === "looting") room.statusBeforeLooting = "normalTurn";
-        else room.status = "normalTurn";
-      }
+      finishRunAwayIfDone(room);
       return null;
     }
 

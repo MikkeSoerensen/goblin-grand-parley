@@ -9,7 +9,7 @@ import path from "path";
 import { Server, type Socket } from "socket.io";
 
 import type { ServerToClient } from "../shared/types.js";
-import { buildView, handleAction, joinRoom, setConnected, type Room } from "./engine.js";
+import { buildView, expireInterrupts, handleAction, joinRoom, setConnected, type Room } from "./engine.js";
 import { createRoomStore } from "./persistence.js";
 import { parseClientMessage } from "./protocol.js";
 
@@ -92,11 +92,25 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
 
   const emit = (socketId: string, msg: ServerToClient) => io.to(socketId).emit("msg", msg);
 
+  // One timer per room for the interrupt countdown; re-armed after every state change.
+  const countdowns = new Map<string, NodeJS.Timeout>();
+  const scheduleCountdown = (room: Room) => {
+    const existing = countdowns.get(room.code);
+    if (existing) { clearTimeout(existing); countdowns.delete(room.code); }
+    const deadline = room.combat?.interruptDeadline;
+    if (!deadline || room.status !== "waitingForInterrupts") return;
+    countdowns.set(room.code, setTimeout(() => {
+      countdowns.delete(room.code);
+      if (expireInterrupts(room)) { broadcast(room); save(); } else scheduleCountdown(room);
+    }, Math.max(0, deadline - Date.now()) + 25));
+  };
+
   const broadcast = (room: Room) => {
     for (const p of room.players) {
       const sid = playerSocket.get(p.id);
       if (sid) emit(sid, { type: "state", view: buildView(room, p.id) });
     }
+    scheduleCountdown(room);
   };
 
   // Detaches a socket from its player; marks the player offline if it was their live socket.
@@ -173,10 +187,13 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
     httpServer.once("error", reject);
     httpServer.listen(opts.port, opts.host ?? "0.0.0.0", () => {
       const port = (httpServer.address() as AddressInfo).port;
+      for (const room of rooms.values()) scheduleCountdown(room);
       resolve({
         port,
         get rooms() { return rooms; },
         close: () => new Promise<void>(done => {
+          for (const t of countdowns.values()) clearTimeout(t);
+          countdowns.clear();
           try {
             store?.flush();
           } catch (err) {

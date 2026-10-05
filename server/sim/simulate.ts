@@ -1,6 +1,7 @@
 // Balance simulator: plays many complete bot games through the real engine and
 // summarizes how the rules behave (game length, class win rates, monster difficulty).
 
+import type { WinLevel } from "../../shared/types.js";
 import { createRoom, handleAction, joinRoom, setRandomSource, type Room } from "../engine.js";
 import { botStep, newMemory, type Rng } from "./bot.js";
 
@@ -28,10 +29,10 @@ export interface GameResult {
   monsterFights: Record<string, { fights: number; wins: number }>;
 }
 
-const MAX_TURNS = 400;
+const MAX_TURNS = 1200;
 const MAX_STEPS = 60_000;
 
-export const playGame = (players: number, seed: number): GameResult => {
+export const playGame = (players: number, seed: number, winLevel: WinLevel = 10): GameResult => {
   setRandomSource(mulberry32(seed));
   const rnd = mulberry32(seed ^ 0x9e3779b9);
   const rooms = new Map<string, Room>();
@@ -40,6 +41,8 @@ export const playGame = (players: number, seed: number): GameResult => {
     if (!r.ok) throw new Error(r.error);
   }
   const room = rooms.get("SIM") ?? createRoom("SIM");
+  const settingsErr = handleAction(room, room.players[0].id, { type: "updateSettings", settings: { winLevel } }).error;
+  if (settingsErr) throw new Error(settingsErr);
   const err = handleAction(room, room.players[0].id, { type: "startGame" }).error;
   if (err) throw new Error(err);
 
@@ -100,6 +103,7 @@ const quantile = (xs: number[], q: number) => {
 
 export interface Summary {
   players: number;
+  winLevel: WinLevel;
   games: number;
   finished: number;
   stuck: number;
@@ -114,8 +118,8 @@ export interface Summary {
   monsters: [string, { fights: number; wins: number }][];
 }
 
-export const runBatch = (players: number, games: number, seed: number): Summary => {
-  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919));
+export const runBatch = (players: number, games: number, seed: number, winLevel: WinLevel = 10): Summary => {
+  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919, winLevel));
   const done = results.filter(r => r.finished);
   const classWinRate: Summary["classWinRate"] = {};
   for (const r of results) {
@@ -133,7 +137,7 @@ export const runBatch = (players: number, games: number, seed: number): Summary 
   const rounds = done.map(r => r.turns / players);
   const sum = (f: (r: GameResult) => number) => results.reduce((s, r) => s + f(r), 0);
   return {
-    players, games,
+    players, games, winLevel,
     finished: done.length,
     stuck: results.filter(r => r.stuck).length,
     roundsMedian: quantile(rounds, 0.5),
@@ -150,13 +154,13 @@ export const runBatch = (players: number, games: number, seed: number): Summary 
 
 export const formatReport = (summaries: Summary[], title: string): string => {
   const lines: string[] = [`# ${title}`, ""];
-  lines.push("| Spillere | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
-  lines.push("|---|---|---|---|---|---|---|---|---|---|");
+  lines.push("| Spillere | Mål | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
+  lines.push("|---|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {
-    lines.push(`| ${s.players} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
+    lines.push(`| ${s.players} | ${s.winLevel} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
   }
   for (const s of summaries) {
-    lines.push("", `## Class ved spillets slutning — ${s.players} spillere`, "", "| Class | Spillere med den | Vandt | Vinderrate |", "|---|---|---|---|");
+    lines.push("", `## Class ved spillets slutning — ${s.players} spillere, mål ${s.winLevel}`, "", "| Class | Spillere med den | Vandt | Vinderrate |", "|---|---|---|---|");
     const fair = 1 / s.players;
     for (const [cls, v] of Object.entries(s.classWinRate).sort((a, b) => b[1].wins / b[1].held - a[1].wins / a[1].held)) {
       lines.push(`| ${cls} | ${v.held} | ${v.wins} | ${pct(v.wins, v.held)} (fair: ${pct(fair, 1)}) |`);

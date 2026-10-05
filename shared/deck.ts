@@ -16,6 +16,13 @@ export const MONSTER_TAGS: Readonly<Record<string, MonsterTag[]>> = {
   "m-pit": ["beast"], "m-flying": ["beast"], "m-large": ["beast"], "m-snails": ["beast"], "m-flat": ["beast"],
 };
 
+// Big monsters that don't bother with weak players: at or below this level you escape automatically.
+export const MONSTER_IGNORES: Readonly<Record<string, number>> = {
+  "m-rat": 5,    // Plutonium Dragon
+  "m-bull": 4,   // The Bullrog
+  "m-dragon": 4, // Squidzilla
+};
+
 // ---------- helpers ----------
 const monster = (
   cardId: string, name: string, level: number, treasures: number, levelsAwarded: number,
@@ -26,6 +33,7 @@ const monster = (
   id: uid(), cardId, name, type: "monster", deck: "door",
   level, treasures, levelsAwarded, badStuff, badStuffText, flavor,
   antiClass, immuneToCharm, tags: [...(MONSTER_TAGS[cardId] ?? [])],
+  ...(MONSTER_IGNORES[cardId] !== undefined ? { ignoresLevelAtOrBelow: MONSTER_IGNORES[cardId] } : {}),
 }));
 
 const equipment = (
@@ -246,6 +254,12 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...oneShot("o-yuppie",   "Yuppie Water",        2, 200, "monster", 1));
   cards.push(...oneShot("o-magic",    "Magic Missile",       5, 300, "monster", 1));
   cards.push(...oneShot("o-loaded",   "Loaded Die",          1, 100, "ally", 2));
+
+  // Tag-weapons: much stronger against the right kind of monster
+  cards.push(...oneShot("o-holy-water", "Holy Water", 2, 200, "ally", 2, "+5 instead of +2 when fighting an Undead monster.")
+    .map(c => ({ ...c, tagBonus: { tag: "undead" as const, bonus: 5 } })));
+  cards.push(...oneShot("o-goblin-repellent", "Goblin Repellent", 1, 100, "ally", 2, "+4 instead of +1 when fighting a Goblin.")
+    .map(c => ({ ...c, tagBonus: { tag: "goblin" as const, bonus: 4 } })));
 
   // --- Trolling Potions ---
   cards.push(...oneShot("o-friendship", "Friendship Potion", 0, 300, "ally", 1, "Play during any combat. The combat ends immediately. No levels or treasure are awarded."));

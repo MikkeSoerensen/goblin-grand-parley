@@ -105,7 +105,7 @@ const combatStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
   for (const id of requiredPasses(room)) {
     if (c.passes[id]) continue;
     const p = room.players.find(x => x.id === id)!;
-    const threatening = attacker.level >= leader(room).level || attacker.level >= 7;
+    const threatening = attacker.level >= leader(room).level || attacker.level >= room.settings.winLevel - 3;
     if (winning && (threatening || rnd() < 0.2) && once(mem.doneThisCombat, `meddle:${id}`)) {
       const boosts = p.hand.filter(x => (x.type === "enhancer" || x.type === "oneshot") && x.bonus > 0
         && x.cardId !== "o-friendship" && x.cardId !== "o-flask-glue");
