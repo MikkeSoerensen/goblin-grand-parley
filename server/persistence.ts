@@ -44,6 +44,8 @@ const migrateRoom = (r: Room) => {
   r.stats = { ...emptyStats(), ...r.stats };
   r.turnNo = r.turnNo ?? 0;
   r.trades = r.trades ?? [];                            // before The Grand Parley
+  r.highlights = r.highlights ?? [];                    // before the event strip
+  r.highlightSeq = r.highlightSeq ?? 0;
   for (const o of r.negotiations) o.itemIds = o.itemIds ?? [];
   r.halflingSaleTurn = r.halflingSaleTurn ?? {};
   for (const p of r.players) {

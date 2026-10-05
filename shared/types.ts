@@ -249,6 +249,12 @@ export interface RoomSettings {
 
 export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15, threat: "normal" };
 
+// A moment worth telling the whole table about (bounty, trade, toll, death …).
+export interface Highlight {
+  id: number; // increasing, so clients know which ones they haven't shown yet
+  text: string;
+}
+
 export interface PublicGameState {
   status: AppStatus;
   settings: RoomSettings;
@@ -268,6 +274,7 @@ export interface PublicGameState {
   charity: { fromId: string; cardCount: number; candidates: string[] } | null;
   looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
   log: string[];
+  highlights: Highlight[];
   winnerId: string | null;
 }
 

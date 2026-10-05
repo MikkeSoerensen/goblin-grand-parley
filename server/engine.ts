@@ -10,7 +10,7 @@ import type {
   ClassName, RaceName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
   NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
-  TradeOffer, TradeView, NegotiationView,
+  TradeOffer, TradeView, NegotiationView, Highlight,
 } from "../shared/types.js";
 import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../shared/types.js";
 
@@ -53,6 +53,8 @@ export interface Room {
   charity: PublicGameState["charity"];
   looting: PublicGameState["looting"];
   log: string[];
+  highlights: Highlight[];
+  highlightSeq: number;
   winnerId: string | null;
   combatFought: boolean; // tracks if current turn already had combat
   statusBeforeLooting: AppStatus | null; // restored when looting a body is finished
@@ -104,6 +106,13 @@ const refreshDerived = (p: PrivatePlayer) => {
 const log = (room: Room, msg: string) => {
   room.log.push(msg);
   if (room.log.length > 200) room.log.shift();
+};
+
+// Logs and tells the whole table: shown briefly on every screen.
+const shout = (room: Room, msg: string) => {
+  log(room, msg);
+  room.highlights.push({ id: ++room.highlightSeq, text: msg });
+  if (room.highlights.length > 20) room.highlights.shift();
 };
 
 const drawFromDeck = (room: Room, deck: "door" | "treasure" | "dungeon"): Card | null => {
@@ -278,7 +287,7 @@ export const expireInterrupts = (room: Room): boolean => {
   if (!c || room.status !== "waitingForInterrupts" || !c.interruptDeadline || now() < c.interruptDeadline) return false;
   for (const id of requiredPasses(room)) c.passes[id] = true;
   c.interruptDeadline = null;
-  log(room, "⏱️ Time's up — everyone else passes.");
+  shout(room, "⏱️ Time's up — everyone else passes.");
   syncCombatGate(room);
   room.updatedAt = Date.now();
   return true;
@@ -329,6 +338,7 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
     charity: room.charity,
     looting: room.looting,
     log: room.log.slice(-30),
+    highlights: room.highlights.slice(-10),
     winnerId: room.winnerId,
     self,
   };
@@ -354,6 +364,8 @@ export const createRoom = (code: string): Room => {
     charity: null,
     looting: null,
     log: [`Room ${code} created.`],
+    highlights: [],
+    highlightSeq: 0,
     winnerId: null,
     combatFought: false,
     statusBeforeLooting: null,
@@ -470,7 +482,7 @@ const cardNames = (cards: Card[]) => cards.map(c => c.name).join(", ") || "nothi
 export const addEffect = (room: Room, p: PrivatePlayer, effect: Omit<PlayerEffect, "id">): PlayerEffect => {
   const e: PlayerEffect = { ...effect, id: newId() };
   p.effects.push(e);
-  log(room, `🌀 ${p.name} is now affected by ${e.name}.`);
+  shout(room, `🌀 ${p.name} is now affected by ${e.name}.`);
   return e;
 };
 
@@ -478,7 +490,7 @@ export const removeEffect = (room: Room, p: PrivatePlayer, effectId: string): bo
   const idx = p.effects.findIndex(e => e.id === effectId);
   if (idx < 0) return false;
   const [e] = p.effects.splice(idx, 1);
-  log(room, `✨ ${e.name} is lifted from ${p.name}.`);
+  shout(room, `✨ ${e.name} is lifted from ${p.name}.`);
   return true;
 };
 
@@ -643,7 +655,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       break;
     }
     case "everyoneLosesLevel": {
-      log(room, `🐉 ${p.name}'s failure angers the beast — EVERYONE loses ${bs.amount} level(s)!`);
+      shout(room, `🐉 ${p.name}'s failure angers the beast — EVERYONE loses ${bs.amount} level(s)!`);
       room.stats.tableHits++;
       for (const o of room.players.filter(x => !x.isDead)) {
         o.level = Math.max(1, o.level - bs.amount);
@@ -715,7 +727,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
     }
     case "loseLevelsOrDie": {
       if (p.level <= bs.threshold) {
-        log(room, `💀 The Archfiend's dark presence is too much! ${p.name} DIES instantly!`);
+        shout(room, `💀 The Archfiend's dark presence is too much! ${p.name} DIES instantly!`);
         applyBadStuff(room, p, { kind: "death" });
       } else {
         const oldLevel = p.level;
@@ -747,7 +759,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       const lowest = opponents.reduce((low, op) => (op.level < low.level ? op : low));
       lowest.backpack.push(targetItem);
       refreshDerived(lowest);
-      log(room, `💀 ROBIN HOOD'S REVENGE! ${targetItem.name} is taken from ${p.name} and given to ${lowest.name} (Lvl ${lowest.level})!`);
+      shout(room, `💀 ROBIN HOOD'S REVENGE! ${targetItem.name} is taken from ${p.name} and given to ${lowest.name} (Lvl ${lowest.level})!`);
       break;
     }
     case "death": {
@@ -755,10 +767,10 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         const halo = p.equipment.head;
         removeEquipped(p, halo.id);
         discardCard(room, halo);
-        log(room, `👼 MIRACLE! ${p.name}'s Halo of Righteousness shatters with a blinding light, saving their life!`);
+        shout(room, `👼 MIRACLE! ${p.name}'s Halo of Righteousness shatters with a blinding light, saving their life!`);
         break; // Spilleren dør ikke!
       }
-      log(room, `💀 ${p.name} has DIED.`);
+      shout(room, `💀 ${p.name} has DIED.`);
 
       // d-doom: Mister 2 levels ved død!
       if (hasDungeon(room, "d-doom")) {
@@ -798,7 +810,7 @@ const resolvePortal = (room: Room, cardId: string) => {
     const newDungeon = drawFromDeck(room, "dungeon");
     if (newDungeon && newDungeon.type === "dungeon") {
       room.activeDungeons.push(newDungeon);
-      log(room, msg(newDungeon.name));
+      shout(room, msg(newDungeon.name));
     }
   };
   if (cardId === "p-open") {
@@ -807,7 +819,7 @@ const resolvePortal = (room: Room, cardId: string) => {
     const closed = room.activeDungeons.pop();
     if (closed) {
       room.discards.dungeon.push(closed);
-      log(room, `🏚️ ${closed.name} is closed!`);
+      shout(room, `🏚️ ${closed.name} is closed!`);
     } else {
       log(room, `...but there were no active dungeons to close.`);
     }
@@ -869,7 +881,7 @@ const payBounty = (room: Room) => {
     p.hand.push(t);
     refreshDerived(p);
     room.stats.bounties++;
-    log(room, `💰 BOUNTY! ${p.name} helped bring down the leader and claims a treasure.`);
+    shout(room, `💰 BOUNTY! ${p.name} helped bring down the leader and claims a treasure.`);
   }
 };
 
@@ -892,7 +904,7 @@ const sirenCheck = (room: Room) => {
     log(room, `🎶 ${helper.name} resists the Siren's song (rolled ${roll}).`);
     return;
   }
-  log(room, `🎶 ${helper.name} succumbs to the Siren (rolled ${roll}) and now fights FOR the monster!`);
+  shout(room, `🎶 ${helper.name} succumbs to the Siren (rolled ${roll}) and now fights FOR the monster!`);
   c.turncoatId = helper.id;
   c.helperId = null;
   c.contract = null;
@@ -935,7 +947,7 @@ const checkVictory = (room: Room, p: PrivatePlayer, viaCombat: boolean) => {
     p.level = goal;
     room.winnerId = p.id;
     room.status = "gameOver";
-    log(room, `🏆 ${p.name} reaches Level ${goal} — VICTORY!`);
+    shout(room, `🏆 ${p.name} reaches Level ${goal} — VICTORY!`);
   }
 };
 
@@ -1021,7 +1033,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!source || !card || card.type !== "curse") return "Card not found or not a curse.";
       source.splice(at, 1);
 
-      log(room, `💀 ${player.name} casts ${card.name} on ${targetPlayer.name}!`);
+      shout(room, `💀 ${player.name} casts ${card.name} on ${targetPlayer.name}!`);
       applyBadStuff(room, targetPlayer, card.effect);
       room.discards.door.push(card);
 
@@ -1056,7 +1068,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
           if (next && next.type === "monster") {
             room.table.push(next);
             room.combat!.monsters.push(next);
-            log(room, `⚔️ AMBUSH! ${next.name} (Lvl ${next.level}) charges in alongside ${card.name}!`);
+            shout(room, `⚔️ AMBUSH! ${next.name} (Lvl ${next.level}) charges in alongside ${card.name}!`);
           } else if (next) {
             room.decks.door.push(next); // not a monster: back on top, unseen
             log(room, `👀 ${card.name} was hoping for backup, but none came.`);
@@ -1066,7 +1078,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (player.equipment.none.some(e => e.cardId === "e-spell-amulet")) {
           log(room, `🛡️ ${player.name}'s Amulet of Spell Reflection DESTROYS ${card.name} instantly!`);
         } else if (hasDungeon(room, "d-curses")) {
-          log(room, `💀 DUNGEON OF CURSES: ${card.name} hits EVERYONE!`);
+          shout(room, `💀 DUNGEON OF CURSES: ${card.name} hits EVERYONE!`);
           for (const target of room.players.filter(p => !p.isDead)) {
             applyBadStuff(room, target, card.effect);
           }
@@ -1388,7 +1400,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         combat.gluedPlayers = combat.gluedPlayers ?? [];
         if (!combat.gluedPlayers.includes(target.id)) combat.gluedPlayers.push(target.id);
-        log(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! If they have to run away, they will automatically fail!`);
+        shout(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! If they have to run away, they will automatically fail!`);
 
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
@@ -1440,7 +1452,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (card.cardId === "o-friendship") {
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
-        log(room, `💖 ${player.name} plays Friendship Potion! The combat ends instantly. No levels or treasures!`);
+        shout(room, `💖 ${player.name} plays Friendship Potion! The combat ends instantly. No levels or treasures!`);
         endCombat(room);
         room.negotiations = [];
         room.status = "normalTurn";
@@ -1604,7 +1616,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (roll >= reqRoll) {
           removeEquipped(target, targetEq.id);
           player.backpack.push(targetEq);
-          log(room, `🗡️ ${player.name} rolls ${roll} and successfully STEALS ${targetEq.name} from ${target.name}!`);
+          shout(room, `🗡️ ${player.name} rolls ${roll} and successfully STEALS ${targetEq.name} from ${target.name}!`);
         } else {
           const oldLevel = player.level;
           player.level = Math.max(1, player.level - 1);
@@ -1669,7 +1681,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         c.backstabbedBy[target.id].push(playerId);
         c.attackerBonuses -= 2;
-        log(room, `🗡️ ${player.name} BACKSTABS ${target.name}! (-2 to their combat score)`);
+        shout(room, `🗡️ ${player.name} BACKSTABS ${target.name}! (-2 to their combat score)`);
         refreshDerived(player);
         return null;
       }
@@ -1748,7 +1760,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       room.negotiations = [];
       reopenInterrupts(room);
 
-      log(room, `💖 ${player.name} uses the Kneepads of Allure to FORCE ${target.name} to help them!`);
+      shout(room, `💖 ${player.name} uses the Kneepads of Allure to FORCE ${target.name} to help them!`);
       sirenCheck(room);
       return null;
     }
@@ -1771,13 +1783,13 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
           refreshDerived(briber);
           refreshDerived(player);
           room.stats.bribes++;
-          log(room, `💰 ${player.name} pockets ${cardNames(items)} up front.`);
+          shout(room, `💰 ${player.name} pockets ${cardNames(items)} up front.`);
         }
         room.combat.helperId = playerId;
         room.combat.contract = { helperId: playerId, treasures: offer.treasures, accepted: true };
         delete room.combat.passes[playerId];
         reopenInterrupts(room);
-        log(room, `🩸 BLOOD OATH: ${player.name} joins for ${offer.treasures} treasure(s). Cannot withdraw.`);
+        shout(room, `🩸 BLOOD OATH: ${player.name} joins for ${offer.treasures} treasure(s). Cannot withdraw.`);
         room.negotiations = [];
         sirenCheck(room);
         return null;
@@ -1843,7 +1855,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
           helper.level += 1;
           log(room, `🧝 ${helper.name} gains a level for helping a stronger hero (Elf).`);
         }
-        log(room, `🏆 Victory! +${totalLevels} level(s), +${attackerShare} treasure(s) to ${attacker.name}${helper ? `, +${helperShare} to ${helper.name}` : ""}.`);
+        shout(room, `🏆 Victory! +${totalLevels} level(s), +${attackerShare} treasure(s) to ${attacker.name}${helper ? `, +${helperShare} to ${helper.name}` : ""}.`);
 
         endCombat(room, true);
         refreshDerived(attacker);
@@ -1853,7 +1865,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         checkVictory(room, attacker, true);
       } else {
         room.status = "runAwayRoll";
-        log(room, `Defeat! ${attacker.name}${helper ? ` and ${helper.name}` : ""} must Run Away.`);
+        shout(room, `Defeat! ${attacker.name}${helper ? ` and ${helper.name}` : ""} must Run Away.`);
         payBounty(room);
       }
       return null;
@@ -1918,7 +1930,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       combat.ranAway.push(playerId);
 
       if (glued) {
-        log(room, `🧴 ${player.name} is covered in GLUE and automatically fails to escape!`);
+        shout(room, `🧴 ${player.name} is covered in GLUE and automatically fails to escape!`);
       }
       if (!glued && roll >= 5) {
         log(room, `${player.name} escapes!`);
@@ -2012,7 +2024,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       refreshDerived(from);
       refreshDerived(player);
       room.stats.trades++;
-      log(room, `🤝 ${from.name} and ${player.name} trade: ${cardNames(give)} ⇄ ${cardNames(take)}.`);
+      shout(room, `🤝 ${from.name} and ${player.name} trade: ${cardNames(give)} ⇄ ${cardNames(take)}.`);
       return null;
     }
 
@@ -2035,7 +2047,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const paid = cards.reduce((sum, x) => sum + tradeValue(x), 0);
       if (paid < price) return `The toll is ${price}g — you offered ${paid}g.`;
       for (const x of cards) discardCard(room, takeOwned(player, x.id)!);
-      log(room, `🪙 ${player.name} pays a toll of ${cardNames(cards)} (${paid}g) and walks past ${c.monsters.map(m => m.name).join(" & ")}.`);
+      shout(room, `🪙 ${player.name} pays a toll of ${cardNames(cards)} (${paid}g) and walks past ${c.monsters.map(m => m.name).join(" & ")}.`);
       room.stats.tolls++;
       endCombat(room);
       room.negotiations = [];
@@ -2088,7 +2100,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const [stolen] = helper.hand.splice(Math.floor(random() * helper.hand.length), 1);
       player.hand.push(stolen);
       combat.swapUsed = true;
-      log(room, `🔄 Sudden Swaps! ${player.name} blindly stole a card from ${helper.name}'s hand!`);
+      shout(room, `🔄 Sudden Swaps! ${player.name} blindly stole a card from ${helper.name}'s hand!`);
       refreshDerived(player);
       refreshDerived(helper);
       return null;

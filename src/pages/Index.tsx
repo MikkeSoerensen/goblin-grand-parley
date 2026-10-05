@@ -10,6 +10,7 @@ import { CombatPanel } from "@/components/game/CombatPanel";
 import { CharityModal, LootingModal } from "@/components/game/Modals";
 import { CardDetails } from "@/components/game/CardDetails";
 import { ParleyPanel } from "@/components/game/ParleyPanel";
+import { EventStrip } from "@/components/game/EventStrip";
 import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -172,6 +173,7 @@ export default function Index() {
         <CharityModal />
         <LootingModal />
         <CardDetails />
+        <EventStrip />
       </main>
     );
   }
@@ -261,6 +263,7 @@ export default function Index() {
       <CharityModal />
       <LootingModal />
       <CardDetails />
+      <EventStrip />
     </main>
   );
 }

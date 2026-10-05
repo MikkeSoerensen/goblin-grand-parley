@@ -205,3 +205,35 @@ describe("toll", () => {
     expect(late.act(0, { type: "payToll", cardIds: [c3.id] })).toMatch(/Too late/);
   });
 });
+
+describe("highlights (the table's event strip)", () => {
+  it("shouts the social moments to everyone, with increasing ids", () => {
+    const t = startedTable(3);
+    const potion = valuable(300);
+    t.player(0).hand.push(potion);
+    t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [potion.id], take: [] });
+    t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: true });
+    const seenByBystander = buildView(t.room, t.ids[2]).highlights;
+    expect(seenByBystander.at(-1)?.text).toMatch(/trade:/);
+    const ids = seenByBystander.map(h => h.id);
+    expect([...ids].sort((a, b) => a - b)).toEqual(ids);
+  });
+
+  it("does not shout routine bookkeeping, and keeps only the latest", () => {
+    const t = startedTable(2);
+    const before = t.room.highlights.length;
+    const gear = equipment(1, 300, "head");
+    t.player(0).hand.push(gear);
+    t.act(0, { type: "equip", cardId: gear.id });
+    expect(t.room.highlights.length).toBe(before);
+
+    for (let i = 0; i < 30; i++) {
+      const p = valuable(100);
+      t.player(0).hand.push(p);
+      t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [p.id], take: [] });
+      t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: true });
+    }
+    expect(t.room.highlights.length).toBe(20);
+    expect(buildView(t.room, t.ids[0]).highlights).toHaveLength(10);
+  });
+});
