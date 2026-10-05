@@ -2,7 +2,7 @@
 // (handleAction) with a simple, reasonable strategy — the point is comparable numbers
 // between versions of the rules, not strong play.
 
-import { hasClass } from "../../shared/rules.js";
+import { hasClass, isTradable, tollPrice, tradeValue } from "../../shared/rules.js";
 import type { Card, EquipmentCard, GameAction, MonsterCard, PrivatePlayer } from "../../shared/types.js";
 import { buildView, handleAction, requiredPasses, type Room } from "../engine.js";
 
@@ -98,7 +98,7 @@ const combatStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
 
   // 1. Answer help offers.
   for (const offer of room.negotiations.filter(o => o.status === "pending")) {
-    const accept = offer.treasures >= 1 || rnd() < 0.3;
+    const accept = offer.treasures >= 1 || offer.itemIds.length > 0 || rnd() < 0.3;
     if (handleAction(room, offer.toId, { type: "respondHelp", offerId: offer.id, accept }).error === null) return true;
   }
 
@@ -151,8 +151,20 @@ const combatStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
         .sort((a, b) => b.combatPower - a.combatPower)[0];
       if (helper) {
         const offer = Math.min(totalTreasures, 1 + Math.floor(rnd() * 2));
-        if (handleAction(room, attacker.id, { type: "askForHelp", helperId: helper.id, treasures: offer }).error === null) return true;
+        // Sweeten the deal with a spare backpack item half the time.
+        const spare = attacker.backpack.filter(isTradable).sort(byGoldAsc)[0];
+        const itemIds = spare && rnd() < 0.5 ? [spare.id] : [];
+        if (handleAction(room, attacker.id, { type: "askForHelp", helperId: helper.id, treasures: offer, itemIds }).error === null) return true;
       }
+    }
+    // Still losing and nobody coming? Buy our way past with spare valuables if the toll is affordable.
+    if (!c.helperId && once(mem.doneThisCombat, "toll")) {
+      const price = c.monsters.some(m => m.antiClass) ? null : tollPrice(view.monsterTotal);
+      const spares = [...attacker.backpack, ...attacker.hand.filter(x => x.type !== "monster")].filter(isTradable).sort(byGoldAsc);
+      const pay: string[] = [];
+      let sum = 0;
+      for (const x of spares) { if (price === null || sum >= price) break; pay.push(x.id); sum += tradeValue(x); }
+      if (price !== null && sum >= price && handleAction(room, attacker.id, { type: "payToll", cardIds: pay }).error === null) return true;
     }
   }
 

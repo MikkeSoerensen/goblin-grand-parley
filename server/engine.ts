@@ -5,11 +5,12 @@
 import { randomBytes, randomUUID } from "crypto";
 
 import { buildAllDecks } from "../shared/deck.js";
-import { effectTotal, hasClass, hasEffect, hasRace, hasTag } from "../shared/rules.js";
+import { effectTotal, hasClass, hasEffect, hasRace, hasTag, isTradable, tollPrice, tradeValue } from "../shared/rules.js";
 import type {
   ClassName, RaceName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
   NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
+  TradeOffer, TradeView, NegotiationView,
 } from "../shared/types.js";
 import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../shared/types.js";
 
@@ -48,6 +49,7 @@ export interface Room {
   currentPhase: Phase;
   combat: CombatState | null;
   negotiations: NegotiationOffer[];
+  trades: TradeOffer[];
   charity: PublicGameState["charity"];
   looting: PublicGameState["looting"];
   log: string[];
@@ -66,8 +68,11 @@ export interface RoomStats {
   turncoats: number;  // helpers who switched sides (Siren)
   tableHits: number;  // Bad Stuff that hit everyone
   sabotages: number;  // cards played by non-fighters to strengthen a monster
+  trades: number;     // completed Grand Parley trades
+  bribes: number;     // help bought with items
+  tolls: number;      // fights bought off
 }
-export const emptyStats = (): RoomStats => ({ bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0 });
+export const emptyStats = (): RoomStats => ({ bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0, trades: 0, bribes: 0, tolls: 0 });
 
 export type RoomEvent = Extract<ServerToClient, { type: "rolled" }>;
 
@@ -306,7 +311,21 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
     activeDungeons: room.activeDungeons,
     table: room.table,
     combat,
-    negotiations: room.negotiations,
+    negotiations: room.negotiations.map((o): NegotiationView => {
+      const from = room.players.find(p => p.id === o.fromId);
+      return { ...o, items: from ? o.itemIds.map(id => ownedCard(from, id)).filter((c): c is Card => !!c) : [] };
+    }),
+    trades: room.trades
+      .filter(t => t.fromId === selfId || t.toId === selfId)
+      .map((t): TradeView => {
+        const from = room.players.find(p => p.id === t.fromId);
+        const to = room.players.find(p => p.id === t.toId);
+        return {
+          ...t,
+          giveCards: from ? t.give.map(id => ownedCard(from, id)).filter((c): c is Card => !!c) : [],
+          takeCards: to ? t.take.map(id => allEquipped(to).find(e => e.id === id)).filter((c): c is EquipmentCard => !!c) : [],
+        };
+      }),
     charity: room.charity,
     looting: room.looting,
     log: room.log.slice(-30),
@@ -331,6 +350,7 @@ export const createRoom = (code: string): Room => {
     currentPhase: 1,
     combat: null,
     negotiations: [],
+    trades: [],
     charity: null,
     looting: null,
     log: [`Room ${code} created.`],
@@ -411,6 +431,40 @@ export const setConnected = (room: Room, playerId: string, connected: boolean) =
   syncCombatGate(room);
   room.updatedAt = Date.now();
 };
+
+// ---------- owning and moving cards (The Grand Parley) ----------
+// A card the player owns right now: in hand, in the backpack or worn.
+const ownedCard = (p: PrivatePlayer, id: string): Card | undefined =>
+  p.hand.find(c => c.id === id) ?? p.backpack.find(c => c.id === id) ?? allEquipped(p).find(e => e.id === id);
+
+const takeOwned = (p: PrivatePlayer, id: string): Card | undefined => {
+  for (const zone of [p.hand, p.backpack]) {
+    const i = zone.findIndex(c => c.id === id);
+    if (i >= 0) return zone.splice(i, 1)[0];
+  }
+  return removeEquipped(p, id) ?? undefined;
+};
+
+// Received equipment goes to the backpack (wear it yourself afterwards); anything else to the hand.
+const receive = (p: PrivatePlayer, c: Card) => {
+  if (c.type === "equipment") p.backpack.push(c);
+  else p.hand.push(c);
+};
+
+/** Validates a set of valuable cards a player owns; returns the cards or an error. */
+const valuables = (p: PrivatePlayer, ids: string[], where: "owned" | "worn"): Card[] | string => {
+  if (new Set(ids).size !== ids.length) return "The same card twice.";
+  const cards: Card[] = [];
+  for (const id of ids) {
+    const c = where === "worn" ? allEquipped(p).find(e => e.id === id) : ownedCard(p, id);
+    if (!c) return where === "worn" ? `${p.name} isn't wearing that item.` : `${p.name} doesn't have that card.`;
+    if (!isTradable(c)) return `${c.name} has no gold value and can't be traded.`;
+    cards.push(c);
+  }
+  return cards;
+};
+
+const cardNames = (cards: Card[]) => cards.map(c => c.name).join(", ") || "nothing";
 
 // ---------- lasting effects ----------
 export const addEffect = (room: Room, p: PrivatePlayer, effect: Omit<PlayerEffect, "id">): PlayerEffect => {
@@ -1660,14 +1714,20 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const helper = room.players.find(p => p.id === msg.helperId);
       if (!helper || helper.id === playerId || helper.isDead) return "Invalid helper.";
       if (room.negotiations.some(o => o.toId === helper.id && o.status === "pending")) return "You already have a pending offer to that player.";
+      const itemIds = msg.itemIds ?? [];
+      const bribe = valuables(player, itemIds, "owned");
+      if (typeof bribe === "string") return bribe;
       const offer: NegotiationOffer = {
         id: newId(),
         fromId: playerId, toId: helper.id,
         treasures: msg.treasures,
+        itemIds,
         status: "pending",
       };
       room.negotiations.push(offer);
-      log(room, `${player.name} offers ${msg.treasures} treasure(s) for help.`);
+      log(room, bribe.length
+        ? `${player.name} offers ${helper.name} ${msg.treasures} treasure(s) AND ${cardNames(bribe)} for help.`
+        : `${player.name} offers ${msg.treasures} treasure(s) for help.`);
       return null;
     }
 
@@ -1699,6 +1759,20 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (offer.status !== "pending") return "Already responded.";
       offer.status = msg.accept ? "accepted" : "rejected";
       if (msg.accept && room.combat && !room.combat.helperId && !combatDecided(room)) {
+        // The bribe changes hands now — and stays changed, whatever happens in the fight.
+        const briber = room.players.find(p => p.id === offer.fromId);
+        if (offer.itemIds.length && briber) {
+          const items = valuables(briber, offer.itemIds, "owned");
+          if (typeof items === "string") {
+            room.negotiations = room.negotiations.filter(o => o.status === "pending");
+            return `${briber.name} no longer has the offered items — the deal is off.`;
+          }
+          for (const c of items) { takeOwned(briber, c.id); receive(player, c); }
+          refreshDerived(briber);
+          refreshDerived(player);
+          room.stats.bribes++;
+          log(room, `💰 ${player.name} pockets ${cardNames(items)} up front.`);
+        }
         room.combat.helperId = playerId;
         room.combat.contract = { helperId: playerId, treasures: offer.treasures, accepted: true };
         delete room.combat.passes[playerId];
@@ -1896,6 +1970,78 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         for (const rest of looting.pile) discardCard(room, rest);
         finishLooting(room, looting.deadId);
       }
+      return null;
+    }
+
+    case "proposeTrade": {
+      if (room.status !== "normalTurn" || room.combat) return "Trades happen outside of fights.";
+      const other = room.players.find(p => p.id === msg.toId);
+      if (!other || other.id === playerId) return "Pick another player to trade with.";
+      if (player.isDead || other.isDead) return "The dead don't trade.";
+      if (msg.give.length === 0 && msg.take.length === 0) return "A trade needs at least one card.";
+      if (room.trades.filter(t => t.fromId === playerId).length >= 3) return "You already have 3 open trade offers.";
+      const give = valuables(player, msg.give, "owned");
+      if (typeof give === "string") return give;
+      const take = valuables(other, msg.take, "worn");
+      if (typeof take === "string") return take;
+      room.trades.push({ id: newId(), fromId: playerId, toId: other.id, give: [...msg.give], take: [...msg.take] });
+      log(room, `🤝 ${player.name} proposes a trade to ${other.name}.`);
+      return null;
+    }
+
+    case "respondTrade": {
+      const trade = room.trades.find(t => t.id === msg.tradeId);
+      if (!trade || trade.toId !== playerId) return "No such trade offer for you.";
+      room.trades = room.trades.filter(t => t.id !== trade.id);
+      const from = room.players.find(p => p.id === trade.fromId);
+      if (!from) return "The other player is gone.";
+      if (!msg.accept) {
+        log(room, `🙅 ${player.name} turns down ${from.name}'s trade.`);
+        return null;
+      }
+      if (room.status !== "normalTurn" || room.combat) return "Trades happen outside of fights.";
+      // Re-check everything: cards may have moved since the offer was made.
+      const give = valuables(from, trade.give, "owned");
+      if (typeof give === "string") return `The trade fell through: ${give}`;
+      const take = valuables(player, trade.take, "worn");
+      if (typeof take === "string") return `The trade fell through: ${take}`;
+      for (const c of give) takeOwned(from, c.id);
+      for (const c of take) takeOwned(player, c.id);
+      for (const c of give) receive(player, c);
+      for (const c of take) receive(from, c);
+      refreshDerived(from);
+      refreshDerived(player);
+      room.stats.trades++;
+      log(room, `🤝 ${from.name} and ${player.name} trade: ${cardNames(give)} ⇄ ${cardNames(take)}.`);
+      return null;
+    }
+
+    case "cancelTrade": {
+      const trade = room.trades.find(t => t.id === msg.tradeId);
+      if (!trade || trade.fromId !== playerId) return "No such trade offer from you.";
+      room.trades = room.trades.filter(t => t.id !== trade.id);
+      return null;
+    }
+
+    case "payToll": {
+      const c = room.combat;
+      if (!c || c.attackerId !== playerId) return "Only the attacker can pay a toll.";
+      if (room.status !== "waitingForInterrupts" && room.status !== "inCombat") return "Too late to pay — the fight is decided.";
+      if (c.monsters.some(m => m.antiClass)) return "This boss can't be bought off.";
+      const price = tollPrice(monsterTotal(room, c));
+      if (price === null) return "This fight is too big to buy your way out of.";
+      const cards = valuables(player, msg.cardIds, "owned");
+      if (typeof cards === "string") return cards;
+      const paid = cards.reduce((sum, x) => sum + tradeValue(x), 0);
+      if (paid < price) return `The toll is ${price}g — you offered ${paid}g.`;
+      for (const x of cards) discardCard(room, takeOwned(player, x.id)!);
+      log(room, `🪙 ${player.name} pays a toll of ${cardNames(cards)} (${paid}g) and walks past ${c.monsters.map(m => m.name).join(" & ")}.`);
+      room.stats.tolls++;
+      endCombat(room);
+      room.negotiations = [];
+      room.status = "normalTurn";
+      room.currentPhase = 3;
+      refreshDerived(player);
       return null;
     }
 

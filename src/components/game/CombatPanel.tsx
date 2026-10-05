@@ -2,7 +2,8 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useEffect, useState } from "react";
-import { hasClass } from "../../../shared/rules";
+import { hasClass, isTradable, tollPrice, tradeValue } from "../../../shared/rules";
+import type { Card } from "../../../shared/types";
 import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
 // Counts down locally from the server's "ms left" (so device clocks never matter).
@@ -22,6 +23,8 @@ export function CombatPanel() {
   const view = useGame(s => s.view);
   const countdown = useCountdown(view?.combat?.interruptMsLeft ?? null);
   const [helpTreasures, setHelpTreasures] = useState<Record<string, number>>({});
+  const [bribes, setBribes] = useState<Record<string, string[]>>({});
+  const [tollPick, setTollPick] = useState<string[]>([]);
 
   if (!view?.combat || !view.self) return null;
   const c = view.combat;
@@ -41,6 +44,18 @@ export function CombatPanel() {
   
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = hasClass(attacker, "Warrior") || (!!helper && hasClass(helper, "Warrior"));
+  // Valuables you could bribe or pay a toll with: treasure in hand, backpack and what you wear.
+  const e = self.equipment;
+  const myValuables: Card[] = [
+    ...self.hand.filter(x => x.deck === "treasure"),
+    ...self.backpack,
+    ...[e.head, e.armor, e.feet, e.bigItem, ...e.hands, ...e.none].filter((x): x is NonNullable<typeof x> => !!x),
+  ].filter(isTradable);
+  const toll = tollPrice(monsterTotal);
+  const tollBlocked = c.monsters.some(m => m.antiClass) ? "Bosses can't be bought off."
+    : toll === null ? `A fight of ${monsterTotal} is too big to buy your way out of (max 16).` : null;
+  const tollPaid = myValuables.filter(x => tollPick.includes(x.id)).reduce((s, x) => s + tradeValue(x), 0);
+
   // Every class you have that has a combat ability (two with Guild Hopper).
   const combatClasses = (["Warrior", "Thief", "Wizard"] as const).filter(name => hasClass(self, name));
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
@@ -125,7 +140,7 @@ export function CombatPanel() {
           <div className="font-display text-sm mb-2 flex items-center gap-1"><HandHelping className="w-4 h-4"/> Ask for help</div>
           <div className="grid gap-1.5">
             {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => (
-              <div key={p.id} className="flex items-center gap-2 text-sm">
+              <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="flex-1 truncate">{p.name} (Pwr {p.combatPower})</span>
                 <input 
                   type="number" 
@@ -137,11 +152,23 @@ export function CombatPanel() {
                 />
                 <Button 
                   size="sm" 
-                  onClick={() => send({ type: "askForHelp", helperId: p.id, treasures: helpTreasures[p.id] ?? Math.min(1, totalTreasures) })}
+                  onClick={() => {
+                    send({ type: "askForHelp", helperId: p.id, treasures: helpTreasures[p.id] ?? Math.min(1, totalTreasures), itemIds: bribes[p.id] ?? [] });
+                    setBribes(s => { const next = { ...s }; delete next[p.id]; return next; });
+                  }}
                 >
                   Offer
                 </Button>
                 
+                <Button size="sm" variant="ghost" className="px-2" aria-expanded={bribes[p.id] !== undefined}
+                  onClick={() => setBribes(s => {
+                    const next = { ...s };
+                    if (next[p.id] === undefined) next[p.id] = []; else delete next[p.id];
+                    return next;
+                  })}>
+                  + items
+                </Button>
+
                 {/* NY KNAP: Kneepads of Allure */}
                 {hasKneepads && (
                   <Button 
@@ -152,6 +179,22 @@ export function CombatPanel() {
                   >
                     💖 Force
                   </Button>
+                )}
+                {bribes[p.id] !== undefined && (
+                  <div className="basis-full flex flex-wrap gap-1 pl-2 pb-1">
+                    <span className="text-xs opacity-70 w-full">Bribe {p.name} — paid the moment they accept, never returned:</span>
+                    {myValuables.length === 0 && <span className="text-xs italic opacity-60">You have nothing of value.</span>}
+                    {myValuables.map(card => {
+                      const on = bribes[p.id].includes(card.id);
+                      return (
+                        <button key={card.id} type="button" aria-pressed={on}
+                          onClick={() => setBribes(s => ({ ...s, [p.id]: on ? s[p.id].filter(x => x !== card.id) : [...s[p.id], card.id] }))}
+                          className={`text-xs font-ui rounded border px-2 py-0.5 ${on ? "border-primary bg-primary/20" : "border-border bg-muted/40"}`}>
+                          {card.name} <span className="opacity-60">{tradeValue(card)}g</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             ))}
@@ -164,9 +207,51 @@ export function CombatPanel() {
         </div>
       )}
 
+      {/* Others at the table see who is bribing whom */}
+      {view.negotiations.filter(n => n.toId !== self.id && n.fromId !== self.id && n.status === "pending" && n.items.length > 0).map(n => (
+        <div key={n.id} className="text-xs font-ui mb-2 px-2 py-1 rounded bg-muted/40 border border-border">
+          💰 {view.players.find(p => p.id === n.fromId)?.name} is bribing {view.players.find(p => p.id === n.toId)?.name} with {n.items.map(i => i.name).join(", ")}.
+        </div>
+      ))}
+
+      {isAttacker && (view.status === "waitingForInterrupts" || view.status === "inCombat") && (
+        <div className="border-t border-border pt-3 mb-3">
+          <div className="font-display text-sm mb-1">🪙 Pay a toll</div>
+          {tollBlocked ? (
+            <p className="text-xs opacity-70 font-ui">{tollBlocked}</p>
+          ) : (
+            <>
+              <p className="text-xs opacity-70 font-ui mb-1.5">
+                Toll for a fight of {monsterTotal}: <b>{toll}g</b>. You walk away — no levels, no treasure, no Bad Stuff. The cards are discarded.
+              </p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {myValuables.length === 0 && <span className="text-xs italic opacity-60">You have nothing of value.</span>}
+                {myValuables.map(card => {
+                  const on = tollPick.includes(card.id);
+                  return (
+                    <button key={card.id} type="button" aria-pressed={on}
+                      onClick={() => setTollPick(s => on ? s.filter(x => x !== card.id) : [...s, card.id])}
+                      className={`text-xs font-ui rounded border px-2 py-0.5 ${on ? "border-primary bg-primary/20" : "border-border bg-muted/40"}`}>
+                      {card.name} <span className="opacity-60">{tradeValue(card)}g</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Button size="sm" variant="outline" disabled={tollPaid < (toll ?? Infinity)}
+                onClick={() => { send({ type: "payToll", cardIds: tollPick }); setTollPick([]); }}>
+                Pay {tollPaid}g / {toll}g
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {view.negotiations.filter(n => n.toId === self.id && n.status === "pending").map(n => (
         <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
-          <span className="flex-1">{view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s) for help.</span>
+          <span className="flex-1">
+            {view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s)
+            {n.items.length > 0 && <> + <b>{n.items.map(i => i.name).join(", ")}</b> up front</>} for help.
+          </span>
           <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
           <Button size="sm" variant="ghost" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: false })}>Decline</Button>
         </div>

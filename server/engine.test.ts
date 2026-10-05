@@ -349,6 +349,11 @@ const chaosAction = (room: Room, rnd: () => number): { playerId: string; msg: Ga
     { type: "endTurn" },
     { type: "removeEffect", cardId: card, targetId: other.id, effectId: pick(other.effects)?.id ?? "none" },
     { type: "sacrificeCompanion" },
+    { type: "askForHelp", helperId: other.id, treasures: 1, itemIds: [card, card2].filter(x => x !== "none") },
+    { type: "proposeTrade", toId: other.id, give: rnd() < 0.5 ? [card] : [card, card2], take: theirGear ? [theirGear] : [] },
+    { type: "respondTrade", tradeId: pick(room.trades)?.id ?? "none", accept: rnd() < 0.7 },
+    { type: "cancelTrade", tradeId: pick(room.trades)?.id ?? "none" },
+    { type: "payToll", cardIds: [card, card2] },
     { type: "useClassAbility", ability: "cleanse", cardIds: [card, card2], targetId: other.id, effectId: pick(other.effects)?.id },
   ];
   return { playerId: p.id, msg: pick(actions)! };

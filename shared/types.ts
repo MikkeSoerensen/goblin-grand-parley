@@ -264,7 +264,7 @@ export interface PublicGameState {
   table: Card[];                 
   activeDungeons: DungeonCard[]; // NY: De aktive fangehuller, der gælder for ALLE spillere
   combat: CombatView | null;
-  negotiations: NegotiationOffer[];
+  negotiations: NegotiationView[];
   charity: { fromId: string; cardCount: number; candidates: string[] } | null;
   looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
   log: string[];
@@ -349,12 +349,34 @@ export interface NegotiationOffer {
   fromId: string;        // attacker requesting help
   toId: string;          // potential helper
   treasures: number;
+  itemIds: string[];     // bribe: handed over the moment the helper accepts, never returned
   status: "pending" | "accepted" | "rejected";
+}
+
+// A help offer as clients see it: the bribe cards resolved so the table can see what's on offer.
+export interface NegotiationView extends NegotiationOffer {
+  items: Card[];
+}
+
+// The Grand Parley: a proposed swap of valuable cards between two players (outside combat).
+export interface TradeOffer {
+  id: string;
+  fromId: string;
+  toId: string;
+  give: string[];        // card ids the proposer hands over
+  take: string[];        // card ids the proposer wants (from the other player's visible equipment)
+}
+
+// Trades are private to the two players involved; cards are resolved for them.
+export interface TradeView extends TradeOffer {
+  giveCards: Card[];
+  takeCards: Card[];
 }
 
 // Client view: same as PublicGameState but with self's private hand attached.
 export interface ClientView extends PublicGameState {
   self: PrivatePlayer | null;
+  trades: TradeView[];   // only the ones you are part of
 }
 
 // ===== Wire protocol =====
@@ -370,7 +392,11 @@ export type ClientToServer =
   | { type: "sell"; cardIds: string[] }
   | { type: "discard"; cardId: string }
   | { type: "playInCombat"; cardId: string; side?: "attacker" | "monster"; extraCardId?: string }
-  | { type: "askForHelp"; helperId: string; treasures: number }
+  | { type: "askForHelp"; helperId: string; treasures: number; itemIds?: string[] }
+  | { type: "proposeTrade"; toId: string; give: string[]; take: string[] }
+  | { type: "respondTrade"; tradeId: string; accept: boolean }
+  | { type: "cancelTrade"; tradeId: string }
+  | { type: "payToll"; cardIds: string[] }
   | { type: "respondHelp"; offerId: string; accept: boolean }
   | { type: "pass" }
   | { type: "resolveCombat" }

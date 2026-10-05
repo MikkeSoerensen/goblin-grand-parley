@@ -34,6 +34,8 @@ export interface GameResult {
   turncoats: number;
   tableHits: number;
   sabotages: number;
+  bribes: number;
+  tolls: number;
 }
 
 const MAX_TURNS = 1200;
@@ -57,7 +59,7 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
   const res: GameResult = {
     finished: false, stuck: false, turns: 0, winnerClass: null, classesAtEnd: [], winnerRace: null, racesAtEnd: [],
     combats: 0, combatWins: 0, helpedCombats: 0, deaths: 0, monsterFights: {},
-    leadChanges: 0, bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0,
+    leadChanges: 0, bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0, bribes: 0, tolls: 0,
   };
   let lastLeader: string | null = null;
 
@@ -109,6 +111,7 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
   Object.assign(res, {
     bounties: room.stats.bounties, turncoats: room.stats.turncoats,
     tableHits: room.stats.tableHits, sabotages: room.stats.sabotages,
+    bribes: room.stats.bribes, tolls: room.stats.tolls,
   });
   setRandomSource(Math.random);
   return res;
@@ -131,6 +134,8 @@ export interface Summary {
   turncoats: number;
   tableHits: number;
   sabotages: number;
+  bribes: number;
+  tolls: number;
   games: number;
   finished: number;
   stuck: number;
@@ -176,6 +181,8 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
     turncoats: sum(r => r.turncoats) / games,
     tableHits: sum(r => r.tableHits) / games,
     sabotages: sum(r => r.sabotages) / games,
+    bribes: sum(r => r.bribes) / games,
+    tolls: sum(r => r.tolls) / games,
     finished: done.length,
     stuck: results.filter(r => r.stuck).length,
     roundsMedian: quantile(rounds, 0.5),
@@ -198,9 +205,9 @@ export const formatReport = (summaries: Summary[], title: string): string => {
   for (const s of summaries) {
     lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
   }
-  lines.push("", "## Socialt kaos (pr. spil)", "", "| Spillere | Mål | Threat | Føring skifter hænder | Sabotage-kort | Dusører udbetalt | Overløbere (Siren) | Hele bordet ramt |", "|---|---|---|---|---|---|---|---|");
+  lines.push("", "## Socialt kaos (pr. spil)", "", "| Spillere | Mål | Threat | Føring skifter hænder | Sabotage-kort | Dusører udbetalt | Overløbere (Siren) | Hele bordet ramt | Bestikkelser | Toll betalt |", "|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {
-    lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.leadChanges.toFixed(1)} | ${s.sabotages.toFixed(1)} | ${s.bounties.toFixed(2)} | ${s.turncoats.toFixed(2)} | ${s.tableHits.toFixed(2)} |`);
+    lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.leadChanges.toFixed(1)} | ${s.sabotages.toFixed(1)} | ${s.bounties.toFixed(2)} | ${s.turncoats.toFixed(2)} | ${s.tableHits.toFixed(2)} | ${s.bribes.toFixed(2)} | ${s.tolls.toFixed(2)} |`);
   }
   for (const s of summaries) {
     lines.push("", `## Class ved spillets slutning — ${s.players} spillere, mål ${s.winLevel}`, "", "| Class | Spillere med den | Vandt | Vinderrate |", "|---|---|---|---|");

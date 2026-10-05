@@ -43,6 +43,8 @@ const migrateRoom = (r: Room) => {
   r.settings = { ...DEFAULT_SETTINGS, ...r.settings }; // before waiting-room settings existed
   r.stats = { ...emptyStats(), ...r.stats };
   r.turnNo = r.turnNo ?? 0;
+  r.trades = r.trades ?? [];                            // before The Grand Parley
+  for (const o of r.negotiations) o.itemIds = o.itemIds ?? [];
   r.halflingSaleTurn = r.halflingSaleTurn ?? {};
   for (const p of r.players) {
     p.equipment.none = p.equipment.none ?? []; // before slotless items existed

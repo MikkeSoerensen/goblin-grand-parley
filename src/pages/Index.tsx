@@ -9,6 +9,7 @@ import { PlayerHand } from "@/components/game/PlayerHand";
 import { CombatPanel } from "@/components/game/CombatPanel";
 import { CharityModal, LootingModal } from "@/components/game/Modals";
 import { CardDetails } from "@/components/game/CardDetails";
+import { ParleyPanel } from "@/components/game/ParleyPanel";
 import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -157,7 +158,10 @@ export default function Index() {
         {reconnecting}
         <div className="flex flex-row gap-4 flex-1 min-h-0">
           <TableArea />
-          <Scoreboard />
+          <div className="flex flex-col gap-4 w-72 shrink-0">
+            <Scoreboard />
+            <ParleyPanel />
+          </div>
         </div>
         {view.combat && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-30 max-w-3xl w-full px-4 max-h-[85dvh] overflow-y-auto scroll-thin">
@@ -181,7 +185,7 @@ export default function Index() {
   const tabs: { id: MobileTab; label: string; icon: typeof Dices; badge?: boolean; disabled?: boolean }[] = [
     { id: "table", label: "Table", icon: Dices, badge: isMyTurn && !inCombat },
     { id: "hand", label: "Hand", icon: HandIcon, badge: handOverflow },
-    { id: "players", label: "Players", icon: Users },
+    { id: "players", label: "Players", icon: Users, badge: view.trades.some(t => t.toId === view.self?.id) },
     { id: "combat", label: "Combat", icon: Swords, badge: inCombat || negotiationForMe, disabled: !inCombat },
   ];
 
@@ -201,7 +205,8 @@ export default function Index() {
           </div>
         )}
         {tab === "players" && (
-          <div className="h-full overflow-y-auto p-2">
+          <div className="h-full overflow-y-auto p-2 space-y-2">
+            <ParleyPanel />
             <Scoreboard />
           </div>
         )}

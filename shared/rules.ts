@@ -1,7 +1,7 @@
 // Small rule helpers shared by the server engine and the client UI,
 // so both always agree on what a tag, class, race or effect means.
 
-import type { ClassName, EffectKind, MonsterCard, MonsterTag, PlayerEffect, PublicPlayer, RaceName } from "./types";
+import type { Card, ClassName, EffectKind, MonsterCard, MonsterTag, PlayerEffect, PublicPlayer, RaceName } from "./types";
 
 export const hasTag = (m: Pick<MonsterCard, "tags">, tag: MonsterTag): boolean => m.tags.includes(tag);
 
@@ -18,3 +18,16 @@ export const effectTotal = (p: { effects: PlayerEffect[] }, kind: EffectKind): n
 
 export const hasEffect = (p: { effects: PlayerEffect[] }, kind: EffectKind): boolean =>
   p.effects.some(e => e.kind === kind);
+
+// The Grand Parley: only cards with a gold value change hands (they can be sold, so they're worth a level).
+export const tradeValue = (c: Card): number => ("goldValue" in c ? c.goldValue : 0);
+export const isTradable = (c: Card): boolean => tradeValue(c) > 0;
+
+// Toll: buy your way past a fight. Priced on the fight's total (what the combat panel shows).
+export const TOLL_MAX_LEVEL = 16;
+export const tollPrice = (monsterTotal: number): number | null => {
+  if (monsterTotal > TOLL_MAX_LEVEL) return null;
+  if (monsterTotal <= 6) return 500;
+  if (monsterTotal <= 10) return 500 + 300 * (monsterTotal - 6);
+  return 1700 + 600 * (monsterTotal - 10);
+};
