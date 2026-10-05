@@ -1,8 +1,10 @@
 import { io, Socket } from "socket.io-client";
 import type { ClientToServer, ServerToClient } from "../../shared/types";
 
-// In dev, Vite proxies /socket.io → server. In prod, server hosts both.
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:3001` : "");
+// Default: connect to the same origin the page was loaded from.
+// In dev, Vite proxies /socket.io → server; in prod, the server hosts both.
+// Set VITE_SERVER_URL at build time only if the client is hosted separately from the server.
+const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL || undefined;
 
 let socket: Socket | null = null;
 
