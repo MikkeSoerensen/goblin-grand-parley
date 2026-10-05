@@ -52,6 +52,7 @@ const migrateRoom = (r: Room) => {
     p.extraRace = p.extraRace ?? null;
     p.dualClass = p.dualClass ?? null;
     p.dualRace = p.dualRace ?? null;
+    p.companion = p.companion ?? null;         // before companions existed
   }
   for (const c of allCards(r)) {
     if (c.type !== "monster") continue;

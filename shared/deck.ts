@@ -2,6 +2,7 @@ import type {
   Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
   GoUpLevelCard, BadStuffKind, Slot, ClassCard, WanderingMonsterCard, MateCard,
   PortalCard, DungeonCard, MonsterTag, RaceCard, RaceName, DualCard, ForgedPapersCard,
+  RemedyCard, CompanionCard, PlayerEffect,
 } from "./types";
 
 let _id = 0;
@@ -94,6 +95,19 @@ const forgedPapers = (copies: number): ForgedPapersCard[] =>
     id: uid(), cardId: "t-forged-papers", name: "Forged Guild Papers", type: "forged-papers", deck: "treasure", goldValue: 0,
     effectText: "Play as you equip an item: ignore its class requirement (and other 'only'/'not usable by' rules). The papers stay with the item.",
   }));
+
+// A curse that sticks: it puts a lasting effect on the victim.
+const lingeringCurse = (cardId: string, name: string, effect: Omit<PlayerEffect, "id" | "sourceCardId" | "name">, effectText: string, copies: number): CurseCard[] =>
+  curse(cardId, name, { kind: "addEffect", effect: { ...effect, name: name.replace(/^Curse! /, ""), sourceCardId: cardId } }, effectText, copies);
+
+const remedy = (copies: number): RemedyCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId: "t-ring", name: "Ring of Second Chances", type: "remedy", deck: "treasure", goldValue: 300,
+    effectText: "Play any time: remove one lasting effect (a curse that sticks) from ANY player.",
+  }));
+
+const companion = (cardId: string, name: string, stats: Pick<CompanionCard, "bonus" | "runBonus" | "sacrificable" | "upkeep" | "goldValue">, effectText: string, copies: number): CompanionCard[] =>
+  Array.from({ length: copies }, () => ({ id: uid(), cardId, name, type: "companion", deck: "treasure", ...stats, effectText }));
 
 const enhancer = (cardId: string, name: string, bonus: number, goldValue: number, copies = 1): EnhancerCard[] =>
   Array.from({ length: copies }, () => ({
@@ -206,15 +220,25 @@ export const buildDoorDeck = (): Card[] => {
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
   cards.push(...classCard("c-cleric", "Cleric", "Resurrection: at the start of your turn, instead of kicking open the door, discard a card to take the top card of the Door discard pile.", 3));
-  cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
+  cards.push(...classCard("c-thief", "Thief", "+1 to Run Away. You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items (succeeds on 3+).", 3));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
 
   // Races
   cards.push(...race("r-goblin", "Goblin", "Swarm Caller: once per fight, play a Goblin monster from your hand into ANY fight. Home Turf: +3 in Goblin Land."));
   cards.push(...race("r-elf", "Elf", "+1 to Run Away. Go up a level when you help a HIGHER-level player win a fight (never to the winning level)."));
-  cards.push(...race("r-dwarf", "Dwarf", "Carry any number of Big items. You may keep 6 cards at Charity instead of 5."));
+  cards.push(...race("r-dwarf", "Dwarf", "Carry any number of Big items, and get +1 in combat per Big item worn (max +3). You may keep 6 cards at Charity instead of 5."));
   cards.push(...race("r-halfling", "Halfling", "Once per turn, the most valuable item in a sale counts double."));
   cards.push(...curse("c-identity", "Curse! Identity Crisis", { kind: "loseRace" }, "Lose your race (your second race first, if you have two).", 1));
+
+  // --- Curses that stick (until removed by a Ring of Second Chances or a Cleric) ---
+  cards.push(...lingeringCurse("c-goblin-head", "Curse! Goblin on Your Head", { kind: "dicePenalty", amount: 1, expires: "afterCombatWin" },
+    "A goblin moves in on your head: −1 on every die roll until you win a fight.", 2));
+  cards.push(...lingeringCurse("c-butterfingers", "Curse! Butterfingers", { kind: "combatPenalty", amount: 2, expires: "afterNextCombat" },
+    "−2 in your next fight.", 2));
+  cards.push(...lingeringCurse("c-pariah", "Curse! Social Pariah", { kind: "noHelp", amount: 1, expires: "afterNextCombat" },
+    "Nobody can help you in your next fight.", 1));
+  cards.push(...lingeringCurse("c-coin-purse", "Curse! Cursed Coin Purse", { kind: "halfSellValue", amount: 1, expires: "permanent" },
+    "Your items sell for half until removed.", 1));
 
   // Two of a kind
   cards.push(...dual("d-guild-hopper", "Guild Hopper", "class", "Keep this in play: you may have two classes at once. Losing a class takes the newest one first."));
@@ -302,7 +326,7 @@ export const buildTreasureDeck = (): Card[] => {
   
   // Thief
   cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 2, "Gives +1 to all Run Away rolls.", "Thief"));
-  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 2, "Your Steal ability succeeds on a roll of 3-6.", "Thief"));
+  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 2, "Your Steal ability succeeds on a roll of 2-6.", "Thief"));
   
   // Cleric
   cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 2, "Gives +3 extra bonus when helping another player.", "Cleric"));
@@ -341,6 +365,15 @@ export const buildTreasureDeck = (): Card[] => {
 
   // Cheat!
   cards.push(...forgedPapers(2));
+
+  // Second chances and loyal (or not so loyal) companions
+  cards.push(...remedy(2));
+  cards.push(...companion("t-lackey", "Goblin Lackey", { bonus: 1, runBonus: 0, sacrificable: true, upkeep: false, goldValue: 200 },
+    "+1 in combat. While running away, sacrifice the Lackey to escape automatically.", 2));
+  cards.push(...companion("t-boar", "Battle Boar", { bonus: 2, runBonus: 1, sacrificable: false, upkeep: false, goldValue: 400 },
+    "+2 in combat and +1 to Run Away.", 1));
+  cards.push(...companion("t-mercenary", "Greedy Mercenary", { bonus: 4, runBonus: 0, sacrificable: false, upkeep: true, goldValue: 0 },
+    "+4 in combat. At the end of each of your turns he takes your cheapest card as pay — with an empty hand, he leaves.", 1));
 
   // Go up a level
   cards.push(...goUp(5));

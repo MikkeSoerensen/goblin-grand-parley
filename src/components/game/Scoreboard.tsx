@@ -81,6 +81,12 @@ export function Scoreboard() {
                     🧬 {r.raceName}
                   </button>
                 ))}
+                {p.companion && (
+                  <button type="button" onClick={() => inspect(p.companion!)} title={p.companion.effectText}
+                    className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-lime-900/60 text-lime-200 border border-lime-500/40 cursor-help">
+                    🐾 {p.companion.name}
+                  </button>
+                )}
                 {(p.dualClass || p.dualRace) && (
                   <span className="text-[11px]" title={[p.dualClass?.name, p.dualRace?.name].filter(Boolean).join(" + ")}>🌟</span>
                 )}

@@ -84,6 +84,9 @@ const computePower = (p: PrivatePlayer): number => {
   if (p.equipment.bigItem) bonus += p.equipment.bigItem.bonus;
   for (const h of p.equipment.hands) bonus += h.bonus;
   for (const n of p.equipment.none) bonus += n.bonus; // slotless items (amulets)
+  if (p.companion) bonus += p.companion.bonus;
+  // Dwarves fight best weighed down: +1 per Big item worn, up to +3.
+  if (hasRace(p, "Dwarf")) bonus += Math.min(3, allEquipped(p).filter(e => e.isBig).length);
   return p.level + bonus;
 };
 
@@ -131,6 +134,7 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   extraRace: p.extraRace,
   dualClass: p.dualClass,
   dualRace: p.dualRace,
+  companion: p.companion,
   effects: p.effects,
 });
 
@@ -388,7 +392,7 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
     equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] },
     hand: [], backpack: [], handCount: 0, backpackCount: 0,
     combatPower: 1, isDead: false, connected: true, effects: [],
-    playerClass: null, extraClass: null, race: null, extraRace: null, dualClass: null, dualRace: null,
+    playerClass: null, extraClass: null, race: null, extraRace: null, dualClass: null, dualRace: null, companion: null,
   };
   const token = newToken();
   room.players.push(player);
@@ -580,6 +584,10 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       loseRace(room, p);
       break;
     }
+    case "addEffect": {
+      addEffect(room, p, { ...bs.effect });
+      break;
+    }
     case "everyoneLosesLevel": {
       log(room, `🐉 ${p.name}'s failure angers the beast — EVERYONE loses ${bs.amount} level(s)!`);
       room.stats.tableHits++;
@@ -605,6 +613,11 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
           if (idx >= 0) p.backpack.splice(idx, 1);
         }
         discardCard(room, c);
+      }
+      if (p.companion) {
+        log(room, `${p.companion.name} flees in the chaos.`);
+        discardCard(room, p.companion);
+        p.companion = null;
       }
       log(room, `${p.name} loses ALL equipment!`);
       break;
@@ -700,7 +713,8 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         log(room, `☠️ Impending Doom! ${p.name} loses ${oldLvl - p.level} level(s) to the dungeon!`);
       }
       // body becomes loot pile
-      const pile: Card[] = [...allEquipped(p), ...p.backpack, ...p.hand];
+      const pile: Card[] = [...allEquipped(p), ...p.backpack, ...p.hand, ...(p.companion ? [p.companion] : [])];
+      p.companion = null;
       p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
       p.backpack = []; p.hand = [];
       p.isDead = true;
@@ -1059,6 +1073,19 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       // Kun fra en almindelig tur: ellers kunne man slippe for Run Away/Bad Stuff,
       // eller efterlade en halvfærdig plyndring/velgørenhed.
       if (room.status !== "normalTurn" || room.combat) return "Finish the current action first.";
+      if (player.companion?.upkeep) {
+        const cheapest = [...player.hand].sort((a, b) => goldValueOf(a) - goldValueOf(b))[0];
+        if (cheapest) {
+          player.hand.splice(player.hand.indexOf(cheapest), 1);
+          discardCard(room, cheapest);
+          log(room, `🪙 ${player.name} pays ${player.companion.name} with ${cheapest.name}.`);
+        } else {
+          log(room, `💢 ${player.name} can't pay — ${player.companion.name} walks off the job!`);
+          discardCard(room, player.companion);
+          player.companion = null;
+        }
+        refreshDerived(player);
+      }
       // Charity check
       const charityLimit = hasDungeon(room, "d-infinite") ? Infinity // Dimension of Hoarding
         : (hasDungeon(room, "d-charity") ? 4 : 5) + (hasRace(player, "Dwarf") ? 1 : 0);
@@ -1263,6 +1290,19 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         return null;
       }
 
+      if (card.type === "companion") {
+        player.hand.splice(idx, 1);
+        const old = player.companion;
+        if (old) {
+          discardCard(room, old);
+          log(room, `👋 ${player.name} sends ${old.name} away.`);
+        }
+        player.companion = card;
+        log(room, `🐾 ${player.name} recruits ${card.name}!`);
+        refreshDerived(player);
+        return null;
+      }
+
       if (card.type === "dual") {
         const slot = card.dualKind === "class" ? "dualClass" : "dualRace";
         if (player[slot]) return `You already have ${card.name} in play.`;
@@ -1429,6 +1469,20 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
     case "useClassAbility": {
       // 1. Cleric (Kræver IKKE kamp)
+      // Cleric: discard 2 cards to lift one lasting effect from anyone (any time).
+      if (msg.ability === "cleanse") {
+        if (!hasClass(player, "Cleric")) return "Not a Cleric.";
+        const ids = [...new Set(msg.cardIds)];
+        if (ids.length !== 2 || !ids.every(id => player.hand.some(c => c.id === id))) return "Discard exactly 2 cards from your hand to cleanse.";
+        const target = room.players.find(p => p.id === msg.targetId);
+        if (!target || !msg.effectId || !target.effects.some(e => e.id === msg.effectId)) return "No such effect to cleanse.";
+        for (const id of ids) discardCard(room, player.hand.splice(player.hand.findIndex(c => c.id === id), 1)[0]);
+        log(room, `🙏 ${player.name} prays over ${target.name}.`);
+        removeEffect(room, target, msg.effectId);
+        refreshDerived(player);
+        return null;
+      }
+
       if (msg.ability === "resurrect") {
         if (!hasClass(player, "Cleric")) return "Not a Cleric.";
         if (!isActive(room, playerId)) return "Not your turn.";
@@ -1492,7 +1546,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         roll -= effectTotal(player, "dicePenalty");
         pendingEvents.push({ type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
 
-        const reqRoll = player.equipment.hands.some(h => h.cardId === "e-lockpicks") ? 3 : 4;
+        const reqRoll = player.equipment.hands.some(h => h.cardId === "e-lockpicks") ? 2 : 3;
         if (roll >= reqRoll) {
           removeEquipped(target, targetEq.id);
           player.backpack.push(targetEq);
@@ -1757,6 +1811,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       if (hasRace(player, "Elf")) roll += 1; // Elves are quick on their feet
+      if (hasClass(player, "Thief")) roll += 1; // Thieves know every back door
+      if (player.companion?.runBonus) roll += player.companion.runBonus;
 
       // Boots of Running Really Fast giver +2!
       if (player.equipment.feet?.cardId === "e-boots-run") {
@@ -1840,6 +1896,36 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         for (const rest of looting.pile) discardCard(room, rest);
         finishLooting(room, looting.deadId);
       }
+      return null;
+    }
+
+    case "removeEffect": {
+      const idx = player.hand.findIndex(c => c.id === msg.cardId);
+      const ring = player.hand[idx];
+      if (!ring || ring.type !== "remedy") return "You need a Ring of Second Chances.";
+      const target = room.players.find(p => p.id === msg.targetId);
+      if (!target || !target.effects.some(e => e.id === msg.effectId)) return "No such effect.";
+      player.hand.splice(idx, 1);
+      discardCard(room, ring);
+      log(room, `💍 ${player.name} uses ${ring.name} on ${target.name}.`);
+      removeEffect(room, target, msg.effectId);
+      refreshDerived(player);
+      return null;
+    }
+
+    case "sacrificeCompanion": {
+      const combat = room.combat;
+      if (!combat || room.status !== "runAwayRoll") return "You can only sacrifice a companion while running away.";
+      if (playerId !== combat.attackerId && playerId !== combat.helperId) return "Not in this combat.";
+      if (combat.ranAway?.includes(playerId)) return "You already got away.";
+      const buddy = player.companion;
+      if (!buddy?.sacrificable) return "Your companion can't cover your escape.";
+      player.companion = null;
+      discardCard(room, buddy);
+      combat.ranAway = [...(combat.ranAway ?? []), playerId];
+      log(room, `🫡 ${buddy.name} throws itself at the monster — ${player.name} escapes!`);
+      refreshDerived(player);
+      finishRunAwayIfDone(room);
       return null;
     }
 

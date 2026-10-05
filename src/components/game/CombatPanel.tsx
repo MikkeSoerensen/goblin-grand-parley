@@ -264,6 +264,13 @@ export function CombatPanel() {
         {view.status === "runAwayRoll" && isFighter && (
           <div className="flex flex-col gap-2 w-full mt-2">
             
+            {/* A loyal companion can cover your escape */}
+            {self.companion?.sacrificable && !c.ranAway?.includes(self.id) && (
+              <Button size="sm" variant="outline" className="w-fit border-lime-400 text-lime-300" onClick={() => send({ type: "sacrificeCompanion" })}>
+                🫡 Sacrifice {self.companion.name} to escape
+              </Button>
+            )}
+
             {/* Standard Run Away */}
             <Button size="sm" variant="destructive" className="w-fit" onClick={() => send({ type: "runAway" })}>
               <Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away

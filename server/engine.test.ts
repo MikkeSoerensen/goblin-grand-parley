@@ -347,6 +347,9 @@ const chaosAction = (room: Room, rnd: () => number): { playerId: string; msg: Ga
     { type: "pass" },
     { type: "runAway", discardId: card },
     { type: "endTurn" },
+    { type: "removeEffect", cardId: card, targetId: other.id, effectId: pick(other.effects)?.id ?? "none" },
+    { type: "sacrificeCompanion" },
+    { type: "useClassAbility", ability: "cleanse", cardIds: [card, card2], targetId: other.id, effectId: pick(other.effects)?.id },
   ];
   return { playerId: p.id, msg: pick(actions)! };
 };

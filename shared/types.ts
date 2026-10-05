@@ -2,7 +2,7 @@
 // Single source of truth for card and state shapes.
 
 export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem" | "none"; // None bruges til amuleter 
-export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon" | "dual" | "forged-papers";
+export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon" | "dual" | "forged-papers" | "remedy" | "companion";
 export type DeckType = "door" | "treasure" | "dungeon";
 
 
@@ -53,6 +53,7 @@ export type BadStuffKind =
   | { kind: "loseHandItems" }
   | { kind: "everyoneLosesLevel"; amount: number } // the whole table pays
   | { kind: "loseRace" }
+  | { kind: "addEffect"; effect: Omit<PlayerEffect, "id"> } // a curse that lingers
   | { kind: "death" } 
   | { kind: "loseClass" }
   | { kind: "robinHood" }
@@ -120,6 +121,26 @@ export interface DualCard extends BaseCard {
   type: "dual";
   deck: "door";
   dualKind: "class" | "race";
+  effectText: string;
+}
+
+// Ring of Second Chances: removes one lasting effect from any player.
+export interface RemedyCard extends BaseCard {
+  type: "remedy";
+  deck: "treasure";
+  goldValue: number;
+  effectText: string;
+}
+
+// One companion per player: a combat bonus that can sometimes be sacrificed.
+export interface CompanionCard extends BaseCard {
+  type: "companion";
+  deck: "treasure";
+  goldValue: number;
+  bonus: number;        // added to combat power
+  runBonus: number;     // added to Run Away rolls
+  sacrificable: boolean; // may be given up during Run Away to escape automatically
+  upkeep: boolean;      // costs a card at the end of each of your turns, or leaves
   effectText: string;
 }
 
@@ -207,7 +228,9 @@ export type Card =
   | DungeonCard
   | RaceCard
   | DualCard
-  | ForgedPapersCard;
+  | ForgedPapersCard
+  | RemedyCard
+  | CompanionCard;
 
 export const WIN_LEVELS = [10, 15, 20] as const;
 export type WinLevel = (typeof WIN_LEVELS)[number];
@@ -273,6 +296,7 @@ export interface PublicPlayer {
   extraRace: RaceCard | null;        // second race (needs Mixed Heritage)
   dualClass: DualCard | null;        // the Guild Hopper card in play
   dualRace: DualCard | null;         // the Mixed Heritage card in play
+  companion: CompanionCard | null;
   effects: PlayerEffect[];
 }
 
@@ -359,7 +383,9 @@ export type ClientToServer =
   | { type: "playCard"; cardId: string; targetId?: string } // targetId: Flask of Glue
   | { type: "equip"; cardId: string; forceSwap?: boolean; forgedPapersId?: string }
   | { type: "castCurse"; cardId: string; targetId: string }
-  | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
+  | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect" | "cleanse"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; effectId?: string }
+  | { type: "removeEffect"; cardId: string; targetId: string; effectId: string } // Ring of Second Chances
+  | { type: "sacrificeCompanion" }
   | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
   | { type: "suddenSwap" } // Bruges til d-swapping dungeon-kortet
   | { type: "updateSettings"; settings: Partial<RoomSettings> }; // waiting room only

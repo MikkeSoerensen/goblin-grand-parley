@@ -45,12 +45,15 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("castCurse"), cardId: id, targetId: id }),
   z.object({
     type: z.literal("useClassAbility"),
-    ability: z.enum(["berserk", "backstab", "steal", "charm", "resurrect"]),
+    ability: z.enum(["berserk", "backstab", "steal", "charm", "resurrect", "cleanse"]),
     cardIds: ids,
     targetId: id.optional(),
     monsterId: id.optional(),
     targetCardId: id.optional(),
+    effectId: id.optional(),
   }),
+  z.object({ type: z.literal("removeEffect"), cardId: id, targetId: id, effectId: id }),
+  z.object({ type: z.literal("sacrificeCompanion") }),
   z.object({ type: z.literal("forceHelp"), targetId: id }),
   z.object({ type: z.literal("suddenSwap") }),
   z.object({

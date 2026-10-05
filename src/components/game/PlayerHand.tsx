@@ -26,6 +26,11 @@ export function PlayerHand() {
 
   const wanderingMonsterCard = self.hand.find(c => c.type === "wandering-monster");
   const forgedPapers = self.hand.find(c => c.type === "forged-papers");
+  const cursedPlayers = view.players.filter(p => p.effects.length > 0);
+  // A Cleric's cleanse costs the selected card plus the cheapest other card in hand.
+  const cleansePartner = [...self.hand]
+    .filter(c => c.id !== selected)
+    .sort((a, b) => (goldValueOf(a) ?? 0) - (goldValueOf(b) ?? 0))[0];
   // Mirrors the server: an item with an unmet requirement can be worn with Forged Guild Papers.
   const needsPapers = (c: EquipmentCard) =>
     !c.forgedWith && ((!!c.classReq && !hasClass(self, c.classReq)) || (c.cardId === "e-kneepads" && hasClass(self, "Warrior")));
@@ -203,6 +208,34 @@ export function PlayerHand() {
               🧬 {self.race && self.dualRace && !self.extraRace ? `Also become ${card.name}` : `Become ${card.name}`}
             </Button>
           )}
+          {card.type === "companion" && isMyTurn && !inCombat && (
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
+              🐾 {self.companion ? `Replace ${self.companion.name} with ${card.name}` : `Recruit ${card.name}`}
+            </Button>
+          )}
+
+          {/* Lift a lasting effect: a Ring (any time), or a Cleric's prayer (this card + your cheapest other card) */}
+          {(card.type === "remedy" || hasClass(self, "Cleric")) && cursedPlayers.length > 0 && (
+            <div className="w-full mt-1 flex flex-col gap-1">
+              <span className="text-sm font-bold text-sky-300">
+                {card.type === "remedy" ? "💍 Remove a curse from:" : `🙏 Cleanse (discards this + ${cleansePartner?.name ?? "another card"}):`}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {cursedPlayers.flatMap(p => p.effects.map(e => (
+                  <Button key={e.id} size="sm" variant="outline" className="border-sky-400/60 text-sky-200 h-7 text-xs"
+                    disabled={card.type !== "remedy" && !cleansePartner}
+                    onClick={() => {
+                      if (card.type === "remedy") send({ type: "removeEffect", cardId: card.id, targetId: p.id, effectId: e.id });
+                      else if (cleansePartner) send({ type: "useClassAbility", ability: "cleanse", cardIds: [card.id, cleansePartner.id], targetId: p.id, effectId: e.id });
+                      setSelected(null);
+                    }}>
+                    {p.id === self.id ? "You" : p.name}: {e.name}
+                  </Button>
+                )))}
+              </div>
+            </div>
+          )}
+
           {card.type === "dual" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>🌟 Play {card.name}</Button>
           )}

@@ -75,7 +75,12 @@ export const botStep = (room: Room, mem: BotMemory, rnd: Rng, turnNo: number): b
     case "runAwayRoll": {
       const c = room.combat!;
       const fighter = [c.attackerId, c.helperId].find(id => id && !c.ranAway?.includes(id) && !room.players.find(p => p.id === id)?.isDead);
-      return !!fighter && handleAction(room, fighter, { type: "runAway" }).error === null;
+      if (!fighter) return false;
+      // Throw the Lackey at anything that would kill or cripple us.
+      const me = room.players.find(p => p.id === fighter)!;
+      const deadly = c.monsters.some(m => m.badStuff.kind === "death" || (m.badStuff.kind === "loseLevel" && m.badStuff.amount >= 2));
+      if (me.companion?.sacrificable && deadly && handleAction(room, fighter, { type: "sacrificeCompanion" }).error === null) return true;
+      return handleAction(room, fighter, { type: "runAway" }).error === null;
     }
     case "waitingForInterrupts":
     case "inCombat":
@@ -197,6 +202,21 @@ const turnStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
   }
   for (const c of me.hand.filter(x => x.type === "equipment")) {
     if (once(done, `pack:${c.id}`) && tryFirst(room, me.id, [{ type: "toBackpack", cardId: c.id }])) return true;
+  }
+  for (const c of me.hand.filter(x => x.type === "companion")) {
+    const better = !me.companion || ("bonus" in c && c.bonus > me.companion.bonus);
+    if (better && once(done, `buddy:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
+  }
+  // Shake off lingering curses: a Ring, or a Cleric's prayer when the hand can spare it.
+  const myCurse = me.effects[0];
+  if (myCurse) {
+    const ring = me.hand.find(x => x.type === "remedy");
+    if (ring && once(done, `ring:${ring.id}`)
+      && tryFirst(room, me.id, [{ type: "removeEffect", cardId: ring.id, targetId: me.id, effectId: myCurse.id }])) return true;
+    if (hasClass(me, "Cleric") && me.hand.length >= 4 && once(done, `cleanse:${myCurse.id}`)) {
+      const cheap = [...me.hand].sort(byGoldAsc).slice(0, 2).map(x => x.id);
+      if (tryFirst(room, me.id, [{ type: "useClassAbility", ability: "cleanse", cardIds: cheap, targetId: me.id, effectId: myCurse.id }])) return true;
+    }
   }
   for (const c of me.hand.filter(x => x.type === "go-up-a-level")) {
     if (once(done, `up:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;

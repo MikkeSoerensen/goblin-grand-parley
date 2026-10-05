@@ -20,6 +20,8 @@ const typeStyles: Record<string, string> = {
   race: "bg-gradient-to-br from-emerald-700 to-green-950 text-white border-emerald-400/50",
   dual: "bg-gradient-to-br from-amber-500 to-orange-800 text-white border-amber-300/60",
   "forged-papers": "bg-gradient-to-br from-stone-300 to-amber-200 text-stone-900 border-amber-700/50",
+  remedy: "bg-gradient-to-br from-sky-400 to-indigo-700 text-white border-sky-300/60",
+  companion: "bg-gradient-to-br from-lime-600 to-emerald-900 text-white border-lime-400/50",
 };
 
 // Short keyword stamps so elite / counterweight monsters read at a glance.
@@ -104,6 +106,8 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "race" && "🧬"}
         {card.type === "dual" && "🌟"}
         {card.type === "forged-papers" && "📜"}
+        {card.type === "remedy" && "💍"}
+        {card.type === "companion" && "🐾"}
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
       </div>
@@ -204,6 +208,18 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}
         
+        {card.type === "companion" && (
+          <>
+            <div className="font-bold">+{card.bonus}{card.runBonus ? ` · run +${card.runBonus}` : ""}{card.goldValue ? ` · ${card.goldValue}g` : ""}</div>
+            <div className="opacity-90 italic line-clamp-3 text-[9px] leading-tight">{card.effectText}</div>
+          </>
+        )}
+        {card.type === "remedy" && (
+          <>
+            <div className="font-bold">{card.goldValue}g</div>
+            <div className="opacity-90 italic line-clamp-3 text-[9px] leading-tight">{card.effectText}</div>
+          </>
+        )}
         {(card.type === "race" || card.type === "dual" || card.type === "forged-papers") && (
           <>
             <div className="font-bold">{card.type === "race" ? "Race" : card.type === "dual" ? (card.dualKind === "class" ? "Two classes" : "Two races") : "Cheat!"}</div>

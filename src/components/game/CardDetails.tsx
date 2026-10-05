@@ -10,7 +10,7 @@ const TYPE_LABEL: Record<Card["type"], string> = {
   monster: "Monster", equipment: "Equipment", curse: "Curse", oneshot: "One-shot", enhancer: "Monster enhancer",
   class: "Class", "go-up-a-level": "Go Up a Level", portal: "Portal", dungeon: "Dungeon",
   "wandering-monster": "Wandering Monster", mate: "Mate",
-  race: "Race", dual: "Two of a kind", "forged-papers": "Cheat!",
+  race: "Race", dual: "Two of a kind", "forged-papers": "Cheat!", remedy: "Remedy", companion: "Companion",
 };
 
 const SLOT_LABEL: Record<string, string> = {
@@ -108,6 +108,21 @@ export function CardDetails() {
                   )}
                   <Row label="Value">{card.goldValue}g</Row>
                 </>
+              )}
+              {card.type === "companion" && (
+                <>
+                  <Row label="Combat bonus">+{card.bonus}</Row>
+                  {card.runBonus > 0 && <Row label="Run Away">+{card.runBonus}</Row>}
+                  {card.sacrificable && <Row label="Sacrifice">Can be given up to escape automatically</Row>}
+                  {card.upkeep && <Row label="Upkeep">Your cheapest card at the end of each of your turns</Row>}
+                  <Row label="Value">{card.goldValue}g</Row>
+                </>
+              )}
+              {card.type === "remedy" && <Row label="Value">{card.goldValue}g</Row>}
+              {card.type === "curse" && card.effect.kind === "addEffect" && (
+                <Row label="Sticks">
+                  {card.effect.effect.expires === "permanent" ? "Until removed" : card.effect.effect.expires === "afterNextCombat" ? "Until your next fight ends" : "Until you win a fight"}
+                </Row>
               )}
               {"effectText" in card && <Row label="Effect">{card.effectText}</Row>}
             </dl>

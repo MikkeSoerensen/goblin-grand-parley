@@ -71,8 +71,8 @@ Nye forbandelser, der lægger en status-effekt (0.2) på offeret i stedet for at
 
 | Kort | Effekt | Udløber | Kopier |
 |---|---|---|---|
-| **Curse! Goblin on Your Head** | −1 på alle terningeslag (flugt, tyveri) | Permanent til fjernet | 2 |
-| **Curse! Butterfingers** | −2 i kamp | Når du vinder en kamp | 2 |
+| **Curse! Goblin on Your Head** | −1 på alle terningeslag (flugt, tyveri) | Når du vinder en kamp | 2 |
+| **Curse! Butterfingers** | −2 i kamp | Efter din næste kamp | 2 |
 | **Curse! Social Pariah** | Ingen kan hjælpe dig i kamp | Efter din næste kamp | 1 |
 | **Curse! Cursed Coin Purse** | Dine items sælges for halv værdi | Permanent til fjernet | 1 |
 
@@ -81,6 +81,13 @@ Modkort:
 - **Cleric-bonus:** En Cleric må kassere 2 kort for at fjerne en effekt fra en hvilken som helst spiller. Det giver Cleric en ny rolle ved bordet.
 
 ✅ En forbandelse kan ikke stoppes, idet den kastes. Ring of Second Chances og Cleric fjerner den bagefter.
+
+### Justeringer i fase 3 (fra balance-simulatoren)
+
+- **Forbandelser der låste svage spillere ude:** Butterfingers ("−2 indtil du vinder") gav en level 1-spiller uden udstyr kampstyrke −1, så de aldrig kunne vinde igen. Goblin on Your Head (permanent −1 på terninger) gav en dødsspiral. Med 4 spillere faldt vundne kampe til 28 %. Ændret til: Butterfingers gælder kun næste kamp; Goblin on Your Head gælder til du vinder en kamp. Resultat: 47 % vundne kampe.
+- **Greedy Mercenary** tager automatisk dit billigste kort som betaling ved turens slutning; har du ingen kort, går han.
+- **Dwarf-buff:** +1 i kamp pr. Big item du har på (højst +3). 23.8 % vinderrate (før 21.6 %, fair 25 %).
+- **Thief-buff:** +1 på flugt, og tyveri lykkes på 3+ (med Lockpicks 2+). 24.2 % vinderrate (før 19.9 %).
 
 ## B3. The Grand Parley (spillets signatur)
 
@@ -209,7 +216,7 @@ Ud over fundamentet (0.1):
 | 0 ✅ | D + fundament (0.1-0.3) + balance-simulator med baseline | Alt andet bygger på det; baseline måles før noget ændres. Baseline: [docs/balance/baseline.md](balance/baseline.md) |
 | 1 ✅ | C1, C4, B6, B8 | Lav risiko, størst effekt på spiloplevelsen med det samme. Balance: [docs/balance/fase1.md](balance/fase1.md) |
 | 2 ✅ | B1, B7, B5 + modvægts-monstre | Racer først, så Dual/Half-Breed og Forged Papers, der bygger på dem. Balance: [docs/balance/fase2.md](balance/fase2.md) |
-| 3 | B2, B4 | Bruger status-effekterne fra fundamentet |
+| 3 ✅ | B2, B4 + Dwarf/Thief-buff | Bruger status-effekterne fra fundamentet. Balance: [docs/balance/fase3.md](balance/fase3.md) |
 | 4 | B3 | Største UX-opgave; drager nytte af alt det ovenstående |
 | 5 | C2, C3 | Mest relevant ved 6+ spillere |
 
