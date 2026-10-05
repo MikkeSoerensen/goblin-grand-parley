@@ -7,11 +7,12 @@ export function Scoreboard() {
   if (!view) return null;
 
   return (
-    <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-3 w-full md:w-72 max-h-[40vh] md:max-h-[80vh] overflow-y-auto scroll-thin shrink-0">
-      <h2 className="font-display text-lg brass-text mb-2 flex items-center gap-2">
+    <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-2 md:p-3 w-full md:w-72 md:max-h-[80vh] md:overflow-y-auto scroll-thin shrink-0">
+      <h2 className="hidden md:flex font-display text-lg brass-text mb-2 items-center gap-2">
         <Crown className="w-5 h-5 text-primary" /> Scoreboard
       </h2>
-      <ul className="space-y-1.5">
+      {/* Phones: one swipeable row of players. md+: vertical list. */}
+      <ul className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible scroll-thin" aria-label="Scoreboard">
         {view.players.map((p, i) => {
           const isActive = i === view.activePlayerIndex;
           const isSelf = view.self?.id === p.id;
@@ -19,7 +20,7 @@ export function Scoreboard() {
             <li
               key={p.id}
               className={cn(
-                "rounded-lg p-2 border transition-colors",
+                "rounded-lg p-2 border transition-colors min-w-[9.5rem] shrink-0 md:min-w-0 md:shrink",
                 isActive ? "bg-primary/15 border-primary" : "bg-muted/30 border-border",
                 isSelf && "ring-1 ring-primary/60",
               )}

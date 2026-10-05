@@ -31,8 +31,8 @@ interface Props {
 
 export function GameCard({ card, size = "md", faceDown, selected, onClick, className }: Props) {
   const sizes = {
-    sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px]",
-    md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs",
+    sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px] shrink-0",
+    md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs shrink-0",
     lg: "w-32 h-44 md:w-44 md:h-60 text-xs md:text-sm shrink-0", // Sikrer fangehuller ikke bliver moset for meget
   };
 
@@ -92,9 +92,9 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
             <div>{(card as EquipmentCard).goldValue}g</div>
           </>
         )}
-        {card.type === "oneshot" && <div className="font-bold">+{(card as any).bonus} · {(card as any).goldValue}g</div>}
-        {card.type === "enhancer" && <div className="font-bold">{(card as any).bonus > 0 ? "+" : ""}{(card as any).bonus} mon</div>}
-        {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{(card as any).effectText}</div>}
+        {card.type === "oneshot" && <div className="font-bold">+{card.bonus} · {card.goldValue}g</div>}
+        {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
+        {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}
         
         {card.type === "class" && (
           <>
@@ -105,17 +105,17 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
 
         {/* NY TEKST TIL WANDERING MONSTER OG MATE */}
         {card.type === "wandering-monster" && (
-           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as any).flavor}</div>
+           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{card.flavor}</div>
         )}
 
         {card.type === "mate" && (
-           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as any).flavor}</div>
+           <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{card.flavor}</div>
         )}
       </div>
 
       {/* NY TEKST TIL PORTAL OG DUNGEON */}
         {(card.type === "portal" || card.type === "dungeon") && (
-           <div className="opacity-90 italic line-clamp-4 text-[10px] leading-tight">{(card as any).effectText}</div>
+           <div className="opacity-90 italic line-clamp-4 text-[10px] leading-tight">{card.effectText}</div>
         )}
         
     </button>

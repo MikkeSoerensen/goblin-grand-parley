@@ -144,7 +144,7 @@ export interface PublicGameState {
   dungeonDiscardCount: number;   // NY: Antal kort i Dungeon-skraldespanden
   table: Card[];                 
   activeDungeons: DungeonCard[]; // NY: De aktive fangehuller, der gælder for ALLE spillere
-  combat: CombatState | null;
+  combat: CombatView | null;
   negotiations: NegotiationOffer[];
   charity: { fromId: string; cardCount: number; candidates: string[] } | null;
   looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
@@ -198,31 +198,22 @@ export interface CombatState {
   charmedTreasures?: number;
   backstabbedBy?: Record<string, string[]>;
   warriorDiscardCount?: Record<string, number>;
+  ranAway?: string[];               // fighters who have already rolled to run away
+}
+
+// Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
+export interface CombatView extends CombatState {
+  monsterTotal: number;
+  playerTotal: number;
+  requiredPasses: string[];         // connected, living non-fighters who must pass before resolution
 }
 
 export interface NegotiationOffer {
+  id: string;
   fromId: string;        // attacker requesting help
   toId: string;          // potential helper
   treasures: number;
   status: "pending" | "accepted" | "rejected";
-}
-
-export interface PublicGameState {
-  status: AppStatus;
-  players: PublicPlayer[];
-  activePlayerIndex: number;
-  currentPhase: Phase;
-  doorDeckCount: number;
-  treasureDeckCount: number;
-  doorDiscardCount: number;
-  treasureDiscardCount: number;
-  table: Card[];                       // cards face-up in play (current door draw etc.)
-  combat: CombatState | null;
-  negotiations: NegotiationOffer[];
-  charity: { fromId: string; cardCount: number; candidates: string[] } | null;
-  looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
-  log: string[];
-  winnerId: string | null;
 }
 
 // Client view: same as PublicGameState but with self's private hand attached.
@@ -232,13 +223,12 @@ export interface ClientView extends PublicGameState {
 
 // ===== Wire protocol =====
 export type ClientToServer =
-  | { type: "join"; name: string; roomCode: string }
+  | { type: "join"; name: string; roomCode: string; token?: string }
   | { type: "startGame" }
   | { type: "kickDoor" }
   | { type: "lookForTrouble"; cardId: string }
   | { type: "lootRoom" }
   | { type: "endTurn" }
-  | { type: "equip"; cardId: string }
   | { type: "unequip"; cardId: string }
   | { type: "toBackpack"; cardId: string }
   | { type: "sell"; cardIds: string[] }
@@ -250,7 +240,6 @@ export type ClientToServer =
   | { type: "resolveCombat" }
   | { type: "runAway"; discardId?: string }
   | { type: "cowardlyFlee" }
-  | { type: "rollDie" }
   | { type: "lootBody"; cardId: string }
   | { type: "charityGive"; cardIds: string[]; toId: string }
   | { type: "rename"; name: string }
@@ -259,9 +248,12 @@ export type ClientToServer =
   | { type: "equip"; cardId: string; forceSwap?: boolean }
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
-  | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
-  
+  | { type: "forceHelp"; targetId: string }; // Bruges til de snyde støvler der tvinger til at hjælpe
+
+export type GameAction = Exclude<ClientToServer, { type: "join" }>;
+
 export type ServerToClient =
+  | { type: "joined"; roomCode: string; playerId: string; token: string }
   | { type: "state"; view: ClientView }
   | { type: "error"; message: string }
   | { type: "rolled"; playerId: string; result: number; reason: string }

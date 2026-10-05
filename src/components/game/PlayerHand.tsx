@@ -5,6 +5,8 @@ import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
 
+const goldValueOf = (c: Card): number | undefined => ("goldValue" in c ? c.goldValue : undefined);
+
 export function PlayerHand() {
   const view = useGame(s => s.view);
   const [selected, setSelected] = useState<string | null>(null);
@@ -32,9 +34,9 @@ export function PlayerHand() {
     if (action === "equip") {
       if (card.type !== "equipment") return;
       
-      const eqCard = card as any;
-      const eq = view!.self!.equipment;
-      const currentHandsUsed = eq.hands.reduce((n: number, h: any) => n + (h.slot === "twoHands" ? 2 : 1), 0);
+      const eqCard = card;
+      const eq = self.equipment;
+      const currentHandsUsed = eq.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
       
       let collision = false;
       if (eqCard.isBig && eq.bigItem) collision = true;
@@ -46,7 +48,7 @@ export function PlayerHand() {
 
       if (collision) {
         if (window.confirm("Du har i forvejen udstyr på denne plads.\n\nVil du automatisk pakke det gamle udstyr ned i rygsækken og tage dette på i stedet?")) {
-          send({ type: "equip", cardId: card.id, forceSwap: true } as any);
+          send({ type: "equip", cardId: card.id, forceSwap: true });
         }
       } else {
         send({ type: "equip", cardId: card.id });
@@ -72,18 +74,18 @@ export function PlayerHand() {
 
   const sellTotal = sellMode.reduce((s, id) => {
     const c = self.hand.find(x => x.id === id) ?? self.backpack.find(x => x.id === id);
-    return s + (c && (c as any).goldValue !== undefined ? (c as any).goldValue : 0);
+    return s + (c ? goldValueOf(c) ?? 0 : 0);
   }, 0);
 
   return (
-    <div className="bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-3 shadow-card">
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <h3 className="font-display text-lg brass-text flex items-center gap-2">
+    <div className="bg-popover/95 backdrop-blur border-t-4 border-wood rounded-t-2xl p-2 sm:p-3 shadow-card max-h-[55dvh] overflow-y-auto scroll-thin">
+      <div className="flex items-center justify-between mb-1 sm:mb-2 gap-2">
+        <h3 className="font-display text-base sm:text-lg brass-text flex items-center gap-2 whitespace-nowrap">
           <Hand className="w-5 h-5"/> {showBackpack ? "Backpack" : "Hand"} ({showBackpack ? self.backpack.length : self.hand.length})
         </h3>
-        <div className="flex gap-1.5">
-          <Button size="sm" variant={showBackpack ? "default" : "secondary"} onClick={() => setShowBackpack(s => !s)}>
-            <Backpack className="w-4 h-4 mr-1"/> Backpack ({self.backpack.length})
+        <div className="flex gap-1.5 flex-wrap justify-end">
+          <Button size="sm" variant={showBackpack ? "default" : "secondary"} onClick={() => setShowBackpack(s => !s)} aria-label={"Backpack (" + self.backpack.length + ")"}>
+            <Backpack className="w-4 h-4 sm:mr-1"/><span className="hidden sm:inline">Backpack&nbsp;</span>({self.backpack.length})
           </Button>
           
           {isSelling ? (
@@ -94,14 +96,15 @@ export function PlayerHand() {
               <Button size="sm" variant="ghost" onClick={() => { setSellMode([]); setIsSelling(false); }}>Cancel</Button>
             </>
           ) : (
-            <Button size="sm" variant="secondary" onClick={() => { setIsSelling(true); setSelected(null); }}>
-              <Coins className="w-4 h-4 mr-1"/> Sell Items
+            <Button size="sm" variant="secondary" onClick={() => { setIsSelling(true); setSelected(null); }} aria-label="Sell items">
+              <Coins className="w-4 h-4 sm:mr-1"/><span className="hidden sm:inline">Sell Items</span>
             </Button>
           )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end hand-strip min-h-[12rem] py-2 px-1 overflow-x-auto scroll-thin">
+      {/* Phones: one horizontally scrolling row. md+: wraps like a fanned hand. */}
+      <div className="flex flex-nowrap md:flex-wrap items-end hand-strip min-h-[8.5rem] md:min-h-[12rem] py-2 px-1 overflow-x-auto scroll-thin">
         {(showBackpack ? self.backpack : self.hand).map(c => (
           <GameCard
             key={c.id}
@@ -110,7 +113,7 @@ export function PlayerHand() {
             selected={selected === c.id || sellMode.includes(c.id)}
             onClick={() => {
               if (isSelling) {
-                if ((c as any).goldValue !== undefined) {
+                if (goldValueOf(c) !== undefined) {
                   setSellMode(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]);
                 }
                 return;
@@ -138,9 +141,9 @@ export function PlayerHand() {
           )}
 
           {/* Alt med en guldværdi (Både udstyr og oneshots!) */}
-          {(card as any).goldValue !== undefined && isMyTurn && !inCombat && (
+          {goldValueOf(card) !== undefined && isMyTurn && !inCombat && (
             <Button size="sm" variant="outline" onClick={() => handleAction("sell")}>
-              <Coins className="w-4 h-4 mr-1"/>Sell ({(card as any).goldValue}g)
+              <Coins className="w-4 h-4 mr-1"/>Sell ({goldValueOf(card)}g)
             </Button>
           )}
 
@@ -241,7 +244,7 @@ export function PlayerHand() {
                           variant="outline" 
                           className="border-purple-500/50 h-6 text-[10px] px-2" 
                           onClick={() => {
-                            send({ type: "useClassAbility", ability: "steal", cardIds: [card.id], targetId: p.id, targetCardId: eq.id } as any);
+                            send({ type: "useClassAbility", ability: "steal", cardIds: [card.id], targetId: p.id, targetCardId: eq.id });
                             setSelected(null);
                           }}
                         >

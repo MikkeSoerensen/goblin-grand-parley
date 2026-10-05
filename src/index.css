@@ -102,6 +102,8 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    /* No double-tap zoom on buttons, pinch-zoom still allowed. */
+    touch-action: manipulation;
     background-image:
       radial-gradient(ellipse at top, hsl(150 30% 12%) 0%, hsl(150 35% 5%) 70%),
       repeating-linear-gradient(

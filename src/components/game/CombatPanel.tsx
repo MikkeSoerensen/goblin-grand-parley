@@ -14,13 +14,13 @@ export function CombatPanel() {
   const isAttacker = c.attackerId === self.id;
   const isHelper = c.helperId === self.id;
   const isFighter = isAttacker || isHelper;
-  const hasCowards = view.activeDungeons?.some((d: any) => d.cardId === "d-cowards");
-  const hasChaos = view.activeDungeons?.some((d: any) => d.cardId === "d-chaos");
+  const hasCowards = view.activeDungeons.some(d => d.cardId === "d-cowards");
+  const hasChaos = view.activeDungeons.some(d => d.cardId === "d-chaos");
   const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
-  const monsterTotal = c.monsters.reduce((s, m) => s + m.level, 0) + c.monsterBonuses;
-  const playerTotal = (attacker.combatPower + (helper?.combatPower ?? 0)) + c.attackerBonuses;
+  // Totals come from the server so dungeon modifiers are always included.
+  const { monsterTotal, playerTotal } = c;
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
@@ -29,9 +29,9 @@ export function CombatPanel() {
   const myPass = !!c.passes[self.id];
   const canPass = !myPass && !isFighter; 
   
-  const alivePlayers = view.players.filter(p => !p.isDead).length;
-  const expectedPasses = alivePlayers - (c.helperId ? 2 : 1); 
-  const passCount = Object.values(c.passes).filter(Boolean).length;
+  // Only connected, living non-fighters have to pass (offline players never block a fight).
+  const expectedPasses = c.requiredPasses.length;
+  const passCount = c.requiredPasses.filter(id => c.passes[id]).length;
   const allPassed = passCount >= expectedPasses;
 
   const handleResolveClick = () => {
@@ -133,7 +133,7 @@ export function CombatPanel() {
         </div>
       )}
 
-      {view.negotiations.filter((n: any) => n.toId === self.id && n.status === "pending").map((n: any) => (
+      {view.negotiations.filter(n => n.toId === self.id && n.status === "pending").map(n => (
         <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
           <span className="flex-1">{view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s) for help.</span>
           <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
@@ -231,7 +231,7 @@ export function CombatPanel() {
                     size="sm" 
                     variant="outline" 
                     className="h-6 text-[10px] px-2 border-purple-500/50 hover:bg-purple-500/20" 
-                    onClick={() => send({ type: "runAway", discardId: c.id } as any)}
+                    onClick={() => send({ type: "runAway", discardId: c.id })}
                   >
                     Discard {c.name}
                   </Button>
@@ -242,7 +242,7 @@ export function CombatPanel() {
         )}
         
         <div className="flex-1 text-right text-xs opacity-70 font-ui self-center mt-2 w-full">
-          Pass votes: {passCount}/{expectedPasses > 0 ? expectedPasses : 0}
+          Pass votes: {passCount}/{expectedPasses}
         </div>
       </div>
 
