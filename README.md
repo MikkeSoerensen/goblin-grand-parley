@@ -16,13 +16,21 @@ A turn-based card game inspired by Munchkin, built with React + TypeScript on th
 - **Reactive Scoreboard** — name / level / combat power, always visible
 - **Dark game-board theme** — felt table, wooden rim, parchment & brass typography, overlapping cards in hand
 
+## ⬇️ Download the project
+
+Either:
+- **Git:** `git clone https://github.com/mikkesoerensen/goblin-grand-parley.git`
+- **ZIP:** on GitHub click **Code → Download ZIP** and unzip it.
+
+Then open the folder in **Visual Studio Code** (*File → Open Folder…*). VS Code will offer to install the recommended extensions — click *Install*.
+
 ## 🚀 Game night (host computer)
 
-Requires [Node.js](https://nodejs.org) 20 or newer on **one** computer — the host. Everyone else only needs a browser.
+Requires [Node.js](https://nodejs.org) 20 or newer on **one** computer — the host (check with `node -v`). Everyone else only needs a browser.
 
 ```bash
 npm install     # first time only
-npm start       # builds the client and starts the server on port 3001
+npm start       # builds client + server and starts the game on port 3001
 ```
 
 The server prints the address to share:
@@ -46,7 +54,7 @@ The server prints the address to share:
 - Lost the token (other browser, private mode)? Join with **the same name** while your old seat is offline to reclaim it. A name that is online cannot be taken.
 - Offline players never block a fight: only connected players must click *Pass*.
 - Every game is saved to `data/rooms.json`. Stop the server with `Ctrl+C` and start it again — the game continues where it was. Rooms untouched for 7 days are cleaned up.
-- Options: `PORT=4000 npm start`, `DATA_FILE=some/where.json npm start`.
+- Options: `PORT=4000 npm start`, `DATA_FILE=some/where.json npm start`, `HOST=127.0.0.1 npm start`.
 
 ## 🛠 Development
 
@@ -55,9 +63,35 @@ npm run dev         # Vite (hot reload) on :8080 + server (auto-restart) on :300
 npm test            # engine, protocol, persistence and socket integration tests
 npm run typecheck   # strict TypeScript for server + client
 FUZZ_SEEDS=500 npm test   # deeper randomized rule testing before a release
+npm run build       # client → dist/, server bundled → dist-server/index.mjs
+npm run start:ts    # run the server straight from TypeScript (no bundle)
 ```
 
 In dev, Vite proxies `/socket.io` and `/api` to the server, so friends can also use `http://<your-LAN-IP>:8080`.
+
+### 🧪 Test & verify in VS Code
+
+Everything is wired up in `.vscode/` — use **Terminal → Run Task…** (or `Ctrl+Shift+B` for the default build task):
+
+| Task | What it does |
+|------|--------------|
+| **Dev: client + server (hot reload)** | Starts the game at http://localhost:8080 (default build task, `Ctrl+Shift+B`) |
+| **Run tests** | Runs the Vitest test suite |
+| **Lint** | ESLint; problems show up in the *Problems* panel |
+| **Production: build + start** | Builds exactly what you'll host and runs it at http://localhost:3001 |
+| **Package release folder** | Creates `release/` ready to upload to a server |
+
+Debugging (**Run and Debug** panel, `Ctrl+Shift+D`):
+- **Debug server** — set breakpoints in `server/engine.ts` (rules) or `server/app.ts` (network)
+- **Open game in Chrome** — breakpoints in the React code (start the dev task first)
+- **Debug current test file**
+
+The server health endpoint is http://localhost:3001/health.
+
+## 🌍 Hosting it online (e.g. Simply.com)
+
+See **[HOSTING.md](HOSTING.md)**. Short version: `npm run package` builds a self-contained `release/` folder that only needs Node.js on the server.
+Note that a Simply.com **webhotel** can only serve static files, so the game server needs a **VPS** (Simply.com sells these) or another Node.js host.
 
 ## 🗂 Project structure
 
@@ -70,8 +104,12 @@ server/
   protocol.ts     ← zod validation of every client message
   persistence.ts  ← atomic JSON snapshots (data/rooms.json)
   app.ts          ← HTTP + Socket.io transport, sessions, rate limiting
-  index.ts        ← entry point (npm start)
+  index.ts        ← entry point (bundled to dist-server/index.mjs)
   *.test.ts       ← tests, incl. fuzzing for card conservation and deadlocks
+deploy/           ← nginx + systemd examples for a Linux server
+scripts/
+  package-release.mjs ← builds the uploadable release/ folder
+Dockerfile        ← container build for Docker hosts
 src/
   lib/socket.ts   ← Socket.io client (same origin)
   lib/session.ts  ← seat token in localStorage

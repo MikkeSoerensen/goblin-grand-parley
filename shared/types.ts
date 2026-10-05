@@ -1,7 +1,7 @@
 // Shared game types — used by both server and client.
 // Single source of truth for card and state shapes.
 
-export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem";
+export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem" | "none"; // None bruges til amuleter 
 export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon";
 export type DeckType = "door" | "treasure" | "dungeon";
 
@@ -50,16 +50,25 @@ export type BadStuffKind =
   | { kind: "loseLevel"; amount: number }
   | { kind: "loseItem"; slot: Slot | "any" | "biggest" }
   | { kind: "loseAllItems" }
-  | { kind: "death" };
+  | { kind: "death" } 
+  | { kind: "loseClass" }
+  | { kind: "robinHood" }
+  | { kind: "loseClassAndLevels"; amount: number }
+  | { kind: "loseClassAndHand" }
+  | { kind: "loseLevelsOrDie"; amount: number; threshold: number }
+  | { kind: "loseHandEquipAndLevel"; amount: number };
 
 export interface MonsterCard extends BaseCard {
   type: "monster";
   deck: "door";
-  level: number;            // monster combat level
-  treasures: number;        // # treasure cards on defeat
-  levelsAwarded: number;    // # levels on defeat
+  level: number;            
+  treasures: number;        
+  levelsAwarded: number;    
   badStuff: BadStuffKind;
   badStuffText: string;
+  // NYE: Usynlige særregler til boss-monstre!
+  antiClass?: { className: string; bonus: number };
+  immuneToCharm?: boolean;
 }
 
 export interface EquipmentCard extends BaseCard {
@@ -69,6 +78,7 @@ export interface EquipmentCard extends BaseCard {
   goldValue: number;
   slot: Slot;
   isBig: boolean;
+  classReq?: "Warrior" | "Cleric" | "Thief" | "Wizard"; // NY: Klassebegrænsning på udstyr
 }
 
 export interface CurseCard extends BaseCard {
@@ -156,8 +166,9 @@ export interface PlayerEquipment {
   head: EquipmentCard | null;
   armor: EquipmentCard | null;
   feet: EquipmentCard | null;
-  hands: EquipmentCard[];        // up to 2 single-hand or 1 twoHands
+  hands: EquipmentCard[];        
   bigItem: EquipmentCard | null;
+  none: EquipmentCard[];         // <--- NY: Plads til slotless items!
 }
 
 export interface PublicPlayer {
@@ -170,7 +181,7 @@ export interface PublicPlayer {
   combatPower: number;
   isDead: boolean;
   connected: boolean;
-  playerClass: ClassCard | null; // <--- Lige her!
+  playerClass: ClassCard | null;
 }
 
 export interface PrivatePlayer extends PublicPlayer {
@@ -199,6 +210,8 @@ export interface CombatState {
   backstabbedBy?: Record<string, string[]>;
   warriorDiscardCount?: Record<string, number>;
   ranAway?: string[];               // fighters who have already rolled to run away
+  gluedPlayers?: string[];          // Flask of Glue: these fighters automatically fail Run Away
+  swapUsed?: boolean;               // Dungeon of Sudden Swaps: attacker already stole from the helper
 }
 
 // Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
@@ -244,11 +257,12 @@ export type ClientToServer =
   | { type: "charityGive"; cardIds: string[]; toId: string }
   | { type: "rename"; name: string }
   | { type: "flee" }
-  | { type: "playCard"; cardId: string }
+  | { type: "playCard"; cardId: string; targetId?: string } // targetId: Flask of Glue
   | { type: "equip"; cardId: string; forceSwap?: boolean }
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
-  | { type: "forceHelp"; targetId: string }; // Bruges til de snyde støvler der tvinger til at hjælpe
+  | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
+  | { type: "suddenSwap" }; // Bruges til d-swapping dungeon-kortet
 
 export type GameAction = Exclude<ClientToServer, { type: "join" }>;
 

@@ -20,6 +20,8 @@ export interface GameServerOptions {
   dataFile: string | null;
   /** Built client (vite build output). */
   distDir: string;
+  /** Origins allowed to connect cross-origin. Empty/undefined = same origin only. */
+  corsOrigins?: string[];
 }
 
 export interface GameServer {
@@ -68,7 +70,14 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
   app.disable("x-powered-by");
   app.use(express.static(opts.distDir));
   app.get("/health", (_req, res) => { res.json({ ok: true, rooms: rooms.size }); });
-  app.get("/api/lan", (_req, res) => { res.json({ addresses: lanAddresses() }); });
+  // LAN addresses are only for the host's own QR code: never reveal them to remote
+  // clients or through a reverse proxy when the game is hosted publicly.
+  app.get("/api/lan", (req, res) => {
+    const ip = req.socket.remoteAddress ?? "";
+    const local = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+    const proxied = req.headers["x-forwarded-for"] !== undefined;
+    res.json({ addresses: local && !proxied ? lanAddresses() : [] });
+  });
   app.get(/^\/(?!socket\.io|api\/).*/, (_req, res) => {
     res.sendFile(path.join(opts.distDir, "index.html"), err => {
       if (err) res.status(404).send("Run `npm run build` first to serve the client from this server, or use `npm run dev` for hot reload.");
@@ -76,7 +85,10 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
   });
 
   const httpServer = createServer(app);
-  const io = new Server(httpServer, { maxHttpBufferSize: 32 * 1024 });
+  const io = new Server(httpServer, {
+    maxHttpBufferSize: 32 * 1024,
+    ...(opts.corsOrigins?.length ? { cors: { origin: opts.corsOrigins } } : {}),
+  });
 
   const emit = (socketId: string, msg: ServerToClient) => io.to(socketId).emit("msg", msg);
 
@@ -165,7 +177,11 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
         port,
         get rooms() { return rooms; },
         close: () => new Promise<void>(done => {
-          store?.flush();
+          try {
+            store?.flush();
+          } catch (err) {
+            console.error("⚠️  Could not save game state on shutdown:", err);
+          }
           io.close(() => done());
         }),
       });

@@ -11,16 +11,20 @@ const uid = () => `c${++_id}`;
 const monster = (
   cardId: string, name: string, level: number, treasures: number, levelsAwarded: number,
   badStuff: BadStuffKind, badStuffText: string, copies = 1, flavor?: string,
+  antiClass?: { className: string; bonus: number }, // NY
+  immuneToCharm?: boolean                           // NY
 ): MonsterCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "monster", deck: "door",
   level, treasures, levelsAwarded, badStuff, badStuffText, flavor,
+  antiClass, immuneToCharm // NY
 }));
 
 const equipment = (
   cardId: string, name: string, bonus: number, goldValue: number, slot: Slot, isBig = false, copies = 1, flavor?: string,
+  classReq?: "Warrior" | "Cleric" | "Thief" | "Wizard" // <--- NY
 ): EquipmentCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "equipment", deck: "treasure",
-  bonus, goldValue, slot, isBig, flavor,
+  bonus, goldValue, slot, isBig, flavor, classReq // <--- NY
 }));
 
 const wanderingMonster = (copies = 1): WanderingMonsterCard[] =>
@@ -48,9 +52,9 @@ const curse = (cardId: string, name: string, effect: BadStuffKind, effectText: s
     id: uid(), cardId, name, type: "curse", deck: "door", effect, effectText,
   }));
 
-const oneShot = (cardId: string, name: string, bonus: number, goldValue: number, target: OneShotCard["target"], copies = 1): OneShotCard[] =>
+const oneShot = (cardId: string, name: string, bonus: number, goldValue: number, target: OneShotCard["target"], copies = 1, flavor?: string): OneShotCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target,
+    id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target, flavor,
   }));
 
   const classCard = (cardId: string, name: "Warrior" | "Cleric" | "Thief" | "Wizard", effectText: string, copies = 1): ClassCard[] =>
@@ -101,11 +105,40 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-clown","Clown Prince",      14, 3, 2, { kind: "loseAllItems" }, "Honked to nakedness.", 1));
   cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
 
+// --- ANTI-CLASS BOSSES ---
+  cards.push(...monster(
+    "m-anti-warrior", "The Iron Juggernaut", 14, 3, 1,  //Monster level, treasures og level den giver 
+    { kind: "loseClassAndLevels", amount: 2 },  //Mister levels
+    "It crushes your martial pride and your skull! Lose your Class card AND lose 2 Levels!", 
+    2, undefined, { className: "Warrior", bonus: 5 } // Bonus imod warrior
+  ));
+
+  cards.push(...monster(
+    "m-anti-thief", "The All-Seeing Sphinx", 12, 3, 1, 
+    { kind: "loseClassAndHand" }, 
+    "It sees through every shadow and trick. Lose your Class card AND discard ALL cards in your hand.", 
+    2, undefined, { className: "Thief", bonus: 5 }
+  ));
+
+  cards.push(...monster(
+    "m-anti-cleric", "The Heretic Archfiend", 16, 4, 2, 
+    { kind: "loseLevelsOrDie", amount: 2, threshold: 2 }, 
+    "Feeds on righteous anger. Lose 2 Levels (or die instantly if you are Level 2 or below).", 
+    2, undefined, { className: "Cleric", bonus: 5 }
+  ));
+
+  cards.push(...monster(
+    "m-anti-wizard", "The Arcane Devourer", 14, 3, 1, 
+    { kind: "loseHandEquipAndLevel", amount: 1 }, 
+    "Feeds purely on magical energy. Discard your entire hand, all your equipped items, AND lose 1 Level!", 
+    2, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
+  ));
+
   // Goblin Swarm!
-  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 4)); 
-  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 2));
+  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 6)); 
+  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
   cards.push(...monster("m-gob-cripple", "Crippled Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
-  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 1));
+  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 2));
 
   // Curses (~14)
   cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
@@ -116,6 +149,10 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...curse("c-level1",   "Curse! Lose a Level", { kind: "loseLevel", amount: 1 }, "Demoted.", 3));
   cards.push(...curse("c-level2",   "Curse! Income Tax", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
   cards.push(...curse("c-loseAny",  "Curse! Malign Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
+
+  // --- Modbydelige Curses ---
+  cards.push(...curse("c-amnesia", "Curse! Amnesia", { kind: "loseClass" }, "You forget who you are. Lose your Class.", 2));
+  cards.push(...curse("c-robin-hood", "Curse! Robin Hood's Revenge", { kind: "robinHood" }, "Give your most expensive equipped item to the player with the lowest level.", 2));
 
   // Classes
   cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
@@ -131,7 +168,6 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
   cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 3));
   cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 3));
-
   return cards;
 };
 
@@ -177,16 +213,36 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...equipment("e-boots-run", "Boots of Running Really Fast", 0, 400, "feet", false, 1, "Gives +2 to all your Run Away rolls."));
   cards.push(...equipment("e-kneepads", "Kneepads of Allure", 0, 600, "feet", false, 1, "Not usable by Warriors. Force any player to help you in combat!"));
 
+  // --- CLASS UNIQUE EQUIPMENT ---
+  // Warrior
+  cards.push(...equipment("e-bloodaxe", "The Berserker's Bloodaxe", 3, 800, "twoHands", false, 2, "Your Berserk ability gives +2 per card instead of +1!", "Warrior"));
+  cards.push(...equipment("e-blood-plate", "Blood-Spattered Plate", 3, 600, "armor", false, 2, "Gives +3 extra bonus if fighting more than 1 monster.", "Warrior"));
+  
+  // Thief
+  cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 2, "Gives +1 to all Run Away rolls.", "Thief"));
+  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 2, "Your Steal ability succeeds on a roll of 3-6.", "Thief"));
+  
+  // Cleric
+  cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 2, "Gives +3 extra bonus when helping another player.", "Cleric"));
+  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 2, "If you are about to die, discard this to survive with 1 HP.", "Cleric"));
+  
+  // Wizard
+  cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 2, "Immune to face-up Curses drawn from the door deck.", "Wizard"));
+  cards.push(...equipment("e-archmage-staff", "Staff of the Archmage", 4, 800, "twoHands", false, 2, "Your Charm spell only costs 2 cards instead of 3.", "Wizard"));
+
   // One-shots
   cards.push(...oneShot("o-potion-h", "Potion of Halitosis", 2, 100, "monster", 2));
   cards.push(...oneShot("o-potion-i", "Instant Wall",        3, 300, "either", 1));
   cards.push(...oneShot("o-flaming",  "Flaming Poison Potion",3, 100, "monster", 2));
   cards.push(...oneShot("o-shouting", "Potion of Shouting",  3, 100, "monster", 1));
-  cards.push(...oneShot("o-friendship","Potion of Friendship",2, 200, "ally", 2));
   cards.push(...oneShot("o-yuppie",   "Yuppie Water",        2, 200, "monster", 1));
   cards.push(...oneShot("o-magic",    "Magic Missile",       5, 300, "monster", 1));
   cards.push(...oneShot("o-loaded",   "Loaded Die",          1, 100, "ally", 2));
 
+  // --- Trolling Potions ---
+  cards.push(...oneShot("o-friendship", "Friendship Potion", 0, 300, "ally", 1, "Play during any combat. The combat ends immediately. No levels or treasure are awarded."));
+  cards.push(...oneShot("o-flask-glue", "Flask of Glue", 0, 100, "ally", 1, "Play when someone is trying to run away. They automatically fail their roll!"));
+  
   // Enhancers (added to monster level — typically negative for player to weaken,
   //   but stored as positive bonus — opponents play to strengthen monster)
   cards.push(...enhancer("h-ancient",  "Ancient",  +5, 200, 1));
@@ -201,13 +257,13 @@ export const buildTreasureDeck = (): Card[] => {
   return cards;
 };
 
-// ---------- DUNGEON DECK ----------
+// ---------- DUNGEON DECK ---------- // Note: Default er at der 1 kopi af hver, men det kan ændres ved skrive ", 2" eller lignende efter beskrivelsen.
 export const buildDungeonDeck = (): Card[] => {
   const cards: Card[] = [];
   cards.push(...dungeon("d-elven", "Dungeon of Elvish Excess", "All players get +1 to their Run Away rolls."));
   cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
-  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level."));
-  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure."));
+  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level.",));
+  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure.",));
   cards.push(...dungeon("d-feeble", "Dungeon of Feeble Foes", "All monsters are -5 Level (minimum Level 1)."));
   cards.push(...dungeon("d-misanthropy", "Dungeon of Misanthropic Misery", "No one can ask for help in combat! Everyone fights alone."));
   cards.push(...dungeon("d-bribery", "Dungeon of Blatant Bribery", "You must offer at least 2 treasures when asking for help in combat."));
@@ -224,6 +280,8 @@ export const buildDungeonDeck = (): Card[] => {
   cards.push(...dungeon("d-healing", "Dungeon of Heavenly Healing", "When you resurrect a card (Cleric), draw an extra face-down Door card as a bonus."));
   cards.push(...dungeon("d-doom", "Dungeon of Impending Doom", "If you die in this dungeon, you lose 2 Levels instead of keeping your level."));
   cards.push(...dungeon("d-poverty", "Dungeon of Pathetic Poverty", "You cannot sell items for levels while this Dungeon is active."));
+  cards.push(...dungeon("d-goblin", "Dungeon: Goblin Land", "All monsters with the 'Goblin' tag get +3 to their combat strength!"));
+  cards.push(...dungeon("d-infinite", "Dungeon: Dimension of Hoarding", "There is no hand size limit! The Charity phase is completely skipped."));
   return cards;
 };
 

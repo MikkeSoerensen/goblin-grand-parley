@@ -16,15 +16,22 @@ export function CombatPanel() {
   const isFighter = isAttacker || isHelper;
   const hasCowards = view.activeDungeons.some(d => d.cardId === "d-cowards");
   const hasChaos = view.activeDungeons.some(d => d.cardId === "d-chaos");
+  const hasSwapping = view.activeDungeons.some(d => d.cardId === "d-swapping");
   const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
-  // Totals come from the server so dungeon modifiers are always included.
+
+  // Totals come from the server, so every dungeon, anti-class boss and item bonus is always included.
   const { monsterTotal, playerTotal } = c;
+  
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = attacker.playerClass?.name === "Warrior" || helper?.playerClass?.name === "Warrior";
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
-  const totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
+  
+  let totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
+  if (view.activeDungeons.some(d => d.cardId === "d-wealth")) {
+    totalTreasures += 1;
+  }
 
   const myPass = !!c.passes[self.id];
   const canPass = !myPass && !isFighter; 
@@ -51,7 +58,7 @@ export function CombatPanel() {
   };
 
   return (
-    <div className="bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
+    <div className="relative z-50 mx-auto bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-display text-xl brass-text flex items-center gap-2">
           <Swords className="w-5 h-5"/> Combat
@@ -150,30 +157,40 @@ export function CombatPanel() {
           <div className="flex gap-2 flex-wrap">
             
             {/* Wizard: Charm Monster (Knap direkte i panelet) */}
-            {self.playerClass.name === "Wizard" && isFighter && self.handCount >= 3 && c.monsters.map(m => (
-              <Button 
-                key={m.id} 
-                size="sm" 
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={() => {
-                  if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
-                    send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
-                  }
-                }}
-              >
-                🪄 Charm {m.name} (Discard Hand)
-              </Button>
-            ))}
-            {self.playerClass.name === "Wizard" && isFighter && self.handCount < 3 && (
-               <div className="text-xs font-ui text-muted-foreground italic">You need at least 3 cards in hand to use Charm.</div>
-            )}
+            {self.playerClass.name === "Wizard" && isFighter && (() => {
+              const charmCost = self.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
+              
+              if (self.handCount >= charmCost) {
+                return c.monsters.map(m => (
+                  <Button 
+                    key={m.id} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => {
+                      if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
+                        send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
+                      }
+                    }}
+                  >
+                    🪄 Charm {m.name} (Discard Hand)
+                  </Button>
+                ));
+              } else {
+                return (
+                  <div className="text-xs font-ui text-muted-foreground italic">
+                    You need at least {charmCost} cards in hand to use Charm.
+                  </div>
+                );
+              }
+            })()}
 
             {/* Warrior: Berserk (Guide-tekst) */}
-            {self.playerClass.name === "Warrior" && isFighter && (
-              <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
-                💡 <b>Berserk:</b> Click on cards in your hand to discard them for +1 combat power (max 3 per combat).
-              </div>
-            )}
+            {self.playerClass.name === "Warrior" && isFighter && (() => {
+              const hasAxe = self.equipment.hands.some(h => h.cardId === "e-bloodaxe");
+              return (
+                <div className="text-xs font-ui px-3 py-2 bg-orange-900/30 rounded border border-orange-500/30 text-orange-200">
+                  💡 <b>Berserk:</b> Click on cards in your hand to discard them for {hasAxe ? <b>+2</b> : <b>+1</b>} combat power (max 3 per combat). {hasAxe && "🪓 Axe active!"}
+                </div>
+              );
+            })()}
 
             {/* Thief: Backstab (Guide-tekst) */}
             {self.playerClass.name === "Thief" && (
@@ -193,6 +210,13 @@ export function CombatPanel() {
         {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
             {myPass ? "✓ Passed" : "Pass"}
+          </Button>
+        )}
+
+        {/* NY KNAP: d-swapping (Steal from helper) */}
+        {hasSwapping && isAttacker && c.helperId && !c.swapUsed && (
+          <Button size="sm" variant="outline" className="border-blue-500 text-blue-400 hover:bg-blue-900/40" onClick={() => send({ type: "suddenSwap" })}>
+            🔄 Steal Card from Helper
           </Button>
         )}
         

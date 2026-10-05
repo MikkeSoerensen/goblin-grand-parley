@@ -147,5 +147,8 @@ describe("LAN server", () => {
     expect(health.ok).toBe(true);
     const lan = await fetch(`http://127.0.0.1:${s.port}/api/lan`).then(r => r.json() as Promise<{ addresses: unknown }>);
     expect(Array.isArray(lan.addresses)).toBe(true);
+    const proxied = await fetch(`http://127.0.0.1:${s.port}/api/lan`, { headers: { "x-forwarded-for": "203.0.113.9" } })
+      .then(r => r.json() as Promise<{ addresses: unknown[] }>);
+    expect(proxied.addresses).toEqual([]);
   });
 });

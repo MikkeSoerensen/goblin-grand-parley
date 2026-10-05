@@ -96,7 +96,7 @@ export const allCardIds = (room: Room): string[] => {
     out.push(...p.hand, ...p.backpack);
     const e = p.equipment;
     for (const c of [e.head, e.armor, e.feet, e.bigItem]) if (c) out.push(c);
-    out.push(...e.hands);
+    out.push(...e.hands, ...e.none);
     if (p.playerClass) out.push(p.playerClass);
   }
   const combatIds = new Set<string>();

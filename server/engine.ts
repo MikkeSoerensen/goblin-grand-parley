@@ -65,6 +65,7 @@ const computePower = (p: PrivatePlayer): number => {
   if (p.equipment.feet) bonus += p.equipment.feet.bonus;
   if (p.equipment.bigItem) bonus += p.equipment.bigItem.bonus;
   for (const h of p.equipment.hands) bonus += h.bonus;
+  for (const n of p.equipment.none) bonus += n.bonus; // slotless items (amulets)
   return p.level + bonus;
 };
 
@@ -105,20 +106,31 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   playerClass: p.playerClass,
 });
 
-const monsterTotal = (room: Room, c: CombatState): number =>
-  c.monsters.reduce((s, m) => {
+const monsterTotal = (room: Room, c: CombatState): number => {
+  const fighters = [c.attackerId, c.helperId].map(id => room.players.find(p => p.id === id)).filter(Boolean);
+  return c.monsters.reduce((s, m) => {
     let lvl = m.level;
     if (hasDungeon(room, "d-martial")) lvl += 2; // Martial Arts: +2 Lvl
     if (hasDungeon(room, "d-feeble")) lvl = Math.max(1, lvl - 5); // Feeble: -5 Lvl (min 1)
+    if (hasDungeon(room, "d-goblin") && m.name.toLowerCase().includes("goblin")) lvl += 3; // Goblin Land
+    // Anti-Class: bonus hvis angriber ELLER hjælper er den forhadte class.
+    if (m.antiClass && fighters.some(f => f?.playerClass?.className === m.antiClass!.className)) lvl += m.antiClass.bonus;
     return s + lvl;
   }, 0) + c.monsterBonuses;
+};
 
 const playerSideTotal = (room: Room, c: CombatState): number => {
   const a = room.players.find(p => p.id === c.attackerId);
   let total = (a ? computePower(a) : 0) + c.attackerBonuses;
+  const multiMonster = c.monsters.length > 1;
+  if (a && multiMonster && a.equipment.armor?.cardId === "e-blood-plate") total += 3;
   if (c.helperId) {
     const h = room.players.find(p => p.id === c.helperId);
-    if (h) total += computePower(h);
+    if (h) {
+      total += computePower(h);
+      if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) total += 3;
+      if (multiMonster && h.equipment.armor?.cardId === "e-blood-plate") total += 3;
+    }
   }
   return total;
 };
@@ -249,7 +261,7 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
   const player: PrivatePlayer = {
     id: newId(), name: name || "Player",
     level: 1,
-    equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null },
+    equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] },
     hand: [], backpack: [], handCount: 0, backpackCount: 0,
     combatPower: 1, isDead: false, connected: true,
     playerClass: null,
@@ -280,6 +292,9 @@ const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
   if (card.cardId === "e-kneepads" && p.playerClass?.name === "Warrior") {
     return "Warriors are too proud to wear the Kneepads of Allure!";
   }
+  if (card.classReq && p.playerClass?.className !== card.classReq) {
+    return `Only a ${card.classReq} can equip this item!`;
+  }
   if (card.isBig && p.equipment.bigItem) return "You already have a Big item equipped.";
   switch (card.slot) {
     case "head":
@@ -299,6 +314,9 @@ const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
       p.equipment.hands.push(card); break;
     case "bigItem":
       p.equipment.bigItem = card; break;
+    case "none":
+      // Slotless (fx amuletter): optager ingen plads.
+      p.equipment.none.push(card); break;
   }
   return null;
 };
@@ -310,10 +328,9 @@ const removeEquipped = (p: PrivatePlayer, cardId: string): EquipmentCard | null 
     const eq = p.equipment[s];
     if (eq && eq.id === cardId) { p.equipment[s] = null; return eq; }
   }
-  const idx = p.equipment.hands.findIndex(h => h.id === cardId);
-  if (idx >= 0) {
-    const [h] = p.equipment.hands.splice(idx, 1);
-    return h;
+  for (const list of [p.equipment.hands, p.equipment.none]) {
+    const idx = list.findIndex(h => h.id === cardId);
+    if (idx >= 0) return list.splice(idx, 1)[0];
   }
   return null;
 };
@@ -325,7 +342,33 @@ const allEquipped = (p: PrivatePlayer): EquipmentCard[] => {
   if (p.equipment.feet) arr.push(p.equipment.feet);
   if (p.equipment.bigItem) arr.push(p.equipment.bigItem);
   arr.push(...p.equipment.hands);
+  arr.push(...p.equipment.none);
   return arr;
+};
+
+// Udstyr med classReq glider ned i rygsækken, når spilleren ikke længere har den class.
+const validateClassEquipment = (room: Room, p: PrivatePlayer) => {
+  for (const eq of allEquipped(p)) {
+    if (eq.classReq && p.playerClass?.className !== eq.classReq) {
+      removeEquipped(p, eq.id);
+      p.backpack.push(eq);
+      log(room, `🎒 ${p.name} is no longer a ${eq.classReq}! Their ${eq.name} slides off into their backpack!`);
+    }
+  }
+};
+
+const loseClass = (room: Room, p: PrivatePlayer, msg: string) => {
+  if (!p.playerClass) return false;
+  log(room, msg);
+  room.discards.door.push(p.playerClass);
+  p.playerClass = null;
+  validateClassEquipment(room, p);
+  return true;
+};
+
+const discardHand = (room: Room, p: PrivatePlayer) => {
+  for (const c of p.hand) discardCard(room, c);
+  p.hand = [];
 };
 
 const isEquipment = (c: Card): c is EquipmentCard => c.type === "equipment";
@@ -352,6 +395,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         }
       } else if (slot === "hand") target = p.equipment.hands[0] ?? null;
       else if (slot === "twoHands") target = p.equipment.hands.find(h => h.slot === "twoHands") ?? null;
+      else if (slot === "none") target = p.equipment.none[0] ?? null;
       else target = p.equipment[slot];
       // also check backpack if no equipped match
       if (!target && (slot === "any" || slot === "biggest")) {
@@ -383,7 +427,88 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       log(room, `${p.name} loses ALL equipment!`);
       break;
     }
+    case "loseHandEquipAndLevel": {
+      const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
+      if (lost > 0) {
+        p.level -= lost;
+        log(room, `🩸 The Devourer drains ${p.name}'s magic! They lose ${lost} level(s) → Level ${p.level}.`);
+      }
+      if (p.hand.length > 0) {
+        log(room, `🃏 All ${p.hand.length} cards in ${p.name}'s hand are consumed by the Devourer!`);
+        discardHand(room, p);
+      }
+      const equipped = allEquipped(p);
+      if (equipped.length > 0) {
+        log(room, `🛡️ All of ${p.name}'s equipped items disintegrate!`);
+        for (const c of equipped) {
+          removeEquipped(p, c.id);
+          room.discards.treasure.push(c);
+        }
+      }
+      break;
+    }
+    case "loseClassAndLevels": {
+      loseClass(room, p, `💀 ${p.name} gets crushed and forgets how to be a ${p.playerClass?.name}!`);
+      const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
+      if (lost > 0) {
+        p.level -= lost;
+        log(room, `🩸 The Juggernaut smashes ${p.name} down ${lost} level(s) → Level ${p.level}.`);
+      }
+      break;
+    }
+    case "loseClassAndHand": {
+      loseClass(room, p, `💀 The Sphinx strips ${p.name} of their Class!`);
+      if (p.hand.length > 0) {
+        log(room, `🃏 The Sphinx's gaze scatters all ${p.hand.length} cards from ${p.name}'s hand!`);
+        discardHand(room, p);
+      }
+      break;
+    }
+    case "loseLevelsOrDie": {
+      if (p.level <= bs.threshold) {
+        log(room, `💀 The Archfiend's dark presence is too much! ${p.name} DIES instantly!`);
+        applyBadStuff(room, p, { kind: "death" });
+      } else {
+        const oldLevel = p.level;
+        p.level = Math.max(1, p.level - bs.amount);
+        log(room, `🩸 ${p.name}'s faith is shattered! They lose ${oldLevel - p.level} level(s) → Level ${p.level}.`);
+      }
+      break;
+    }
+    case "loseClass": {
+      if (!loseClass(room, p, `💀 ${p.name} suffers AMNESIA and forgets how to be a ${p.playerClass?.name}!`)) {
+        log(room, `💀 ${p.name} suffers Amnesia, but they already had no class to forget!`);
+      }
+      break;
+    }
+    case "robinHood": {
+      const equipped = allEquipped(p);
+      if (equipped.length === 0) {
+        log(room, `💀 ${p.name} has no equipped items for Robin Hood to steal.`);
+        break;
+      }
+      const targetItem = equipped.reduce((prev, curr) => (curr.goldValue > prev.goldValue ? curr : prev));
+      removeEquipped(p, targetItem.id);
+      const opponents = room.players.filter(op => op.id !== p.id && !op.isDead);
+      if (opponents.length === 0) {
+        room.discards.treasure.push(targetItem);
+        log(room, `💀 Robin Hood steals ${targetItem.name} from ${p.name}, but there's no one to give it to! It goes to the discard pile.`);
+        break;
+      }
+      const lowest = opponents.reduce((low, op) => (op.level < low.level ? op : low));
+      lowest.backpack.push(targetItem);
+      refreshDerived(lowest);
+      log(room, `💀 ROBIN HOOD'S REVENGE! ${targetItem.name} is taken from ${p.name} and given to ${lowest.name} (Lvl ${lowest.level})!`);
+      break;
+    }
     case "death": {
+      if (p.equipment.head?.cardId === "e-halo") {
+        const halo = p.equipment.head;
+        removeEquipped(p, halo.id);
+        room.discards.treasure.push(halo);
+        log(room, `👼 MIRACLE! ${p.name}'s Halo of Righteousness shatters with a blinding light, saving their life!`);
+        break; // Spilleren dør ikke!
+      }
       log(room, `💀 ${p.name} has DIED.`);
 
       // d-doom: Mister 2 levels ved død!
@@ -394,7 +519,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       }
       // body becomes loot pile
       const pile: Card[] = [...allEquipped(p), ...p.backpack, ...p.hand];
-      p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null };
+      p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
       p.backpack = []; p.hand = [];
       p.isDead = true;
       // Looting order: highest level opponents first, excluding dead one.
@@ -595,7 +720,9 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         room.table.push(card);
         startCombat(room, player, card);
       } else if (card.type === "curse") {
-        if (hasDungeon(room, "d-curses")) {
+        if (player.equipment.none.some(e => e.cardId === "e-spell-amulet")) {
+          log(room, `🛡️ ${player.name}'s Amulet of Spell Reflection DESTROYS ${card.name} instantly!`);
+        } else if (hasDungeon(room, "d-curses")) {
           log(room, `💀 DUNGEON OF CURSES: ${card.name} hits EVERYONE!`);
           for (const target of room.players.filter(p => !p.isDead)) {
             applyBadStuff(room, target, card.effect);
@@ -658,7 +785,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       // eller efterlade en halvfærdig plyndring/velgørenhed.
       if (room.status !== "normalTurn" || room.combat) return "Finish the current action first.";
       // Charity check
-      const charityLimit = hasDungeon(room, "d-charity") ? 4 : 5;
+      const charityLimit = hasDungeon(room, "d-infinite") ? Infinity // Dimension of Hoarding
+        : hasDungeon(room, "d-charity") ? 4 : 5;
       if (player.hand.length > charityLimit) {
         const others = room.players.filter(p => p.id !== playerId);
         const minLevel = Math.min(...others.map(p => p.level));
@@ -797,6 +925,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (oldClass) room.discards.door.push(oldClass);
         player.playerClass = card;
         player.hand.splice(idx, 1);
+        validateClassEquipment(room, player);
 
         if (oldClass) log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
         else log(room, `✨ ${player.name} is now a ${card.name}!`);
@@ -811,6 +940,25 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         resolvePortal(room, card.cardId);
         player.hand.splice(idx, 1);
         room.discards.door.push(card);
+        refreshDerived(player);
+        return null;
+      }
+
+      if (card.cardId === "o-flask-glue") {
+        if (!room.combat) return "Flask of Glue can only be played during a combat!";
+        const combat = room.combat;
+        if (!msg.targetId) return "You must specify who to glue!";
+        const target = room.players.find(p => p.id === msg.targetId);
+        if (!target || target.isDead) return "Target not found.";
+        if (target.id !== combat.attackerId && target.id !== combat.helperId) return "You can only glue someone who is fighting.";
+        if (combat.ranAway?.includes(target.id)) return `${target.name} has already rolled to run away.`;
+
+        combat.gluedPlayers = combat.gluedPlayers ?? [];
+        if (!combat.gluedPlayers.includes(target.id)) combat.gluedPlayers.push(target.id);
+        log(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! If they have to run away, they will automatically fail!`);
+
+        player.hand.splice(idx, 1);
+        room.discards.treasure.push(card);
         refreshDerived(player);
         return null;
       }
@@ -850,6 +998,19 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         room.discards.door.push(card);
 
         reopenInterrupts(room);
+        refreshDerived(player);
+        return null;
+      }
+
+      // --- FRIENDSHIP POTION: kampen slutter straks, ingen levels eller skatte ---
+      if (card.cardId === "o-friendship") {
+        player.hand.splice(idx, 1);
+        room.discards.treasure.push(card);
+        log(room, `💖 ${player.name} plays Friendship Potion! The combat ends instantly. No levels or treasures!`);
+        endCombat(room);
+        room.negotiations = [];
+        room.status = "normalTurn";
+        room.currentPhase = 3;
         refreshDerived(player);
         return null;
       }
@@ -980,7 +1141,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (hasDungeon(room, "d-thieves")) roll += 2; // Thieving Thugs
         pendingEvents.push({ type: "rolled", playerId, result: roll, reason: "Steal Attempt" });
 
-        if (roll >= 4) {
+        const reqRoll = player.equipment.hands.some(h => h.cardId === "e-lockpicks") ? 3 : 4;
+        if (roll >= reqRoll) {
           removeEquipped(target, targetEq.id);
           player.backpack.push(targetEq);
           log(room, `🗡️ ${player.name} rolls ${roll} and successfully STEALS ${targetEq.name} from ${target.name}!`);
@@ -1021,8 +1183,9 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (discarded === 0) return "No valid cards discarded.";
 
         c.warriorDiscardCount[playerId] = currentUsed + discarded;
-        c.attackerBonuses += discarded;
-        log(room, `⚔️ ${player.name} goes BERSERK! Discards ${discarded} card(s) for +${discarded} bonus.`);
+        const bonusMult = player.equipment.hands.some(h => h.cardId === "e-bloodaxe") ? 2 : 1;
+        c.attackerBonuses += discarded * bonusMult;
+        log(room, `⚔️ ${player.name} goes BERSERK! Discards ${discarded} card(s) for +${discarded * bonusMult} bonus.`);
         refreshDerived(player);
         return null;
       }
@@ -1056,11 +1219,13 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (player.playerClass?.name !== "Wizard") return "Not a Wizard.";
         if (c.attackerId !== playerId && c.helperId !== playerId) return "You must be in combat to charm.";
         if (!msg.monsterId) return "No monster selected.";
-        if (player.hand.length < 3) return "Need at least 3 cards in hand to Charm.";
+        const reqCards = player.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
+        if (player.hand.length < reqCards) return `Need at least ${reqCards} cards in hand to Charm.`;
 
         const mIdx = c.monsters.findIndex(m => m.id === msg.monsterId);
         if (mIdx < 0) return "Monster not in combat.";
         const monster = c.monsters[mIdx];
+        if (monster.immuneToCharm) return `The ${monster.name} is IMMUNE to your Charm spell!`;
 
         const handSize = player.hand.length;
         for (const card of player.hand) discardCard(room, card);
@@ -1164,15 +1329,6 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const attacker = player;
       const helper = c.helperId ? room.players.find(p => p.id === c.helperId) ?? null : null;
 
-      // DUNGEON: Sudden Swaps (Sker før resultatet gøres op)
-      if (hasDungeon(room, "d-swapping") && helper && helper.hand.length > 0) {
-        const rIdx = Math.floor(random() * helper.hand.length);
-        const stolen = helper.hand.splice(rIdx, 1)[0];
-        attacker.hand.push(stolen);
-        refreshDerived(helper);
-        log(room, `🔄 Sudden Swaps! ${attacker.name} blindly stole a card from ${helper.name}'s hand!`);
-      }
-
       const ms = monsterTotal(room, c);
       const ps = playerSideTotal(room, c);
 
@@ -1221,7 +1377,13 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       combat.ranAway = combat.ranAway ?? [];
       if (combat.ranAway.includes(playerId)) return "You already rolled to run away.";
 
+      const glued = combat.gluedPlayers?.includes(playerId) === true;
       let roll = rollD6();
+
+      if (allEquipped(player).some(e => e.cardId === "e-shadow-cloak")) {
+        roll += 1;
+        log(room, `🦇 ${player.name}'s Cloak of Shadows swirls, granting +1 to the escape roll!`);
+      }
 
       // Boots of Running Really Fast giver +2!
       if (player.equipment.feet?.cardId === "e-boots-run") {
@@ -1251,7 +1413,10 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       // Markeres FØR Bad Stuff, så en død midt i rækken aldrig efterlader kampen hængende.
       combat.ranAway.push(playerId);
 
-      if (roll >= 5) {
+      if (glued) {
+        log(room, `🧴 ${player.name} is covered in GLUE and automatically fails to escape!`);
+      }
+      if (!glued && roll >= 5) {
         log(room, `${player.name} escapes!`);
       } else {
         log(room, `${player.name} fails to escape — Bad Stuff!`);
@@ -1310,6 +1475,25 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         for (const rest of looting.pile) discardCard(room, rest);
         finishLooting(room, looting.deadId);
       }
+      return null;
+    }
+
+    case "suddenSwap": {
+      if (!room.combat) return "No combat.";
+      const combat = room.combat;
+      if (combat.attackerId !== playerId) return "Only the attacker can use Sudden Swaps.";
+      if (!combat.helperId) return "You don't have a helper to steal from.";
+      if (!hasDungeon(room, "d-swapping")) return "Dungeon of Sudden Swaps is not active.";
+      if (combat.swapUsed) return "You already stole a card this combat!";
+      const helper = room.players.find(p => p.id === combat.helperId);
+      if (!helper || helper.hand.length === 0) return "Helper has no cards in hand.";
+
+      const [stolen] = helper.hand.splice(Math.floor(random() * helper.hand.length), 1);
+      player.hand.push(stolen);
+      combat.swapUsed = true;
+      log(room, `🔄 Sudden Swaps! ${player.name} blindly stole a card from ${helper.name}'s hand!`);
+      refreshDerived(player);
+      refreshDerived(helper);
       return null;
     }
 

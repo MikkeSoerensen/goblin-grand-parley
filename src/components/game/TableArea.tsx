@@ -14,18 +14,18 @@ export function TableArea() {
   const handHasMonster = view.self?.hand.some(c => c.type === "monster") ?? false;
 
   return (
-    <section className="felt-table p-3 sm:p-6 flex-1 flex flex-col items-center justify-between md:min-h-[60vh] relative">
+    <section className="felt-table p-4 md:p-6 flex-1 flex flex-col items-center justify-start gap-4 overflow-y-auto relative min-h-[60vh]">
       {/* Phase / turn banner */}
-      <header className="w-full flex items-center justify-between gap-4 order-first">
-        <div className="min-w-0">
+      <header className="w-full flex items-center justify-between gap-4 shrink-0">
+        <div>
           <div className="text-xs opacity-70 font-ui uppercase tracking-wider">Active</div>
-          <div className="font-display text-lg sm:text-2xl brass-text truncate">{active?.name}{isMyTurn && " (you)"}</div>
+          <div className="font-display text-2xl brass-text">{active?.name}{isMyTurn && " (you)"}</div>
         </div>
-        <div className="text-right sm:text-center">
+        <div className="text-center">
           <div className="text-xs opacity-70 font-ui uppercase tracking-wider">Phase</div>
-          <div className="font-display text-base sm:text-xl">{phaseNames[view.currentPhase]}</div>
+          <div className="font-display text-xl">{phaseNames[view.currentPhase]}</div>
         </div>
-        <div className="hidden sm:block text-right text-xs font-ui opacity-70">
+        <div className="text-right text-xs font-ui opacity-70">
           <div>Door: {view.doorDeckCount} (+{view.doorDiscardCount} dis)</div>
           <div>Treasure: {view.treasureDeckCount} (+{view.treasureDiscardCount} dis)</div>
           {/* NYT: Dungeon counter tilføjet */}
@@ -35,7 +35,7 @@ export function TableArea() {
 
       {/* --- NYT: ACTIVE DUNGEONS ZONE --- */}
       {view.activeDungeons && view.activeDungeons.length > 0 && (
-        <div className="mt-4 flex flex-col items-center w-full order-2 md:order-none">
+        <div className="mt-4 flex flex-col items-center w-full">
           <div className="text-xs font-bold text-purple-300 uppercase tracking-widest mb-2 drop-shadow-md">
             Active Dungeons
           </div>
@@ -47,43 +47,9 @@ export function TableArea() {
         </div>
       )}
 
-      {/* Center: decks + table cards */}
-      <div className="flex items-center gap-3 md:gap-8 my-3 md:my-6 flex-wrap justify-center order-2 md:order-none">
-        {/* Door deck */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="card-base w-20 h-28 md:w-32 md:h-44 text-sm bg-gradient-to-br from-door to-door/60 flex items-center justify-center font-display md:text-xl text-door-foreground border-2 border-door-foreground/30">
-            🚪 Door
-          </div>
-          <span className="text-xs opacity-70 font-ui">{view.doorDeckCount} cards</span>
-        </div>
-        
-        {/* Table */}
-        <div className="flex gap-2 min-w-[10rem] min-h-[8rem] md:min-h-[12rem] items-center justify-center">
-          {view.table.length === 0 && <div className="opacity-40 italic font-ui">— table empty —</div>}
-          {view.table.map(c => <GameCard key={c.id} card={c} size="md"/>)}
-        </div>
-        
-        {/* Treasure deck */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="card-base w-20 h-28 md:w-32 md:h-44 text-sm bg-gradient-treasure flex items-center justify-center font-display md:text-xl text-treasure-foreground border-2 border-treasure-foreground/30">
-            💰 Treasure
-          </div>
-          <span className="text-xs opacity-70 font-ui">{view.treasureDeckCount} cards</span>
-        </div>
-
-        {/* --- NYT: DUNGEON DECK --- */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="card-base w-20 h-28 md:w-32 md:h-44 text-sm bg-gradient-to-br from-indigo-900 to-purple-950 flex items-center justify-center font-display md:text-xl text-white border-2 border-purple-500/30">
-            🏰 Dungeon
-          </div>
-          <span className="text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
-        </div>
-      </div>
-
-      {/* Turn controls */}
-      {/* On phones the turn buttons sit right under the banner, above the decks. */}
+            {/* Turn controls */}
       {isMyTurn && view.status === "normalTurn" && !inCombat && (
-        <div className="flex flex-wrap gap-2 justify-center mt-3 md:mt-0 order-1 md:order-none">
+        <div className="flex flex-wrap gap-2 justify-center">
           {view.currentPhase === 1 && (
             <Button size="lg" onClick={() => send({ type: "kickDoor" })} className="pulse-glow">
               <DoorOpen className="w-5 h-5 mr-2"/> Kick Open the Door
@@ -112,10 +78,40 @@ export function TableArea() {
         </div>
       )}
 
-      {/* Game log */}
-      <div className="w-full bg-black/30 rounded-lg p-2 mt-4 max-h-24 overflow-y-auto scroll-thin text-xs font-ui order-3 md:order-none">
-        {view.log.slice(-8).map((l, i) => <div key={i} className="opacity-80">{l}</div>)}
+      {/* Center: decks + table cards */}
+      <div className="flex items-center gap-3 md:gap-8 my-6 flex-wrap justify-center relative z-0 pb-16 md:pb-0 w-full px-2">
+        
+        {/* Door deck */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-to-br from-door to-door/60 flex items-center justify-center font-display text-lg md:text-xl text-door-foreground border-2 border-door-foreground/30">
+            🚪 Door
+          </div>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.doorDeckCount} cards</span>
+        </div>
+        
+        {/* Table */}
+        <div className="flex gap-2 min-w-[5rem] min-h-[12rem] items-center justify-center shrink-0">
+          {view.table.length === 0 && <div className="opacity-40 italic font-ui text-sm">— table empty —</div>}
+          {view.table.map(c => <GameCard key={c.id} card={c} size="md"/>)}
+        </div>
+        
+        {/* Treasure deck */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-treasure flex items-center justify-center font-display text-lg md:text-xl text-treasure-foreground border-2 border-treasure-foreground/30">
+            💰 Treasure
+          </div>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.treasureDeckCount} cards</span>
+        </div>
+
+        {/* DUNGEON DECK */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="card-base w-24 h-36 md:w-32 md:h-44 bg-gradient-to-br from-indigo-900 to-purple-950 flex items-center justify-center font-display text-lg md:text-xl text-white border-2 border-purple-500/30">
+            🏰 Dungeon
+          </div>
+          <span className="text-[10px] md:text-xs opacity-70 font-ui">{view.dungeonDeckCount} cards</span>
+        </div>
       </div>
+
     </section>
   );
 }

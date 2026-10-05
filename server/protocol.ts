@@ -40,7 +40,7 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("charityGive"), cardIds: ids, toId: id }),
   z.object({ type: z.literal("rename"), name }),
   z.object({ type: z.literal("flee") }),
-  z.object({ type: z.literal("playCard"), cardId: id }),
+  z.object({ type: z.literal("playCard"), cardId: id, targetId: id.optional() }),
   z.object({ type: z.literal("equip"), cardId: id, forceSwap: z.boolean().optional() }),
   z.object({ type: z.literal("castCurse"), cardId: id, targetId: id }),
   z.object({
@@ -52,6 +52,7 @@ const schema = z.discriminatedUnion("type", [
     targetCardId: id.optional(),
   }),
   z.object({ type: z.literal("forceHelp"), targetId: id }),
+  z.object({ type: z.literal("suddenSwap") }),
 ]);
 
 // Compile-time guarantee that the schema and the wire type never drift apart.

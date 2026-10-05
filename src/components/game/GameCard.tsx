@@ -1,5 +1,6 @@
 import { Card, EquipmentCard, MonsterCard, ClassCard } from "../../../shared/types";
 import { cn } from "@/lib/utils";
+import { useGame } from "@/lib/store";
 
 const typeStyles: Record<string, string> = {
   monster: "bg-gradient-monster text-monster-foreground",
@@ -31,10 +32,14 @@ interface Props {
 
 export function GameCard({ card, size = "md", faceDown, selected, onClick, className }: Props) {
   const sizes = {
-    sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px] shrink-0",
-    md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs shrink-0",
-    lg: "w-32 h-44 md:w-44 md:h-60 text-xs md:text-sm shrink-0", // Sikrer fangehuller ikke bliver moset for meget
+    sm: "w-16 h-24 md:w-20 md:h-28 text-[9px] md:text-[10px]",
+    md: "w-24 h-32 md:w-32 md:h-44 text-[10px] md:text-xs",
+    lg: "w-32 h-44 md:w-44 md:h-60 text-xs md:text-sm shrink-0", 
   };
+
+  // Nedenstående henter aktive dungeons fra game state, så vi kan vise deres effekter på kortene i hånden (f.eks. Goblin Land og Dimension of Hoarding)
+  const view = useGame(s => s.view);
+  const activeDungeons = view?.activeDungeons || [];
 
   if (faceDown) {
     return (
@@ -78,20 +83,92 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
-        {card.type === "monster" && (
-          <>
-            <div className="font-bold">Lvl {(card as MonsterCard).level}</div>
-            <div>+{(card as MonsterCard).levelsAwarded} lvl · {(card as MonsterCard).treasures} tr</div>
-            <div className="opacity-75 line-clamp-2 italic">{(card as MonsterCard).badStuffText}</div>
-          </>
-        )}
-        {card.type === "equipment" && (
-          <>
-            <div className="font-bold">+{(card as EquipmentCard).bonus}</div>
-            <div>{(card as EquipmentCard).slot}{(card as EquipmentCard).isBig ? " · BIG" : ""}</div>
-            <div>{(card as EquipmentCard).goldValue}g</div>
-          </>
-        )}
+
+        {card.type === "monster" && (() => {
+          const m = card as MonsterCard;
+          let diff = 0; 
+          let treasureDiff = 0; 
+          
+          // 1. Tjekker Dungeon Bonusser
+          if (activeDungeons && activeDungeons.length > 0) {
+            let modifiedLevel = m.level;
+            if (activeDungeons.some(d => d.cardId === "d-martial")) modifiedLevel += 2;
+            if (activeDungeons.some(d => d.cardId === "d-feeble")) modifiedLevel = Math.max(1, modifiedLevel - 5);
+            if (activeDungeons.some(d => d.cardId === "d-goblin") && m.name.toLowerCase().includes("goblin")) {
+              modifiedLevel += 3;
+            }
+            diff += (modifiedLevel - m.level); 
+
+            if (activeDungeons.some(d => d.cardId === "d-wealth")) {
+              treasureDiff = 1;
+            }
+          }
+
+          // 2. NYT: Tjekker Anti-Class Bonus (Kun når monsteret er i kamp!)
+          if (m.antiClass && view?.combat && view.combat.monsters.some(c => c.id === m.id)) {
+            const atk = view.players.find(p => p.id === view.combat!.attackerId);
+            const hlp = view.combat.helperId ? view.players.find(p => p.id === view.combat!.helperId) : null;
+            
+            // Hvis angriberen eller hjælperen er den hadede class, får den sin bonus!
+            if (atk?.playerClass?.name === m.antiClass.className || hlp?.playerClass?.name === m.antiClass.className) {
+              diff += m.antiClass.bonus;
+            }
+          }
+          
+          const diffText = diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : "";
+          const tDiffText = treasureDiff > 0 ? ` (+${treasureDiff})` : "";
+
+          return (
+            <>
+              <div className="font-bold">Lvl {m.level}<span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : ""}>{diffText}</span></div>
+              <div>+{m.levelsAwarded} lvl · {m.treasures}<span className="text-yellow-400">{tDiffText}</span> tr</div>
+              <div className="opacity-75 line-clamp-2 italic">{m.badStuffText}</div>
+            </>
+          );
+        })()}
+
+        {card.type === "equipment" && (() => {
+          const eq = card as EquipmentCard;
+          let price = eq.goldValue;
+          let priceColor = "";
+          let label = `${price}g`;
+
+          // Tjek dungeons for prisændringer
+          if (activeDungeons?.some(d => d.cardId === "d-poverty")) {
+            price = 0;
+            priceColor = "text-red-500 font-bold";
+            label = "CANNOT SELL";
+          } else if (activeDungeons?.some(d => d.cardId === "d-lavish")) {
+            price = eq.goldValue * 2;
+            priceColor = "text-green-400 font-bold";
+            label = `${price}g (x2)`;
+          } else if (activeDungeons?.some(d => d.cardId === "d-clipping")) {
+            price = Math.max(0, eq.goldValue - 100);
+            priceColor = "text-orange-400";
+            label = `${price}g (-100)`;
+          }
+
+          return (
+            <>
+              <div className="font-bold">
+                {eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot !== "none" ? eq.slot : ""}{eq.isBig ? " · BIG" : ""}
+              </div>
+              <div className={priceColor}>{label}</div>
+              
+              {/* NYT: Viser Class Requirement og effekten (flavor) */}
+              {eq.classReq && (
+                <div className="text-[10px] font-bold text-orange-300 mt-1">
+                  Requires {eq.classReq}
+                </div>
+              )}
+              {eq.flavor && (
+                <div className="text-[10px] italic opacity-80 mt-1 leading-tight line-clamp-3">
+                  {eq.flavor}
+                </div>
+              )}
+            </>
+          );
+        })()}
         {card.type === "oneshot" && <div className="font-bold">+{card.bonus} · {card.goldValue}g</div>}
         {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}

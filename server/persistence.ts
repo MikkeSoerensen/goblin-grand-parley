@@ -40,7 +40,10 @@ export const deserializeRooms = (json: string, now = Date.now()): Map<string, Ro
     if (!isRoomLike(r)) continue;
     if (now - (r.updatedAt ?? 0) > ROOM_TTL_MS) continue;
     r.statusBeforeLooting = r.statusBeforeLooting ?? null;
-    for (const p of r.players) p.connected = false;
+    for (const p of r.players) {
+      p.connected = false;
+      p.equipment.none = p.equipment.none ?? []; // saves from before slotless items existed
+    }
     rooms.set(r.code, r);
   }
   return rooms;
