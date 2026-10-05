@@ -16,6 +16,16 @@ A turn-based card game inspired by Munchkin, built with React + TypeScript on th
 - **Reactive Scoreboard** — name / level / combat power, always visible
 - **Dark game-board theme** — felt table, wooden rim, parchment & brass typography, overlapping cards in hand
 
+## ⬇️ Download the project
+
+Either:
+- **Git:** `git clone https://github.com/mikkesoerensen/goblin-grand-parley.git`
+- **ZIP:** on GitHub click **Code → Download ZIP** and unzip it.
+
+Then open the folder in **Visual Studio Code** (*File → Open Folder…*). VS Code will offer to install the recommended extensions — click *Install*.
+
+Requirements: [Node.js 20+](https://nodejs.org) (LTS). Check with `node -v` in the VS Code terminal (*Terminal → New Terminal*).
+
 ## 🚀 Quick start (in VSCode)
 
 ### 1. Install
@@ -52,14 +62,39 @@ Tell your friends to open: **`http://<your-LAN-IP>:8080`** in any browser (phone
 2. Once everyone is in, click **Start Game**.
 3. On your turn, click **Kick Open the Door** to begin Phase 1.
 
+## 🧪 Test & verify in VS Code
+
+Everything is wired up in `.vscode/` — use **Terminal → Run Task…** (or `Ctrl+Shift+B` for the default build task):
+
+| Task | What it does |
+|------|--------------|
+| **Dev: client + server (hot reload)** | Starts the game at http://localhost:8080 (default build task, `Ctrl+Shift+B`) |
+| **Run tests** | Runs the Vitest test suite |
+| **Lint** | ESLint; problems show up in the *Problems* panel |
+| **Production: build + start** | Builds exactly what you'll host and runs it at http://localhost:3001 |
+| **Package release folder** | Creates `release/` ready to upload to a server |
+
+Debugging (**Run and Debug** panel, `Ctrl+Shift+D`):
+- **Debug server** — set breakpoints in `server/index.ts`
+- **Open game in Chrome** — breakpoints in the React code (start the dev task first)
+- **Debug current test file**
+
+Quick sanity check: open the game in **two browser windows** (or a normal + incognito window), join the same room code with two names, and click **Start Game**.
+The server health endpoint is http://localhost:3001/health.
+
 ## 📦 Production build (single port)
 
 ```bash
-npm run build      # builds React client to /dist
-npm start          # server hosts both API and built client on :3001
+npm run build      # builds React client to /dist and bundles the server to /dist-server
+npm start          # server hosts both the game and the built client on :3001
 ```
 
 Now everyone connects to `http://<your-LAN-IP>:3001` — no separate Vite dev server needed.
+
+## 🌍 Hosting it online (e.g. Simply.com)
+
+See **[HOSTING.md](HOSTING.md)**. Short version: `npm run package` builds a self-contained `release/` folder that only needs Node.js on the server.
+Note that a Simply.com **webhotel** can only serve static files, so the game server needs a **VPS** (Simply.com sells these) or another Node.js host.
 
 ## 🗂 Project structure
 
@@ -69,6 +104,10 @@ shared/
   deck.ts         ← ~120-card deck definitions
 server/
   index.ts        ← authoritative state machine + Socket.io transport
+deploy/           ← nginx + systemd examples for a Linux server
+scripts/
+  package-release.mjs ← builds the uploadable release/ folder
+Dockerfile        ← container build for Docker hosts
 src/
   lib/socket.ts   ← thin Socket.io wrapper
   lib/store.ts    ← Zustand store mirroring server view

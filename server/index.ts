@@ -1654,14 +1654,16 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Optional: serve built client
-const distDir = path.resolve(__dirname, "../dist");
+// Optional: serve built client (works both from server/ via tsx and from dist-server/ when bundled)
+const distDir = process.env.CLIENT_DIST ? path.resolve(process.env.CLIENT_DIST) : path.resolve(__dirname, "../dist");
 app.use(express.static(distDir));
 app.get("/health", (_req, res) => res.json({ ok: true, rooms: rooms.size }));
 app.get(/^\/(?!socket\.io).*/, (_req, res) => res.sendFile(path.join(distDir, "index.html"), err => { if (err) res.status(404).send("Run `npm run build` first to serve the client from this server, or use `npm run dev` for hot reload."); }));
 
 const httpServer = createServer(app);
-io = new Server(httpServer, { cors: { origin: "*" } });
+// CORS_ORIGIN: comma-separated list of allowed origins (only needed when the client is hosted on another domain).
+const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map(o => o.trim()) : "*";
+io = new Server(httpServer, { cors: { origin: corsOrigin } });
 
 io.on("connection", (socket) => {
   socket.on("msg", (raw: ClientToServer) => {
@@ -1728,7 +1730,8 @@ io.on("connection", (socket) => {
 });
 
 const PORT = Number(process.env.PORT ?? 3001);
-httpServer.listen(PORT, "0.0.0.0", () => {
+const HOST = process.env.HOST ?? "0.0.0.0";
+httpServer.listen(PORT, HOST, () => {
   const ifs = networkInterfaces();
   const ips: string[] = [];
   for (const list of Object.values(ifs)) {
