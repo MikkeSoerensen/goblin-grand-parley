@@ -111,6 +111,9 @@ const combatStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
         && x.cardId !== "o-friendship" && x.cardId !== "o-flask-glue");
       const card = boosts.sort((a, b) => ("bonus" in b ? b.bonus : 0) - ("bonus" in a ? a.bonus : 0))[0];
       if (card && handleAction(room, id, { type: "playInCombat", cardId: card.id, side: "monster" }).error === null) return true;
+      // Goblins call the swarm: any goblin monster straight into the fight.
+      const goblin = p.hand.find((x): x is MonsterCard => x.type === "monster" && x.tags.includes("goblin"));
+      if (goblin && handleAction(room, id, { type: "playInCombat", cardId: goblin.id }).error === null) return true;
       const wander = p.hand.find(x => x.type === "wandering-monster");
       const extra = p.hand.find(x => x.type === "monster");
       if (wander && extra && handleAction(room, id, { type: "playInCombat", cardId: wander.id, extraCardId: extra.id }).error === null) return true;
@@ -172,12 +175,25 @@ const turnStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
   if (me.isDead) return handleAction(room, me.id, { type: "endTurn" }).error === null;
 
   // Housekeeping (each at most once per card per turn).
+  // Identity: dual cards first, then a class / race for every empty slot.
+  for (const c of me.hand.filter(x => x.type === "dual")) {
+    if (once(done, `dual:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
+  }
   for (const c of me.hand.filter(x => x.type === "class")) {
-    if (!me.playerClass && once(done, `class:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
+    const wanted = !me.playerClass || (me.dualClass && !me.extraClass);
+    if (wanted && once(done, `class:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
+  }
+  for (const c of me.hand.filter(x => x.type === "race")) {
+    const wanted = !me.race || (me.dualRace && !me.extraRace);
+    if (wanted && once(done, `race:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
   }
   for (const c of [...me.hand, ...me.backpack].filter((x): x is EquipmentCard => x.type === "equipment")) {
+    const papers = me.hand.find(x => x.type === "forged-papers");
     if (c.bonus > equippedInSlot(me, c) && once(done, `equip:${c.id}`)
-      && tryFirst(room, me.id, [{ type: "equip", cardId: c.id, forceSwap: true }])) return true;
+      && tryFirst(room, me.id, [
+        { type: "equip", cardId: c.id, forceSwap: true },
+        ...(papers ? [{ type: "equip" as const, cardId: c.id, forceSwap: true, forgedPapersId: papers.id }] : []),
+      ])) return true;
   }
   for (const c of me.hand.filter(x => x.type === "equipment")) {
     if (once(done, `pack:${c.id}`) && tryFirst(room, me.id, [{ type: "toBackpack", cardId: c.id }])) return true;

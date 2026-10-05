@@ -17,7 +17,22 @@ const typeStyles: Record<string, string> = {
   // NYE FARVER TIL PORTAL OG DUNGEON:
   portal: "bg-gradient-to-br from-teal-500 to-emerald-800 text-white border-teal-400/50",
   dungeon: "bg-gradient-to-br from-purple-800 to-indigo-950 text-white border-purple-500/50",
+  race: "bg-gradient-to-br from-emerald-700 to-green-950 text-white border-emerald-400/50",
+  dual: "bg-gradient-to-br from-amber-500 to-orange-800 text-white border-amber-300/60",
+  "forged-papers": "bg-gradient-to-br from-stone-300 to-amber-200 text-stone-900 border-amber-700/50",
 };
+
+// Short keyword stamps so elite / counterweight monsters read at a glance.
+const monsterKeywords = (m: MonsterCard): string[] => [
+  m.packHunter !== undefined ? `🐺 Pack +${m.packHunter}` : "",
+  m.huntsLeader !== undefined ? `🎯 Leader +${m.huntsLeader}` : "",
+  m.sirenCall ? "🎶 Siren" : "",
+  m.swarmBonus !== undefined ? `📯 Swarm +${m.swarmBonus}` : "",
+  m.hordeBonus !== undefined ? `💀 Horde +${m.hordeBonus}` : "",
+  m.ambush ? "⚔️ Ambush" : "",
+  m.antiRace ? `🚫 ${m.antiRace.raceName} +${m.antiRace.bonus}` : "",
+  m.antiClass ? `🚫 ${m.antiClass.className} +${m.antiClass.bonus}` : "",
+].filter(Boolean);
 
 const slotIcon: Record<string, string> = {
   head: "🪖", armor: "🛡️", feet: "🥾", hand: "🗡️", twoHands: "⚔️", bigItem: "📦",
@@ -86,6 +101,9 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {/* NYE IKONER TIL PORTAL OG DUNGEON: */}
         {card.type === "portal" && "🌀"}
         {card.type === "dungeon" && "🏰"}
+        {card.type === "race" && "🧬"}
+        {card.type === "dual" && "🌟"}
+        {card.type === "forged-papers" && "📜"}
       </div>
       <div className="text-[10px] font-ui opacity-90 space-y-0.5">
       </div>
@@ -186,6 +204,21 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}
         
+        {(card.type === "race" || card.type === "dual" || card.type === "forged-papers") && (
+          <>
+            <div className="font-bold">{card.type === "race" ? "Race" : card.type === "dual" ? (card.dualKind === "class" ? "Two classes" : "Two races") : "Cheat!"}</div>
+            <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{card.effectText}</div>
+          </>
+        )}
+        {card.type === "monster" && monsterKeywords(card).length > 0 && (
+          <div className="flex flex-wrap gap-0.5 text-[8px] md:text-[9px] font-bold">
+            {monsterKeywords(card).map(k => <span key={k} className="px-1 rounded bg-black/40">{k}</span>)}
+          </div>
+        )}
+        {card.type === "equipment" && card.forgedWith && (
+          <div className="text-[9px] font-bold text-amber-200">📜 Forged papers</div>
+        )}
+
         {card.type === "class" && (
           <>
             <div className="font-bold">Class</div>

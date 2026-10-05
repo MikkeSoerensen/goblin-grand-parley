@@ -22,6 +22,8 @@ export interface GameResult {
   turns: number;
   winnerClass: string | null;
   classesAtEnd: string[]; // one entry per player
+  winnerRace: string | null;
+  racesAtEnd: string[];
   combats: number;
   combatWins: number;
   helpedCombats: number;
@@ -53,7 +55,7 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
 
   const mem = newMemory();
   const res: GameResult = {
-    finished: false, stuck: false, turns: 0, winnerClass: null, classesAtEnd: [],
+    finished: false, stuck: false, turns: 0, winnerClass: null, classesAtEnd: [], winnerRace: null, racesAtEnd: [],
     combats: 0, combatWins: 0, helpedCombats: 0, deaths: 0, monsterFights: {},
     leadChanges: 0, bounties: 0, turncoats: 0, tableHits: 0, sabotages: 0,
   };
@@ -101,6 +103,9 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
   const winner = room.players.find(p => p.id === room.winnerId);
   res.winnerClass = winner ? winner.playerClass?.className ?? "none" : null;
   res.classesAtEnd = room.players.map(p => p.playerClass?.className ?? "none");
+  const raceLabel = (p: Room["players"][number]) => [p.race?.raceName, p.extraRace?.raceName].filter(Boolean).join("+") || "none";
+  res.winnerRace = winner ? raceLabel(winner) : null;
+  res.racesAtEnd = room.players.map(raceLabel);
   Object.assign(res, {
     bounties: room.stats.bounties, turncoats: room.stats.turncoats,
     tableHits: room.stats.tableHits, sabotages: room.stats.sabotages,
@@ -137,6 +142,7 @@ export interface Summary {
   helpedRate: number;
   deathsPerGame: number;
   classWinRate: Record<string, { held: number; wins: number }>;
+  raceWinRate: Record<string, { held: number; wins: number }>;
   monsters: [string, { fights: number; wins: number }][];
 }
 
@@ -147,6 +153,11 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
   for (const r of results) {
     for (const c of r.classesAtEnd) (classWinRate[c] ??= { held: 0, wins: 0 }).held++;
     if (r.winnerClass) (classWinRate[r.winnerClass] ??= { held: 0, wins: 0 }).wins++;
+  }
+  const raceWinRate: Summary["raceWinRate"] = {};
+  for (const r of results) {
+    for (const c of r.racesAtEnd) (raceWinRate[c] ??= { held: 0, wins: 0 }).held++;
+    if (r.winnerRace) (raceWinRate[r.winnerRace] ??= { held: 0, wins: 0 }).wins++;
   }
   const monsters: Record<string, { fights: number; wins: number }> = {};
   for (const r of results) {
@@ -175,6 +186,7 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
     helpedRate: sum(r => r.helpedCombats) / Math.max(1, sum(r => r.combats)),
     deathsPerGame: sum(r => r.deaths) / games,
     classWinRate,
+    raceWinRate,
     monsters: Object.entries(monsters).sort((a, b) => a[1].wins / a[1].fights - b[1].wins / b[1].fights),
   };
 };
@@ -195,6 +207,13 @@ export const formatReport = (summaries: Summary[], title: string): string => {
     const fair = 1 / s.players;
     for (const [cls, v] of Object.entries(s.classWinRate).sort((a, b) => b[1].wins / b[1].held - a[1].wins / a[1].held)) {
       lines.push(`| ${cls} | ${v.held} | ${v.wins} | ${pct(v.wins, v.held)} (fair: ${pct(fair, 1)}) |`);
+    }
+  }
+  for (const s of summaries) {
+    lines.push("", `## Race ved spillets slutning — ${s.players} spillere, mål ${s.winLevel}, threat ${s.threat}`, "", "| Race | Spillere med den | Vandt | Vinderrate |", "|---|---|---|---|");
+    const fair = 1 / s.players;
+    for (const [r, v] of Object.entries(s.raceWinRate).filter(([, v]) => v.held >= 20).sort((a, b) => b[1].wins / b[1].held - a[1].wins / a[1].held)) {
+      lines.push(`| ${r} | ${v.held} | ${v.wins} | ${pct(v.wins, v.held)} (fair: ${pct(fair, 1)}) |`);
     }
   }
   const s = summaries[0];

@@ -331,6 +331,7 @@ const chaosAction = (room: Room, rnd: () => number): { playerId: string; msg: Ga
   const actions: GameAction[] = [
     { type: "playInCombat", cardId: card, side: rnd() < 0.5 ? "attacker" : "monster", extraCardId: card2 },
     { type: "equip", cardId: card, forceSwap: rnd() < 0.5 },
+    { type: "equip", cardId: card, forceSwap: rnd() < 0.5, forgedPapersId: pick(p.hand.filter(c => c.type === "forged-papers"))?.id ?? card2 },
     { type: "unequip", cardId: pick(p.equipment.hands)?.id ?? card },
     { type: "toBackpack", cardId: card },
     { type: "sell", cardIds: [card, card2, card] },

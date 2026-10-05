@@ -46,7 +46,7 @@ Spilles fra hånden ligesom en class. Man har én race; spiller man en ny, kasse
 | Race | Evne | Kopier |
 |---|---|---|
 | **Goblin** | *Swarm Caller:* Én gang pr. kamp må du spille et `goblin`-monster fra hånden ind i *en hvilken som helst* kamp, uden Wandering Monster og uden at der allerede er en goblin i kampen. *Home Turf:* I Goblin Land får du selv +3 i kamp (monstrene får stadig deres +3). | 2 |
-| **Elf** | +1 på Run Away. Når du hjælper nogen med at vinde en kamp, går du op ét level (kan ikke give level 10). | 2 |
+| **Elf** | +1 på Run Away. Når du hjælper en spiller med **højere level end dig selv** med at vinde, går du op ét level (aldrig til vinderlevel). | 2 |
 | **Dwarf** | Du må bære ubegrænset mange Big items. Din grænse for håndkort ved Charity er 6 i stedet for 5. | 2 |
 | **Halfling** | Én gang pr. tur må du sælge ét item til dobbelt værdi. Salg kræver stadig 1000g pr. level. | 2 |
 
@@ -54,6 +54,16 @@ Spilles fra hånden ligesom en class. Man har én race; spiller man en ny, kasse
 - Udstyr med race-krav er muligt senere, på samme måde som classReq. Det er ikke med i første omgang.
 - ❌ Første udkast ("Kinship": goblin-monstre −3 mod en Goblin-spiller) er forkastet.
 - ✅ Goblin er rettet mod kaos-siden af spillet: en Goblin-spiller saboterer andres kampe.
+
+### Justeringer i fase 2 (fra balance-simulatoren)
+
+- **Elf** fik i første udgave et level for *enhver* hjælp og vandt 37.7 % af spillene (fair 25 %), fordi hjælp nu bruges i ca. 65 % af kampene. Ændret til: kun et level for at hjælpe en spiller med højere level. Lederen kan ikke farme levels, mens bagudliggende Elvere indhenter. Resultat: 29.7 %.
+- **Modvægt mod mere spillerkraft** (ønsket under fase 2):
+  - *Show-off:* +2 Threat pr. ekstra class eller race (ikke på Calm).
+  - *Anti-race-monstre:* The Elf-Eater, Mithril Wyrm, The Halfling Hound og The Goblin Slayer (+5/+6 mod den hadede race, også hvis det er hjælperen).
+  - *Ambush:* Goblin Raiding Party og Highway Bandits trækker det næste door-kort med ind, hvis det er et monster.
+  - *Horde:* Skeleton Legion får +3 pr. andet monster i kampen.
+- **Siren** og **Highway Bandits** er sat ned til 1 kopi hver: kampene blev ellers for hårde (42 % vundne).
 
 ## B2. Vedvarende forbandelser og modkort
 
@@ -198,7 +208,7 @@ Ud over fundamentet (0.1):
 |---|---|---|
 | 0 ✅ | D + fundament (0.1-0.3) + balance-simulator med baseline | Alt andet bygger på det; baseline måles før noget ændres. Baseline: [docs/balance/baseline.md](balance/baseline.md) |
 | 1 ✅ | C1, C4, B6, B8 | Lav risiko, størst effekt på spiloplevelsen med det samme. Balance: [docs/balance/fase1.md](balance/fase1.md) |
-| 2 | B1, B7, B5 | Racer først, så Dual/Half-Breed og Forged Papers, der bygger på dem |
+| 2 ✅ | B1, B7, B5 + modvægts-monstre | Racer først, så Dual/Half-Breed og Forged Papers, der bygger på dem. Balance: [docs/balance/fase2.md](balance/fase2.md) |
 | 3 | B2, B4 | Bruger status-effekterne fra fundamentet |
 | 4 | B3 | Største UX-opgave; drager nytte af alt det ovenstående |
 | 5 | C2, C3 | Mest relevant ved 6+ spillere |

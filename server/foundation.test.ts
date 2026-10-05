@@ -29,8 +29,11 @@ describe("deck integrity", () => {
   const monsters = door.filter((c): c is MonsterCard => c.type === "monster");
 
   it("tags every goblin, and every tagged catalog id exists", () => {
+    // Named after goblins but not one of them — listed on purpose.
+    const notGoblins = new Set(["m-gob-slayer"]);
     for (const m of monsters) {
-      if (m.name.toLowerCase().includes("goblin")) expect(m.tags, m.name).toContain("goblin");
+      if (m.name.toLowerCase().includes("goblin") && !notGoblins.has(m.cardId)) expect(m.tags, m.name).toContain("goblin");
+      if (notGoblins.has(m.cardId)) expect(m.tags, m.name).not.toContain("goblin");
     }
     const ids = new Set(monsters.map(m => m.cardId));
     for (const id of Object.keys(MONSTER_TAGS)) expect(ids.has(id), id).toBe(true);

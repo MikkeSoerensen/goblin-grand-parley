@@ -97,8 +97,10 @@ export const allCardIds = (room: Room): string[] => {
     const e = p.equipment;
     for (const c of [e.head, e.armor, e.feet, e.bigItem]) if (c) out.push(c);
     out.push(...e.hands, ...e.none);
-    if (p.playerClass) out.push(p.playerClass);
+    for (const c of [p.playerClass, p.extraClass, p.race, p.extraRace, p.dualClass, p.dualRace]) if (c) out.push(c);
   }
+  // Forged papers ride along on the item they were played with, wherever it is.
+  for (const c of [...out]) if (c.type === "equipment" && c.forgedWith) out.push(c.forgedWith);
   const combatIds = new Set<string>();
   for (const m of room.combat?.monsters ?? []) {
     if (!m.id.includes("-mate-")) { out.push(m); combatIds.add(m.id); }

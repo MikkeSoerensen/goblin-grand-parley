@@ -25,6 +25,10 @@ export function PlayerHand() {
   const self = view.self;
 
   const wanderingMonsterCard = self.hand.find(c => c.type === "wandering-monster");
+  const forgedPapers = self.hand.find(c => c.type === "forged-papers");
+  // Mirrors the server: an item with an unmet requirement can be worn with Forged Guild Papers.
+  const needsPapers = (c: EquipmentCard) =>
+    !c.forgedWith && ((!!c.classReq && !hasClass(self, c.classReq)) || (c.cardId === "e-kneepads" && hasClass(self, "Warrior")));
 
   const isMyTurn = view.players[view.activePlayerIndex]?.id === self.id;
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
@@ -191,7 +195,23 @@ export function PlayerHand() {
 
           {card.type === "class" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
-              <Zap className="w-4 h-4 mr-1"/> Become {card.name}
+              <Zap className="w-4 h-4 mr-1"/> {self.playerClass && self.dualClass && !self.extraClass ? `Also become ${card.name}` : `Become ${card.name}`}
+            </Button>
+          )}
+          {card.type === "race" && isMyTurn && !inCombat && (
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
+              🧬 {self.race && self.dualRace && !self.extraRace ? `Also become ${card.name}` : `Become ${card.name}`}
+            </Button>
+          )}
+          {card.type === "dual" && isMyTurn && !inCombat && (
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>🌟 Play {card.name}</Button>
+          )}
+          {card.type === "equipment" && isMyTurn && !inCombat && forgedPapers && needsPapers(card) && (
+            <Button size="sm" variant="outline" className="border-amber-400 text-amber-300" onClick={() => {
+              send({ type: "equip", cardId: card.id, forceSwap: true, forgedPapersId: forgedPapers.id });
+              setSelected(null);
+            }}>
+              📜 Equip with Forged Papers
             </Button>
           )}
 

@@ -10,6 +10,7 @@ const TYPE_LABEL: Record<Card["type"], string> = {
   monster: "Monster", equipment: "Equipment", curse: "Curse", oneshot: "One-shot", enhancer: "Monster enhancer",
   class: "Class", "go-up-a-level": "Go Up a Level", portal: "Portal", dungeon: "Dungeon",
   "wandering-monster": "Wandering Monster", mate: "Mate",
+  race: "Race", dual: "Two of a kind", "forged-papers": "Cheat!",
 };
 
 const SLOT_LABEL: Record<string, string> = {
@@ -85,6 +86,9 @@ export function CardDetails() {
                   {card.huntsLeader !== undefined && <Row label="Hunts the leader">+{card.huntsLeader} against the player in the lead</Row>}
                   {card.sirenCall && <Row label="Siren's call">A helper rolls on joining: 1-3 they switch sides</Row>}
                   {card.swarmBonus !== undefined && <Row label="Commands the swarm">+{card.swarmBonus} per other goblin in the fight</Row>}
+                  {card.hordeBonus !== undefined && <Row label="Horde">+{card.hordeBonus} per other monster in the fight</Row>}
+                  {card.ambush && <Row label="Ambush">When kicked open, the next Door card joins if it's a monster</Row>}
+                  {card.antiRace && <Row label="Hates">{card.antiRace.raceName}s (+{card.antiRace.bonus})</Row>}
                 </>
               )}
               {card.type === "equipment" && (
@@ -93,6 +97,7 @@ export function CardDetails() {
                   <Row label="Slot">{SLOT_LABEL[card.slot]}{card.isBig ? " · Big" : ""}</Row>
                   <Row label="Value">{card.goldValue}g</Row>
                   {card.classReq && <Row label="Requires">{card.classReq}</Row>}
+                  {card.forgedWith && <Row label="Forged papers">Requirements ignored</Row>}
                 </>
               )}
               {(card.type === "oneshot" || card.type === "enhancer") && (

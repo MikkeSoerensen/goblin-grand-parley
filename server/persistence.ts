@@ -42,9 +42,16 @@ const migrateRoom = (r: Room) => {
   r.statusBeforeLooting = r.statusBeforeLooting ?? null;
   r.settings = { ...DEFAULT_SETTINGS, ...r.settings }; // before waiting-room settings existed
   r.stats = { ...emptyStats(), ...r.stats };
+  r.turnNo = r.turnNo ?? 0;
+  r.halflingSaleTurn = r.halflingSaleTurn ?? {};
   for (const p of r.players) {
     p.equipment.none = p.equipment.none ?? []; // before slotless items existed
     p.effects = p.effects ?? [];               // before lasting effects existed
+    p.extraClass = p.extraClass ?? null;       // before races / Dual Class existed
+    p.race = p.race ?? null;
+    p.extraRace = p.extraRace ?? null;
+    p.dualClass = p.dualClass ?? null;
+    p.dualRace = p.dualRace ?? null;
   }
   for (const c of allCards(r)) {
     if (c.type !== "monster") continue;

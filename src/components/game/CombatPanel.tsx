@@ -41,6 +41,8 @@ export function CombatPanel() {
   
   // Frontend tjekker nu også om angriberen eller hjælperen er Warrior!
   const hasWarrior = hasClass(attacker, "Warrior") || (!!helper && hasClass(helper, "Warrior"));
+  // Every class you have that has a combat ability (two with Guild Hopper).
+  const combatClasses = (["Warrior", "Thief", "Wizard"] as const).filter(name => hasClass(self, name));
   const winning = hasWarrior ? playerTotal >= monsterTotal : playerTotal > monsterTotal;
   
   let totalTreasures = c.monsters.reduce((s, m) => s + m.treasures, 0);
@@ -171,15 +173,15 @@ export function CombatPanel() {
       ))}
 
       {/* --- NY SEKTION: CLASS ABILITIES --- */}
-      {self.playerClass && ["Warrior", "Thief", "Wizard"].includes(self.playerClass.name) && view.status !== "runAwayRoll" && (
+      {combatClasses.length > 0 && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
           <div className="font-display text-sm mb-2 flex items-center gap-1 text-indigo-400">
-            <Zap className="w-4 h-4"/> {self.playerClass.name} Abilities
+            <Zap className="w-4 h-4"/> {combatClasses.join(" & ")} Abilities
           </div>
           <div className="flex gap-2 flex-wrap">
             
             {/* Wizard: Charm Monster (Knap direkte i panelet) */}
-            {self.playerClass.name === "Wizard" && isFighter && (() => {
+            {hasClass(self, "Wizard") && isFighter && (() => {
               const charmCost = self.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
               
               if (self.handCount >= charmCost) {
@@ -205,7 +207,7 @@ export function CombatPanel() {
             })()}
 
             {/* Warrior: Berserk (Guide-tekst) */}
-            {self.playerClass.name === "Warrior" && isFighter && (() => {
+            {hasClass(self, "Warrior") && isFighter && (() => {
               const hasAxe = self.equipment.hands.some(h => h.cardId === "e-bloodaxe");
               return (
                 <div className="text-xs font-ui px-3 py-2 bg-orange-900/30 rounded border border-orange-500/30 text-orange-200">
@@ -215,7 +217,7 @@ export function CombatPanel() {
             })()}
 
             {/* Thief: Backstab (Guide-tekst) */}
-            {self.playerClass.name === "Thief" && (
+            {hasClass(self, "Thief") && (
               <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
                 💡 <b>Backstab:</b> Click on a card in your hand to discard it and give {attacker.name} -2 in combat.
               </div>

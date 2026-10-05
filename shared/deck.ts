@@ -1,7 +1,7 @@
 import type {
   Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
   GoUpLevelCard, BadStuffKind, Slot, ClassCard, WanderingMonsterCard, MateCard,
-  PortalCard, DungeonCard, MonsterTag,
+  PortalCard, DungeonCard, MonsterTag, RaceCard, RaceName, DualCard, ForgedPapersCard,
 } from "./types";
 
 let _id = 0;
@@ -15,6 +15,7 @@ export const MONSTER_TAGS: Readonly<Record<string, MonsterTag[]>> = {
   "m-anti-wizard": ["magical"], "m-floating": ["magical"], "m-laser": ["magical"],
   "m-pit": ["beast"], "m-flying": ["beast"], "m-large": ["beast"], "m-snails": ["beast"], "m-flat": ["beast"],
   "m-wolfpack": ["beast"], "m-hydra": ["beast"], "m-siren": ["magical"], "m-gob-warlord": ["goblin"],
+  "m-gob-raiders": ["goblin"], "m-skeletons": ["undead"], "m-elf-eater": ["beast"], "m-hound": ["beast"],
 };
 
 // Big monsters that don't bother with weak players: at or below this level you escape automatically.
@@ -78,6 +79,20 @@ const oneShot = (cardId: string, name: string, bonus: number, goldValue: number,
   const classCard = (cardId: string, name: "Warrior" | "Cleric" | "Thief" | "Wizard", effectText: string, copies = 1): ClassCard[] =>
   Array.from({ length: copies }, () => ({
     id: uid(), cardId, name, type: "class", deck: "door", className: name, effectText,
+  }));
+
+const race = (cardId: string, raceName: RaceName, effectText: string, copies = 2): RaceCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId, name: raceName, type: "race", deck: "door", raceName, effectText,
+  }));
+
+const dual = (cardId: string, name: string, dualKind: DualCard["dualKind"], effectText: string): DualCard[] =>
+  [{ id: uid(), cardId, name, type: "dual", deck: "door", dualKind, effectText }];
+
+const forgedPapers = (copies: number): ForgedPapersCard[] =>
+  Array.from({ length: copies }, () => ({
+    id: uid(), cardId: "t-forged-papers", name: "Forged Guild Papers", type: "forged-papers", deck: "treasure", goldValue: 0,
+    effectText: "Play as you equip an item: ignore its class requirement (and other 'only'/'not usable by' rules). The papers stay with the item.",
   }));
 
 const enhancer = (cardId: string, name: string, bonus: number, goldValue: number, copies = 1): EnhancerCard[] =>
@@ -162,7 +177,7 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...monster("m-hydra", "The Hydra of Grudges", 18, 5, 2, { kind: "everyoneLosesLevel", amount: 1 },
     "If you fail to escape, EVERY player loses a level.", 1, "Everyone has a stake in this fight."));
   cards.push(...monster("m-siren", "The Siren of Broken Oaths", 14, 3, 2, { kind: "loseLevel", amount: 2 },
-    "Lose 2 levels.", 2, "Siren's call: anyone who joins as helper rolls a die — on 1-3 they switch sides and fight for the monster.")
+    "Lose 2 levels.", 1, "Siren's call: anyone who joins as helper rolls a die — on 1-3 they switch sides and fight for the monster.")
     .map(c => ({ ...c, sirenCall: true })));
   cards.push(...monster("m-gob-warlord", "Goblin Warlord", 14, 4, 2, { kind: "death" },
     "Executed by the horde. You die.", 1, "Commands the swarm: +2 for every other goblin in the fight.")
@@ -193,6 +208,40 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...classCard("c-cleric", "Cleric", "Resurrection: at the start of your turn, instead of kicking open the door, discard a card to take the top card of the Door discard pile.", 3));
   cards.push(...classCard("c-thief", "Thief", "You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items.", 3));
   cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
+
+  // Races
+  cards.push(...race("r-goblin", "Goblin", "Swarm Caller: once per fight, play a Goblin monster from your hand into ANY fight. Home Turf: +3 in Goblin Land."));
+  cards.push(...race("r-elf", "Elf", "+1 to Run Away. Go up a level when you help a HIGHER-level player win a fight (never to the winning level)."));
+  cards.push(...race("r-dwarf", "Dwarf", "Carry any number of Big items. You may keep 6 cards at Charity instead of 5."));
+  cards.push(...race("r-halfling", "Halfling", "Once per turn, the most valuable item in a sale counts double."));
+  cards.push(...curse("c-identity", "Curse! Identity Crisis", { kind: "loseRace" }, "Lose your race (your second race first, if you have two).", 1));
+
+  // Two of a kind
+  cards.push(...dual("d-guild-hopper", "Guild Hopper", "class", "Keep this in play: you may have two classes at once. Losing a class takes the newest one first."));
+  cards.push(...dual("d-mixed-heritage", "Mixed Heritage", "race", "Keep this in play: you may have two races at once. Losing a race takes the newest one first."));
+
+  // --- COUNTERWEIGHT MONSTERS: more player power means meaner fights ---
+  cards.push(...monster("m-gob-raiders", "Goblin Raiding Party", 6, 2, 1, { kind: "loseItem", slot: "any" },
+    "They make off with one of your items.", 2, "Ambush: when kicked open, the next Door card joins the fight if it's a monster.")
+    .map(c => ({ ...c, ambush: true })));
+  cards.push(...monster("m-bandits", "Highway Bandits", 8, 2, 1, { kind: "loseItem", slot: "biggest" },
+    "They take your most valuable-looking item.", 1, "Ambush: when kicked open, the next Door card joins the fight if it's a monster.")
+    .map(c => ({ ...c, ambush: true })));
+  cards.push(...monster("m-skeletons", "Skeleton Legion", 6, 2, 1, { kind: "loseLevel", amount: 1 },
+    "Lose 1 level.", 2, "Horde: +3 for every other monster in the fight.")
+    .map(c => ({ ...c, hordeBonus: 3 })));
+  cards.push(...monster("m-elf-eater", "The Elf-Eater", 12, 3, 1, { kind: "loseLevel", amount: 2 },
+    "Lose 2 levels.", 1, "Hates Elves: +5 if an Elf is fighting it.")
+    .map(c => ({ ...c, antiRace: { raceName: "Elf" as const, bonus: 5 } })));
+  cards.push(...monster("m-mithril-wyrm", "Mithril Wyrm", 14, 3, 2, { kind: "loseItem", slot: "bigItem" },
+    "It hoards your Big item.", 1, "Hates Dwarves: +5 if a Dwarf is fighting it.")
+    .map(c => ({ ...c, antiRace: { raceName: "Dwarf" as const, bonus: 5 } })));
+  cards.push(...monster("m-hound", "The Halfling Hound", 8, 2, 1, { kind: "loseItem", slot: "feet" },
+    "It runs off with your footgear.", 1, "Hates Halflings: +5 if a Halfling is fighting it.")
+    .map(c => ({ ...c, antiRace: { raceName: "Halfling" as const, bonus: 5 } })));
+  cards.push(...monster("m-gob-slayer", "The Goblin Slayer", 12, 3, 2, { kind: "loseLevel", amount: 2 },
+    "Lose 2 levels.", 1, "Hates Goblins: +6 if a Goblin is fighting it.")
+    .map(c => ({ ...c, antiRace: { raceName: "Goblin" as const, bonus: 6 } })));
 
   // Special Cards
   cards.push(...wanderingMonster(4));
@@ -289,6 +338,9 @@ export const buildTreasureDeck = (): Card[] => {
   cards.push(...enhancer("h-humongous","Humongous",+10, 300, 1));
   cards.push(...enhancer("h-baby",     "Baby",     -5, 100, 1));   // weakens monster (good for attacker)
   cards.push(...enhancer("h-intelligent","Intelligent", +5, 200, 1));
+
+  // Cheat!
+  cards.push(...forgedPapers(2));
 
   // Go up a level
   cards.push(...goUp(5));

@@ -2,7 +2,7 @@
 // Single source of truth for card and state shapes.
 
 export type Slot = "head" | "armor" | "feet" | "hand" | "twoHands" | "bigItem" | "none"; // None bruges til amuleter 
-export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon";
+export type CardType = "monster" | "equipment" | "curse" | "oneshot" | "enhancer" | "race" | "class" | "go-up-a-level" | "portal" | "dungeon" | "dual" | "forged-papers";
 export type DeckType = "door" | "treasure" | "dungeon";
 
 
@@ -52,6 +52,7 @@ export type BadStuffKind =
   | { kind: "loseAllItems" }
   | { kind: "loseHandItems" }
   | { kind: "everyoneLosesLevel"; amount: number } // the whole table pays
+  | { kind: "loseRace" }
   | { kind: "death" } 
   | { kind: "loseClass" }
   | { kind: "robinHood" }
@@ -81,10 +82,14 @@ export interface MonsterCard extends BaseCard {
   huntsLeader?: number; // +N when the attacker is the leader
   sirenCall?: boolean;  // anyone who joins as helper rolls: 1-3 they switch sides
   swarmBonus?: number;  // +N for every OTHER goblin in the same fight
+  hordeBonus?: number;  // +N for every OTHER monster in the same fight
+  ambush?: boolean;     // kicked open face-up: the next Door card joins if it is a monster
+  antiRace?: { raceName: RaceName; bonus: number };
 }
 
 export interface EquipmentCard extends BaseCard {
   type: "equipment";
+  forgedWith?: ForgedPapersCard; // equipped with Forged Guild Papers: requirements ignored
   deck: "treasure";
   bonus: number;
   goldValue: number;
@@ -101,6 +106,30 @@ export interface CurseCard extends BaseCard {
 }
 
 export type ClassName = "Warrior" | "Cleric" | "Thief" | "Wizard";
+export type RaceName = "Goblin" | "Elf" | "Dwarf" | "Halfling";
+
+export interface RaceCard extends BaseCard {
+  type: "race";
+  deck: "door";
+  raceName: RaceName;
+  effectText: string;
+}
+
+// Guild Hopper (two classes) / Mixed Heritage (two races). Stays in front of you while active.
+export interface DualCard extends BaseCard {
+  type: "dual";
+  deck: "door";
+  dualKind: "class" | "race";
+  effectText: string;
+}
+
+// Play together with an item as you equip it: its requirements are ignored.
+export interface ForgedPapersCard extends BaseCard {
+  type: "forged-papers";
+  deck: "treasure";
+  goldValue: 0;
+  effectText: string;
+}
 
 export interface ClassCard extends BaseCard {
   type: "class";
@@ -175,7 +204,10 @@ export type Card =
   | WanderingMonsterCard
   | MateCard
   | PortalCard
-  | DungeonCard;
+  | DungeonCard
+  | RaceCard
+  | DualCard
+  | ForgedPapersCard;
 
 export const WIN_LEVELS = [10, 15, 20] as const;
 export type WinLevel = (typeof WIN_LEVELS)[number];
@@ -236,6 +268,11 @@ export interface PublicPlayer {
   isDead: boolean;
   connected: boolean;
   playerClass: ClassCard | null;
+  extraClass: ClassCard | null;      // second class (needs Guild Hopper)
+  race: RaceCard | null;
+  extraRace: RaceCard | null;        // second race (needs Mixed Heritage)
+  dualClass: DualCard | null;        // the Guild Hopper card in play
+  dualRace: DualCard | null;         // the Mixed Heritage card in play
   effects: PlayerEffect[];
 }
 
@@ -271,6 +308,7 @@ export interface CombatState {
   turncoatId?: string | null;        // Siren: a helper who switched sides; their power counts for the monster
   saboteurs?: string[];              // non-fighters who strengthened the monster side (bounty)
   bountyPaid?: boolean;
+  swarmCalled?: string[];            // Goblin race: players who used Swarm Caller this fight
 }
 
 // Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
@@ -319,7 +357,7 @@ export type ClientToServer =
   | { type: "rename"; name: string }
   | { type: "flee" }
   | { type: "playCard"; cardId: string; targetId?: string } // targetId: Flask of Glue
-  | { type: "equip"; cardId: string; forceSwap?: boolean }
+  | { type: "equip"; cardId: string; forceSwap?: boolean; forgedPapersId?: string }
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; }
   | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe

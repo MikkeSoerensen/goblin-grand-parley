@@ -41,7 +41,7 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), name }),
   z.object({ type: z.literal("flee") }),
   z.object({ type: z.literal("playCard"), cardId: id, targetId: id.optional() }),
-  z.object({ type: z.literal("equip"), cardId: id, forceSwap: z.boolean().optional() }),
+  z.object({ type: z.literal("equip"), cardId: id, forceSwap: z.boolean().optional(), forgedPapersId: id.optional() }),
   z.object({ type: z.literal("castCurse"), cardId: id, targetId: id }),
   z.object({
     type: z.literal("useClassAbility"),

@@ -59,13 +59,30 @@ export function Scoreboard() {
                 <span className="flex items-center gap-1"><Swords className="w-3.5 h-3.5 text-primary"/> {p.combatPower}</span>
                 
                 {/* NYT: Viser spillerens klasse som et flot lille badge! */}
-                {p.playerClass && (
-                  <span 
-                    className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-200 border border-indigo-500/40 ml-auto cursor-help"
-                    title={p.playerClass.effectText}
+                {[p.playerClass, p.extraClass].filter(c => c !== null).map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => inspect(c)}
+                    className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-200 border border-indigo-500/40 cursor-help first-of-type:ml-auto"
+                    title={c.effectText}
                   >
-                    🎭 {p.playerClass.name}
-                  </span>
+                    🎭 {c.name}
+                  </button>
+                ))}
+                {[p.race, p.extraRace].filter(r => r !== null).map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => inspect(r)}
+                    className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-200 border border-emerald-500/40 cursor-help"
+                    title={r.effectText}
+                  >
+                    🧬 {r.raceName}
+                  </button>
+                ))}
+                {(p.dualClass || p.dualRace) && (
+                  <span className="text-[11px]" title={[p.dualClass?.name, p.dualRace?.name].filter(Boolean).join(" + ")}>🌟</span>
                 )}
               </div>
               

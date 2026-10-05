@@ -5,9 +5,9 @@
 import { randomBytes, randomUUID } from "crypto";
 
 import { buildAllDecks } from "../shared/deck.js";
-import { effectTotal, hasClass, hasEffect, hasTag } from "../shared/rules.js";
+import { effectTotal, hasClass, hasEffect, hasRace, hasTag } from "../shared/rules.js";
 import type {
-  ClassName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
+  ClassName, RaceName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
   PublicGameState, ClientView, CombatView, Phase, AppStatus, CombatState,
   NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
 } from "../shared/types.js";
@@ -56,6 +56,8 @@ export interface Room {
   statusBeforeLooting: AppStatus | null; // restored when looting a body is finished
   settings: RoomSettings;
   stats: RoomStats;
+  turnNo: number;                          // increases every time the turn passes
+  halflingSaleTurn: Record<string, number>; // Halfling: turnNo of their last double-value sale
   updatedAt: number;
 }
 
@@ -107,6 +109,10 @@ const drawFromDeck = (room: Room, deck: "door" | "treasure" | "dungeon"): Card |
 };
 
 const discardCard = (room: Room, c: Card) => {
+  if (c.type === "equipment" && c.forgedWith) {
+    room.discards.treasure.push(c.forgedWith);
+    delete c.forgedWith;
+  }
   if (c.deck === "door") room.discards.door.push(c);
   else if (c.deck === "dungeon") room.discards.dungeon.push(c);
   else room.discards.treasure.push(c);
@@ -120,6 +126,11 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   handCount: p.hand.length, backpackCount: p.backpack.length,
   combatPower: computePower(p), isDead: p.isDead, connected: p.connected,
   playerClass: p.playerClass,
+  extraClass: p.extraClass,
+  race: p.race,
+  extraRace: p.extraRace,
+  dualClass: p.dualClass,
+  dualRace: p.dualRace,
   effects: p.effects,
 });
 
@@ -164,6 +175,15 @@ const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: st
       lvl += m.huntsLeader;
       mods.push(`${m.name} hunts the leader: +${m.huntsLeader}`);
     }
+    const hatedRace = m.antiRace;
+    if (hatedRace && fighters.some(f => f && hasRace(f, hatedRace.raceName))) {
+      lvl += hatedRace.bonus;
+      mods.push(`${m.name} hates ${hatedRace.raceName}s: +${hatedRace.bonus}`);
+    }
+    if (m.hordeBonus && c.monsters.length > 1) {
+      lvl += m.hordeBonus * (c.monsters.length - 1);
+      mods.push(`${m.name} grows with the horde (${c.monsters.length - 1} more): +${m.hordeBonus * (c.monsters.length - 1)}`);
+    }
     if (m.swarmBonus && goblins > 1) {
       lvl += m.swarmBonus * (goblins - 1);
       mods.push(`${m.name} commands ${goblins - 1} goblin(s): +${m.swarmBonus * (goblins - 1)}`);
@@ -175,6 +195,12 @@ const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: st
   if (threat > 0) {
     total += threat;
     mods.push(`Threat (${attacker!.name} is level ${attacker!.level}): +${threat}`);
+  }
+  // Showing off two classes or two races draws the dungeon's attention.
+  const extras = attacker && room.settings.threat !== "calm" ? (attacker.extraClass ? 1 : 0) + (attacker.extraRace ? 1 : 0) : 0;
+  if (extras > 0) {
+    total += 2 * extras;
+    mods.push(`Show-off (${attacker!.name} has ${extras === 2 ? "two classes and two races" : attacker!.extraClass ? "two classes" : "two races"}): +${2 * extras}`);
   }
   const turncoat = c.turncoatId ? room.players.find(p => p.id === c.turncoatId) : undefined;
   if (turncoat) {
@@ -192,12 +218,15 @@ const playerSideTotal = (room: Room, c: CombatState): number => {
   let total = (a ? computePower(a) - effectTotal(a, "combatPenalty") : 0) + c.attackerBonuses;
   const multiMonster = c.monsters.length > 1;
   if (a && multiMonster && a.equipment.armor?.cardId === "e-blood-plate") total += 3;
+  const goblinLand = hasDungeon(room, "d-goblin");
+  if (a && goblinLand && hasRace(a, "Goblin")) total += 3; // Home Turf
   if (c.helperId) {
     const h = room.players.find(p => p.id === c.helperId);
     if (h) {
       total += computePower(h) - effectTotal(h, "combatPenalty");
       if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) total += 3;
       if (multiMonster && h.equipment.armor?.cardId === "e-blood-plate") total += 3;
+      if (goblinLand && hasRace(h, "Goblin")) total += 3; // Home Turf
     }
   }
   return total;
@@ -306,6 +335,8 @@ export const createRoom = (code: string): Room => {
     statusBeforeLooting: null,
     settings: { ...DEFAULT_SETTINGS },
     stats: emptyStats(),
+    turnNo: 0,
+    halflingSaleTurn: {},
     updatedAt: Date.now(),
   };
 };
@@ -357,7 +388,7 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
     equipment: { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] },
     hand: [], backpack: [], handCount: 0, backpackCount: 0,
     combatPower: 1, isDead: false, connected: true, effects: [],
-    playerClass: null,
+    playerClass: null, extraClass: null, race: null, extraRace: null, dualClass: null, dualRace: null,
   };
   const token = newToken();
   room.players.push(player);
@@ -401,14 +432,19 @@ const expireEffects = (room: Room, p: PrivatePlayer, when: EffectExpiry) => {
 const handsUsed = (p: PrivatePlayer): number =>
   p.equipment.hands.reduce((n, h) => n + (h.slot === "twoHands" ? 2 : 1), 0);
 
+// Why this player may not wear this item (ignoring slots), or null. Forged papers waive it.
+const requirementProblem = (p: PrivatePlayer, card: EquipmentCard): string | null => {
+  if (card.forgedWith) return null;
+  if (card.cardId === "e-kneepads" && hasClass(p, "Warrior")) return "Warriors are too proud to wear the Kneepads of Allure!";
+  if (card.classReq && !hasClass(p, card.classReq)) return `Only a ${card.classReq} can equip this item!`;
+  return null;
+};
+
 const tryEquip = (p: PrivatePlayer, card: EquipmentCard): string | null => {
-  if (card.cardId === "e-kneepads" && hasClass(p, "Warrior")) {
-    return "Warriors are too proud to wear the Kneepads of Allure!";
-  }
-  if (card.classReq && !hasClass(p, card.classReq)) {
-    return `Only a ${card.classReq} can equip this item!`;
-  }
-  if (card.isBig && p.equipment.bigItem) return "You already have a Big item equipped.";
+  const problem = requirementProblem(p, card);
+  if (problem) return problem;
+  // Dwarves can haul any number of Big items (the single Big-item slot itself still holds one).
+  if (card.isBig && p.equipment.bigItem && !hasRace(p, "Dwarf")) return "You already have a Big item equipped.";
   switch (card.slot) {
     case "head":
       if (p.equipment.head) return "Head slot occupied.";
@@ -462,7 +498,7 @@ const allEquipped = (p: PrivatePlayer): EquipmentCard[] => {
 // Udstyr med classReq glider ned i rygsækken, når spilleren ikke længere har den class.
 const validateClassEquipment = (room: Room, p: PrivatePlayer) => {
   for (const eq of allEquipped(p)) {
-    if (eq.classReq && !hasClass(p, eq.classReq)) {
+    if (eq.classReq && !eq.forgedWith && !hasClass(p, eq.classReq)) {
       removeEquipped(p, eq.id);
       p.backpack.push(eq);
       log(room, `🎒 ${p.name} is no longer a ${eq.classReq}! Their ${eq.name} slides off into their backpack!`);
@@ -470,13 +506,25 @@ const validateClassEquipment = (room: Room, p: PrivatePlayer) => {
   }
 };
 
+// Loses the most recently gained class (the second class first, if any).
 const loseClass = (room: Room, p: PrivatePlayer, msg: string) => {
-  if (!p.playerClass) return false;
+  const lost = p.extraClass ?? p.playerClass;
+  if (!lost) return false;
   log(room, msg);
-  room.discards.door.push(p.playerClass);
-  p.playerClass = null;
+  room.discards.door.push(lost);
+  if (p.extraClass) p.extraClass = null;
+  else p.playerClass = null;
   validateClassEquipment(room, p);
   return true;
+};
+
+const loseRace = (room: Room, p: PrivatePlayer) => {
+  const lost = p.extraRace ?? p.race;
+  if (!lost) { log(room, `${p.name} has no race to lose.`); return; }
+  room.discards.door.push(lost);
+  if (p.extraRace) p.extraRace = null;
+  else p.race = null;
+  log(room, `🎭 ${p.name} has an identity crisis and is no longer a ${lost.raceName}!`);
 };
 
 const discardHand = (room: Room, p: PrivatePlayer) => {
@@ -523,9 +571,13 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
           const bIdx = p.backpack.findIndex(c => c.id === target!.id);
           if (bIdx >= 0) p.backpack.splice(bIdx, 1);
         }
-        room.discards.treasure.push(target);
+        discardCard(room, target);
         log(room, `${p.name} loses ${target.name}.`);
       } else log(room, `${p.name} has no matching item to lose.`);
+      break;
+    }
+    case "loseRace": {
+      loseRace(room, p);
       break;
     }
     case "everyoneLosesLevel": {
@@ -541,7 +593,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       const hands = [...p.equipment.hands];
       if (hands.length === 0) { log(room, `${p.name} has nothing in their hands to lose.`); break; }
       p.equipment.hands = [];
-      for (const h of hands) room.discards.treasure.push(h);
+      for (const h of hands) discardCard(room, h);
       log(room, `${p.name} loses everything in their hands: ${hands.map(h => h.name).join(", ")}.`);
       break;
     }
@@ -552,7 +604,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
           const idx = p.backpack.findIndex(x => x.id === c.id);
           if (idx >= 0) p.backpack.splice(idx, 1);
         }
-        room.discards.treasure.push(c);
+        discardCard(room, c);
       }
       log(room, `${p.name} loses ALL equipment!`);
       break;
@@ -572,13 +624,13 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
         log(room, `🛡️ All of ${p.name}'s equipped items disintegrate!`);
         for (const c of equipped) {
           removeEquipped(p, c.id);
-          room.discards.treasure.push(c);
+          discardCard(room, c);
         }
       }
       break;
     }
     case "loseClassAndLevels": {
-      loseClass(room, p, `💀 ${p.name} gets crushed and forgets how to be a ${p.playerClass?.name}!`);
+      loseClass(room, p, `💀 ${p.name} gets crushed and forgets how to be a ${(p.extraClass ?? p.playerClass)?.name}!`);
       const lost = Math.min(bs.amount, Math.max(0, p.level - 1));
       if (lost > 0) {
         p.level -= lost;
@@ -606,7 +658,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       break;
     }
     case "loseClass": {
-      if (!loseClass(room, p, `💀 ${p.name} suffers AMNESIA and forgets how to be a ${p.playerClass?.name}!`)) {
+      if (!loseClass(room, p, `💀 ${p.name} suffers AMNESIA and forgets how to be a ${(p.extraClass ?? p.playerClass)?.name}!`)) {
         log(room, `💀 ${p.name} suffers Amnesia, but they already had no class to forget!`);
       }
       break;
@@ -621,7 +673,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       removeEquipped(p, targetItem.id);
       const opponents = room.players.filter(op => op.id !== p.id && !op.isDead);
       if (opponents.length === 0) {
-        room.discards.treasure.push(targetItem);
+        discardCard(room, targetItem);
         log(room, `💀 Robin Hood steals ${targetItem.name} from ${p.name}, but there's no one to give it to! It goes to the discard pile.`);
         break;
       }
@@ -635,7 +687,7 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       if (p.equipment.head?.cardId === "e-halo") {
         const halo = p.equipment.head;
         removeEquipped(p, halo.id);
-        room.discards.treasure.push(halo);
+        discardCard(room, halo);
         log(room, `👼 MIRACLE! ${p.name}'s Halo of Righteousness shatters with a blinding light, saving their life!`);
         break; // Spilleren dør ikke!
       }
@@ -931,6 +983,17 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (card.type === "monster") {
         room.table.push(card);
         startCombat(room, player, card);
+        if (card.ambush) {
+          const next = drawFromDeck(room, "door");
+          if (next && next.type === "monster") {
+            room.table.push(next);
+            room.combat!.monsters.push(next);
+            log(room, `⚔️ AMBUSH! ${next.name} (Lvl ${next.level}) charges in alongside ${card.name}!`);
+          } else if (next) {
+            room.decks.door.push(next); // not a monster: back on top, unseen
+            log(room, `👀 ${card.name} was hoping for backup, but none came.`);
+          }
+        }
       } else if (card.type === "curse") {
         if (player.equipment.none.some(e => e.cardId === "e-spell-amulet")) {
           log(room, `🛡️ ${player.name}'s Amulet of Spell Reflection DESTROYS ${card.name} instantly!`);
@@ -998,7 +1061,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (room.status !== "normalTurn" || room.combat) return "Finish the current action first.";
       // Charity check
       const charityLimit = hasDungeon(room, "d-infinite") ? Infinity // Dimension of Hoarding
-        : hasDungeon(room, "d-charity") ? 4 : 5;
+        : (hasDungeon(room, "d-charity") ? 4 : 5) + (hasRace(player, "Dwarf") ? 1 : 0);
       if (player.hand.length > charityLimit) {
         const others = room.players.filter(p => p.id !== playerId);
         const minLevel = Math.min(...others.map(p => p.level));
@@ -1042,8 +1105,27 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         }
       }
 
+      // Forged Guild Papers: attach them so the item's requirements are waived.
+      let papersIdx = -1;
+      if (msg.forgedPapersId) {
+        papersIdx = player.hand.findIndex(c => c.id === msg.forgedPapersId);
+        const papers = player.hand[papersIdx];
+        if (!papers || papers.type !== "forged-papers") {
+          player.equipment = before;
+          player.backpack = backpackBefore;
+          return "Forged Guild Papers not in hand.";
+        }
+        if (card.forgedWith || !requirementProblem(player, card)) {
+          player.equipment = before;
+          player.backpack = backpackBefore;
+          return "This item has no requirement to forge.";
+        }
+        card.forgedWith = papers;
+      }
+
       const err = tryEquip(player, card);
       if (err) {
+        if (msg.forgedPapersId) delete card.forgedWith;
         player.equipment = before;
         player.backpack = backpackBefore;
         return err;
@@ -1051,6 +1133,10 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       if (fromHand) player.hand.splice(idx, 1);
       else player.backpack.splice(player.backpack.findIndex(c => c.id === msg.cardId), 1);
+      if (card.forgedWith && msg.forgedPapersId) {
+        player.hand.splice(player.hand.findIndex(c => c.id === msg.forgedPapersId), 1);
+        log(room, `📜 ${player.name} flashes some very official-looking Guild Papers.`);
+      }
 
       refreshDerived(player);
       log(room, `${player.name} equips ${card.name}.`);
@@ -1089,12 +1175,17 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         owned.push(c);
       }
 
+      // Halfling: once per turn, the most valuable item in the sale counts double.
+      const halflingBoost = hasRace(player, "Halfling") && room.halflingSaleTurn[player.id] !== room.turnNo
+        ? owned.reduce<Card | null>((best, c) => (!best || goldValueOf(c) > goldValueOf(best) ? c : best), null)
+        : null;
       let totalGold = 0;
       for (const c of owned) {
         let val = goldValueOf(c);
         if (hasDungeon(room, "d-clipping")) val = Math.max(0, val - 100);
         if (hasDungeon(room, "d-lavish")) val *= 2;
         if (hasEffect(player, "halfSellValue")) val = Math.floor(val / 2);
+        if (c === halflingBoost) val *= 2;
         totalGold += val;
       }
 
@@ -1110,6 +1201,10 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         discardCard(room, c);
       }
 
+      if (halflingBoost) {
+        room.halflingSaleTurn[player.id] = room.turnNo;
+        log(room, `🥧 ${player.name} haggles like a Halfling: ${halflingBoost.name} sells for double!`);
+      }
       const levelsGained = Math.floor(totalGold / 1000);
       const newLevel = Math.min(room.settings.winLevel - 1, player.level + levelsGained); // Man KAN IKKE vinde på et salg
       log(room, `💰 ${player.name} sells items for ${totalGold}g → +${newLevel - player.level} level(s).`);
@@ -1134,15 +1229,46 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       if (card.type === "class") {
-        const oldClass = player.playerClass;
-        if (oldClass) room.discards.door.push(oldClass);
-        player.playerClass = card;
+        if (hasClass(player, card.className)) return `You already are a ${card.className}.`;
         player.hand.splice(idx, 1);
+        if (player.playerClass && player.dualClass && !player.extraClass) {
+          player.extraClass = card;
+          log(room, `✨ ${player.name} (Guild Hopper) becomes a ${card.name} as well!`);
+        } else {
+          const oldClass = player.playerClass;
+          if (oldClass) room.discards.door.push(oldClass);
+          player.playerClass = card;
+          if (oldClass) log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
+          else log(room, `✨ ${player.name} is now a ${card.name}!`);
+        }
         validateClassEquipment(room, player);
+        refreshDerived(player);
+        return null;
+      }
 
-        if (oldClass) log(room, `✨ ${player.name} discards ${oldClass.name} and becomes a ${card.name}!`);
-        else log(room, `✨ ${player.name} is now a ${card.name}!`);
+      if (card.type === "race") {
+        if (hasRace(player, card.raceName)) return `You already are a ${card.raceName}.`;
+        player.hand.splice(idx, 1);
+        if (player.race && player.dualRace && !player.extraRace) {
+          player.extraRace = card;
+          log(room, `🧬 ${player.name} (Mixed Heritage) is now also a ${card.raceName}!`);
+        } else {
+          const oldRace = player.race;
+          if (oldRace) room.discards.door.push(oldRace);
+          player.race = card;
+          if (oldRace) log(room, `🧬 ${player.name} stops being a ${oldRace.raceName} and becomes a ${card.raceName}!`);
+          else log(room, `🧬 ${player.name} is now a ${card.raceName}!`);
+        }
+        refreshDerived(player);
+        return null;
+      }
 
+      if (card.type === "dual") {
+        const slot = card.dualKind === "class" ? "dualClass" : "dualRace";
+        if (player[slot]) return `You already have ${card.name} in play.`;
+        player.hand.splice(idx, 1);
+        player[slot] = card;
+        log(room, `🌟 ${player.name} plays ${card.name}: they can now have two ${card.dualKind === "class" ? "classes" : "races"}!`);
         refreshDerived(player);
         return null;
       }
@@ -1252,7 +1378,13 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         // Undead-dungeon, eller GOBLIN-SVÆRMEN: en Goblin må spilles direkte ind, hvis der allerede er en Goblin i kampen.
         const undead = hasDungeon(room, "d-undead");
         const goblinSwarm = hasTag(card, "goblin") && combat.monsters.some(m => hasTag(m, "goblin"));
-        if (!undead && !goblinSwarm) return "Card cannot be played in combat.";
+        const swarmCaller = !goblinSwarm && hasTag(card, "goblin") && hasRace(player, "Goblin")
+          && !(combat.swarmCalled ?? []).includes(player.id);
+        if (!undead && !goblinSwarm && !swarmCaller) return "Card cannot be played in combat.";
+        if (swarmCaller && !undead) {
+          combat.swarmCalled = [...(combat.swarmCalled ?? []), player.id];
+          log(room, `📯 ${player.name} calls the swarm: ${card.name} joins the fight!`);
+        }
 
         player.hand.splice(idx, 1);
         combat.monsters.push(card);
@@ -1577,6 +1709,12 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         }
 
         attacker.level += totalLevels;
+        // Elves learn from the strong: a level only for helping someone higher than themselves.
+        const attackerLevelBefore = attacker.level - totalLevels;
+        if (helper && hasRace(helper, "Elf") && attackerLevelBefore > helper.level && helper.level < room.settings.winLevel - 1) {
+          helper.level += 1;
+          log(room, `🧝 ${helper.name} gains a level for helping a stronger hero (Elf).`);
+        }
         log(room, `🏆 Victory! +${totalLevels} level(s), +${attackerShare} treasure(s) to ${attacker.name}${helper ? `, +${helperShare} to ${helper.name}` : ""}.`);
 
         endCombat(room, true);
@@ -1617,6 +1755,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         roll += 1;
         log(room, `🦇 ${player.name}'s Cloak of Shadows swirls, granting +1 to the escape roll!`);
       }
+
+      if (hasRace(player, "Elf")) roll += 1; // Elves are quick on their feet
 
       // Boots of Running Really Fast giver +2!
       if (player.equipment.feet?.cardId === "e-boots-run") {
@@ -1792,6 +1932,7 @@ const advanceTurn = (room: Room) => {
     if (!room.players[next].isDead || room.players[next].id === cur.id) break;
   }
   room.activePlayerIndex = next;
+  room.turnNo++;
   room.currentPhase = 1;
   room.status = "normalTurn";
   room.combatFought = false;
