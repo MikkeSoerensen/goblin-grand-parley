@@ -121,7 +121,6 @@ const goUp = (copies: number): GoUpLevelCard[] =>
 
 // ---------- DOOR DECK (~70) ----------
 export const buildDoorDeck = (): Card[] => {
-  _id = 0; // reset between full builds (server calls one)
   const cards: Card[] = [];
 
   // Monsters (~50)
@@ -409,8 +408,17 @@ export const buildDungeonDeck = (): Card[] => {
   return cards;
 };
 
-export const buildAllDecks = () => ({
-  door: buildDoorDeck(),
-  treasure: buildTreasureDeck(),
-  dungeon: buildDungeonDeck(), // <--- Tilføjet
-});
+// Players per set of Door/Treasure cards: bigger tables get more copies (the Dungeon deck stays single).
+export const PLAYERS_PER_DECK = 6;
+export const deckCopiesFor = (players: number) => Math.max(1, Math.ceil(players / PLAYERS_PER_DECK));
+
+// Card ids are unique within one build, also across extra copies.
+export const buildAllDecks = (copies = 1) => {
+  _id = 0;
+  const times = <T,>(build: () => T[]) => Array.from({ length: copies }, build).flat();
+  return {
+    door: times(buildDoorDeck),
+    treasure: times(buildTreasureDeck),
+    dungeon: buildDungeonDeck(),
+  };
+};

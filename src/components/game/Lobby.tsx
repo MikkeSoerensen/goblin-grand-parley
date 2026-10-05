@@ -7,6 +7,7 @@ import { Dice5 } from "lucide-react";
 
 export function Lobby() {
   const join = useGame(s => s.join);
+  const watch = useGame(s => s.watch);
   const [name, setName] = useState(() => loadSession()?.name ?? "");
   const [room, setRoom] = useState(() => loadSession()?.roomCode ?? "");
 
@@ -48,6 +49,11 @@ export function Lobby() {
           <Button type="submit" className="w-full mt-2" size="lg" disabled={!name.trim() || !room.trim()}>
             Enter the Dungeon
           </Button>
+          <Button type="button" variant="ghost" className="w-full" disabled={!room.trim()}
+            onClick={() => watch(room.trim().toUpperCase())}>
+            📺 Use this screen as the table display
+          </Button>
+          <p className="text-xs opacity-60 text-center">For a TV or laptop everyone can see — it shows the table, not anyone's hand.</p>
         </div>
       </form>
     </main>

@@ -5,6 +5,7 @@ export interface Session {
   name: string;
   roomCode: string;
   token?: string;
+  watching?: boolean; // TV mode: this screen shows the table, it has no seat
 }
 
 const KEY = "munchkin:session";
@@ -15,9 +16,9 @@ export const loadSession = (): Session | null => {
     if (!raw) return null;
     const s: unknown = JSON.parse(raw);
     if (typeof s !== "object" || s === null) return null;
-    const { name, roomCode, token } = s as Record<string, unknown>;
+    const { name, roomCode, token, watching } = s as Record<string, unknown>;
     if (typeof name !== "string" || typeof roomCode !== "string") return null;
-    return { name, roomCode, token: typeof token === "string" ? token : undefined };
+    return { name, roomCode, token: typeof token === "string" ? token : undefined, watching: watching === true };
   } catch {
     return null;
   }

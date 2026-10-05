@@ -9,7 +9,7 @@ import path from "path";
 import { Server, type Socket } from "socket.io";
 
 import type { ServerToClient } from "../shared/types.js";
-import { buildView, expireInterrupts, handleAction, joinRoom, setConnected, type Room } from "./engine.js";
+import { buildView, expireInterrupts, handleAction, joinRoom, setConnected, watchRoom, type Room } from "./engine.js";
 import { createRoomStore } from "./persistence.js";
 import { parseClientMessage } from "./protocol.js";
 
@@ -65,6 +65,7 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
 
   const bindings = new Map<string, Binding>(); // socketId -> binding
   const playerSocket = new Map<string, string>(); // playerId -> socketId (one live socket per player)
+  const watchers = new Map<string, string>(); // socketId -> roomCode (TV mode: no seat, public view only)
 
   const app = express();
   app.disable("x-powered-by");
@@ -110,6 +111,12 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
       const sid = playerSocket.get(p.id);
       if (sid) emit(sid, { type: "state", view: buildView(room, p.id) });
     }
+    let publicView: ReturnType<typeof buildView> | null = null;
+    for (const [sid, code] of watchers) {
+      if (code !== room.code) continue;
+      publicView ??= buildView(room, null);
+      emit(sid, { type: "state", view: publicView });
+    }
     scheduleCountdown(room);
   };
 
@@ -138,8 +145,19 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
         if (!parsed.ok) { emit(socket.id, { type: "error", message: parsed.error }); return; }
         const msg = parsed.msg;
 
+        if (msg.type === "watch") {
+          unbind(socket.id);
+          const room = watchRoom(rooms, msg.roomCode);
+          watchers.set(socket.id, room.code);
+          emit(socket.id, { type: "watching", roomCode: room.code });
+          emit(socket.id, { type: "state", view: buildView(room, null) });
+          save();
+          return;
+        }
+
         if (msg.type === "join") {
           unbind(socket.id);
+          watchers.delete(socket.id);
           const res = joinRoom(rooms, msg);
           if (!res.ok) { emit(socket.id, { type: "error", message: res.error }); return; }
 
@@ -180,7 +198,7 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
       }
     });
 
-    socket.on("disconnect", () => unbind(socket.id));
+    socket.on("disconnect", () => { watchers.delete(socket.id); unbind(socket.id); });
   });
 
   return new Promise((resolve, reject) => {

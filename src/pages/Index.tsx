@@ -11,6 +11,7 @@ import { CharityModal, LootingModal } from "@/components/game/Modals";
 import { CardDetails } from "@/components/game/CardDetails";
 import { ParleyPanel } from "@/components/game/ParleyPanel";
 import { EventStrip } from "@/components/game/EventStrip";
+import { TvView } from "@/components/game/TvView";
 import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -21,7 +22,7 @@ import { cn } from "@/lib/utils";
 type MobileTab = "table" | "hand" | "players" | "combat";
 
 export default function Index() {
-  const { view, playerId, roomCode, connected, init, error, clearError, lastRoll, leave } = useGame();
+  const { view, playerId, roomCode, watching, connected, init, error, clearError, lastRoll, leave } = useGame();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<MobileTab>("table");
   const prevCombatRef = useRef<boolean>(false);
@@ -45,7 +46,7 @@ export default function Index() {
     prevCombatRef.current = inCombat;
   }, [view?.combat, isMobile]);
 
-  const inRoom = playerId !== null && view !== null;
+  const inRoom = (playerId !== null || watching) && view !== null;
 
   if (!connected && !inRoom) {
     return (
@@ -63,6 +64,7 @@ export default function Index() {
   }
 
   if (!inRoom) return <Lobby />;
+  if (watching) return <TvView />;
 
   // Shown over every screen while the socket is down; the store re-joins automatically.
   const reconnecting = !connected && (

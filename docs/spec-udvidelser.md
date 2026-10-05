@@ -218,6 +218,6 @@ Ud over fundamentet (0.1):
 | 2 ✅ | B1, B7, B5 + modvægts-monstre | Racer først, så Dual/Half-Breed og Forged Papers, der bygger på dem. Balance: [docs/balance/fase2.md](balance/fase2.md) |
 | 3 ✅ | B2, B4 + Dwarf/Thief-buff | Bruger status-effekterne fra fundamentet. Balance: [docs/balance/fase3.md](balance/fase3.md) |
 | 4 ✅ | B3 | Største UX-opgave; drager nytte af alt det ovenstående. Balance: [docs/balance/fase4.md](balance/fase4.md) |
-| 5 | C2, C3 | Mest relevant ved 6+ spillere |
+| 5 ✅ | C2, C3 | Mest relevant ved 6+ spillere. Balance: [docs/balance/fase5.md](balance/fase5.md) |
 
 Hver fase afsluttes med: tests, fuzzeren (kortbevarelse, konsistens, ingen låste spil), balance-simulatoren og en browsertest på telefon, tablet og desktop.

@@ -168,6 +168,29 @@ describe("LAN server", () => {
     expect(after.view.log.some(l => l.includes("Time's up"))).toBe(true);
   });
 
+  it("TV mode: a watcher sees the public table, no hands, no vote, no actions", async () => {
+    const s = await start(null);
+    const tv = await client(s.port);
+    tv.send({ type: "watch", roomCode: "lan" });
+    expect((await tv.next("watching")).roomCode).toBe("LAN"); // the TV can open the room first
+    expect((await tv.next("state")).view.self).toBeNull();
+
+    const a = await client(s.port);
+    const b = await client(s.port);
+    await join(a, "Ann");
+    await join(b, "Bo");
+    a.send({ type: "startGame" });
+    const tvView = (await tv.next("state", m => m.view.status === "normalTurn")).view;
+    expect(tvView.self).toBeNull();
+    expect(tvView.trades).toEqual([]);
+    const annHand = (await a.next("state", m => m.view.status === "normalTurn")).view.self!.hand;
+    expect(JSON.stringify(tvView)).not.toContain(`"${annHand[0].id}"`);
+    expect(tvView.players).toHaveLength(2); // the TV is not a player
+
+    tv.send({ type: "kickDoor" });
+    expect((await tv.next("error")).message).toMatch(/Join a room first/);
+  });
+
   it("serves health and LAN address endpoints", async () => {
     const s = await start(null);
     const health = await fetch(`http://127.0.0.1:${s.port}/health`).then(r => r.json() as Promise<{ ok: boolean }>);

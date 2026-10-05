@@ -4,7 +4,7 @@
 
 import { randomBytes, randomUUID } from "crypto";
 
-import { buildAllDecks } from "../shared/deck.js";
+import { buildAllDecks, deckCopiesFor } from "../shared/deck.js";
 import { effectTotal, hasClass, hasEffect, hasRace, hasTag, isTradable, tollPrice, tradeValue } from "../shared/rules.js";
 import type {
   ClassName, RaceName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
@@ -375,6 +375,16 @@ export const createRoom = (code: string): Room => {
     halflingSaleTurn: {},
     updatedAt: Date.now(),
   };
+};
+
+/** TV mode: the room to watch, created (in the lobby) if nobody has opened it yet. */
+export const watchRoom = (rooms: Map<string, Room>, roomCode: string): Room => {
+  const code = roomCode.toUpperCase();
+  const existing = rooms.get(code);
+  if (existing) return existing;
+  const room = createRoom(code);
+  rooms.set(code, room);
+  return room;
 };
 
 export interface JoinRequest { name: string; roomCode: string; token?: string }
@@ -1005,6 +1015,12 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     case "startGame": {
       if (room.status !== "lobby") return "Already started.";
       if (room.players.length < 2) return "Need at least 2 players.";
+      // Fresh decks sized for the table: one set per 6 players.
+      const copies = deckCopiesFor(room.players.length);
+      const decks = buildAllDecks(copies);
+      room.decks = { door: shuffle(decks.door), treasure: shuffle(decks.treasure), dungeon: shuffle(decks.dungeon) };
+      room.discards = { door: [], treasure: [], dungeon: [] };
+      if (copies > 1) log(room, `🃏 ${room.players.length} players: playing with ${copies} sets of Door and Treasure cards.`);
       // Deal 4 cards each (2 door + 2 treasure)
       for (const p of room.players) {
         for (let i = 0; i < 2; i++) {

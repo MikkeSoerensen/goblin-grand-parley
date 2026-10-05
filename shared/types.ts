@@ -389,6 +389,7 @@ export interface ClientView extends PublicGameState {
 // ===== Wire protocol =====
 export type ClientToServer =
   | { type: "join"; name: string; roomCode: string; token?: string }
+  | { type: "watch"; roomCode: string } // TV mode: a shared screen without a seat
   | { type: "startGame" }
   | { type: "kickDoor" }
   | { type: "lookForTrouble"; cardId: string }
@@ -423,10 +424,11 @@ export type ClientToServer =
   | { type: "suddenSwap" } // Bruges til d-swapping dungeon-kortet
   | { type: "updateSettings"; settings: Partial<RoomSettings> }; // waiting room only
 
-export type GameAction = Exclude<ClientToServer, { type: "join" }>;
+export type GameAction = Exclude<ClientToServer, { type: "join" } | { type: "watch" }>;
 
 export type ServerToClient =
   | { type: "joined"; roomCode: string; playerId: string; token: string }
+  | { type: "watching"; roomCode: string }
   | { type: "state"; view: ClientView }
   | { type: "error"; message: string }
   | { type: "rolled"; playerId: string; result: number; reason: string }

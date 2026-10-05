@@ -10,6 +10,7 @@ describe("parseClientMessage", () => {
     });
     expect(parseClientMessage({ type: "sell", cardIds: ["c1", "c2"] }).ok).toBe(true);
     expect(parseClientMessage({ type: "equip", cardId: "c1", forceSwap: true }).ok).toBe(true);
+    expect(parseClientMessage({ type: "watch", roomCode: "TV1" }).ok).toBe(true);
   });
 
   it.each([

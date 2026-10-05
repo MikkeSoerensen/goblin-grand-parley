@@ -7,11 +7,13 @@ interface GameStore {
   view: ClientView | null;
   playerId: string | null;
   roomCode: string | null;
+  watching: boolean;
   connected: boolean;
   error: string | null;
   lastRoll: { playerId: string; result: number; reason: string } | null;
   init: () => void;
   join: (name: string, roomCode: string) => void;
+  watch: (roomCode: string) => void;
   leave: () => void;
   clearError: () => void;
 }
@@ -22,6 +24,7 @@ export const useGame = create<GameStore>((set) => ({
   view: null,
   playerId: null,
   roomCode: null,
+  watching: false,
   connected: false,
   error: null,
   lastRoll: null,
@@ -35,14 +38,18 @@ export const useGame = create<GameStore>((set) => ({
     const rejoin = () => {
       set({ connected: true });
       const s = loadSession();
-      if (s?.token) send({ type: "join", name: s.name, roomCode: s.roomCode, token: s.token });
+      if (s?.watching) send({ type: "watch", roomCode: s.roomCode });
+      else if (s?.token) send({ type: "join", name: s.name, roomCode: s.roomCode, token: s.token });
     };
     socket.on("connect", rejoin);
     socket.on("disconnect", () => set({ connected: false }));
     if (socket.connected) rejoin();
 
     onMsg((m: ServerToClient) => {
-      if (m.type === "joined") {
+      if (m.type === "watching") {
+        saveSession({ name: "", roomCode: m.roomCode, watching: true });
+        set({ watching: true, roomCode: m.roomCode });
+      } else if (m.type === "joined") {
         const s = loadSession();
         saveSession({ name: s?.name ?? "", roomCode: m.roomCode, token: m.token });
         set({ playerId: m.playerId, roomCode: m.roomCode });
@@ -57,6 +64,10 @@ export const useGame = create<GameStore>((set) => ({
     const token = prev && prev.roomCode === roomCode && prev.name.toLowerCase() === name.toLowerCase() ? prev.token : undefined;
     saveSession({ name, roomCode, token });
     send({ type: "join", name, roomCode, token });
+  },
+  watch: roomCode => {
+    saveSession({ name: loadSession()?.name ?? "", roomCode, watching: true });
+    send({ type: "watch", roomCode });
   },
   leave: () => {
     leaveSession();

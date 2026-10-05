@@ -4,7 +4,8 @@ import { QRCodeSVG } from "qrcode.react";
 const isLoopback = (host: string) => host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
 
 // Shows the address (and a QR code) other devices on the Wi-Fi should open.
-export function JoinInfo() {
+/** `stacked` puts the address under the code (for a big QR on a TV). */
+export function JoinInfo({ qrSize = 128, stacked = false }: { qrSize?: number; stacked?: boolean }) {
   const [urls, setUrls] = useState<string[]>(() =>
     isLoopback(location.hostname) ? [] : [location.origin],
   );
@@ -32,11 +33,11 @@ export function JoinInfo() {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4 bg-black/30 rounded-lg p-3">
+    <div className={`flex flex-col ${stacked ? "" : "sm:flex-row"} items-center gap-4 bg-black/30 rounded-lg p-3`}>
       <div className="bg-white p-2 rounded shrink-0">
-        <QRCodeSVG value={urls[0]} size={128} aria-label={`QR code for ${urls[0]}`}/>
+        <QRCodeSVG value={urls[0]} size={qrSize} aria-label={`QR code for ${urls[0]}`}/>
       </div>
-      <div className="text-left min-w-0">
+      <div className={`${stacked ? "text-center" : "text-left"} min-w-0`}>
         <div className="text-xs opacity-70 font-ui mb-1">Scan, or open on a device on the same Wi-Fi:</div>
         {urls.map(u => (
           <div key={u} className="font-mono text-sm break-all select-all">{u}</div>

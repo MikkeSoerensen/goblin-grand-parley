@@ -15,6 +15,10 @@ const schema = z.discriminatedUnion("type", [
     roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Room code must be 1-12 letters or digits."),
     token: z.string().min(1).max(128).optional(),
   }),
+  z.object({
+    type: z.literal("watch"),
+    roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Room code must be 1-12 letters or digits."),
+  }),
   z.object({ type: z.literal("startGame") }),
   z.object({ type: z.literal("kickDoor") }),
   z.object({ type: z.literal("lookForTrouble"), cardId: id }),

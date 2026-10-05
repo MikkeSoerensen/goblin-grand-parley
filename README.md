@@ -46,6 +46,14 @@ The server prints the address to share:
 2. Everyone enters the same room code. Click **Start Game** when all are in.
 3. Works on phones, tablets and computers. No internet needed — fonts and everything else are served from the host.
 
+### 📺 TV mode (a shared table display)
+
+Open the game on a TV, projector or laptop that everyone can see, type the room code and pick **"Use this screen as the table display"**. It can be opened before anyone joins: it shows a big QR code to scan, then the table, the fight (in large print), the scores and what just happened. It has no hand and no vote, and it reconnects by itself.
+
+### 👥 Big tables
+
+Any number of players can join. From 7 players the game deals from two sets of Door and Treasure cards (three sets from 13), so the decks don't run dry. With many players the pass countdown in the waiting room keeps fights moving.
+
 > 💡 **Firewall**: the first time, Windows/macOS asks whether to allow incoming connections for Node.js. Allow it on **private networks**. Guest/hotel Wi-Fi often blocks devices from seeing each other — use a phone hotspot or your own router instead.
 
 ### Reconnecting & saved games

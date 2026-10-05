@@ -386,7 +386,7 @@ describe("fuzz: conservation, consistency and liveness", () => {
       setRandomSource(seeded(seed * 7919));
       const rooms = new Map<string, Room>();
       const ids: string[] = [];
-      const n = 2 + (seed % 5);
+      const n = 2 + (seed % 9); // 2-10 players: covers doubled decks too
       for (let i = 0; i < n; i++) {
         const r = joinRoom(rooms, { name: `P${i}`, roomCode: "FUZZ" });
         if (!r.ok) throw new Error(r.error);
