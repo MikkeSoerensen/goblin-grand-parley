@@ -75,6 +75,8 @@ const migrateRoom = (r: Room) => {
   r.highlightSeq = r.highlightSeq ?? 0;
   for (const o of r.negotiations) o.itemIds = o.itemIds ?? [];
   r.halflingSaleTurn = r.halflingSaleTurn ?? {};
+  r.teamGiftTurn = r.teamGiftTurn ?? {};         // before team mode
+  r.elfBonusTurn = r.elfBonusTurn ?? {};
   for (const p of r.players) {
     p.equipment.none = p.equipment.none ?? []; // before slotless items existed
     p.effects = p.effects ?? [];               // before lasting effects existed
@@ -84,6 +86,7 @@ const migrateRoom = (r: Room) => {
     p.dualClass = p.dualClass ?? null;
     p.dualRace = p.dualRace ?? null;
     p.companion = p.companion ?? null;         // before companions existed
+    p.team = p.team ?? null;                   // before team mode
   }
   renameCards(r);
   for (const c of allCards(r)) {

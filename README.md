@@ -49,7 +49,11 @@ The server prints the address to share:
 
 ### 📺 TV mode (a shared table display)
 
-Open the game on a TV, projector or laptop that everyone can see, type the room code and pick **"Use this screen as the table display"**. It can be opened before anyone joins: it shows a big QR code to scan, then the table, the fight (in large print), the scores and what just happened. It has no hand and no vote, and it reconnects by itself.
+Open the game on a TV, projector or laptop that everyone can see, type the room code and pick **"📺 Brug denne skærm som fælles bordskærm"**. It can be opened before anyone joins: it shows a big QR code to scan, then the table, the fight (in large print), the scores and what just happened. It has no hand and no vote, and it reconnects by itself.
+
+### 🤝 Team mode (teams of two)
+
+In the waiting room, pick **Spilform → Hold af 2**. Everyone picks a colour (exactly two per team) or presses **Bland hold**. Teams take turns (A1, B1, A2, B2 …), your teammate always fights along with you, and monsters get a third of the teammate's power on top. One player reaching the winning level wins it for the team. Full rules: [docs/spec-hold.md](docs/spec-hold.md).
 
 ### 👥 Big tables
 

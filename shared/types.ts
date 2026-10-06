@@ -240,14 +240,19 @@ export type InterruptSeconds = (typeof INTERRUPT_CHOICES)[number];
 export const THREAT_CHOICES = ["calm", "normal", "brutal"] as const;
 export type Threat = (typeof THREAT_CHOICES)[number];
 
+// Team mode: teams of exactly two, picked by colour in the waiting room.
+export const TEAM_IDS = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "teal"] as const;
+export type TeamId = (typeof TEAM_IDS)[number];
+
 // Chosen in the waiting room; fixed once the game starts.
 export interface RoomSettings {
   winLevel: WinLevel;
   interruptSeconds: InterruptSeconds; // 0 = no countdown; otherwise opponents auto-pass after this long
   threat: Threat;
+  teamMode: boolean;                  // teams of two: your teammate always fights with you
 }
 
-export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15, threat: "normal" };
+export const DEFAULT_SETTINGS: RoomSettings = { winLevel: 10, interruptSeconds: 15, threat: "normal", teamMode: false };
 
 // A moment worth telling the whole table about (bounty, trade, toll, death …).
 export interface Highlight {
@@ -272,7 +277,8 @@ export interface PublicGameState {
   combat: CombatView | null;
   negotiations: NegotiationView[];
   charity: { fromId: string; cardCount: number; candidates: string[] } | null;
-  looting: { deadId: string; pile: Card[]; orderQueue: string[] } | null;
+  // Also used when a team player leaves: their teammate picks two of their cards ("left").
+  looting: { deadId: string; pile: Card[]; orderQueue: string[]; reason?: "death" | "left"; deadName?: string } | null;
   log: string[];
   highlights: Highlight[];
   winnerId: string | null;
@@ -305,6 +311,7 @@ export interface PublicPlayer {
   dualRace: DualCard | null;         // the Mixed Heritage card in play
   companion: CompanionCard | null;
   effects: PlayerEffect[];
+  team: TeamId | null;               // only used in team mode
 }
 
 export interface PrivatePlayer extends PublicPlayer {
@@ -340,6 +347,8 @@ export interface CombatState {
   saboteurs?: string[];              // non-fighters who strengthened the monster side (bounty)
   bountyPaid?: boolean;
   swarmCalled?: string[];            // Goblin race: players who used Swarm Caller this fight
+  conscriptId?: string | null;       // team mode: an opponent forced in by the Slippers (fights, gains nothing)
+  tollPledges?: Record<string, string[]>; // team mode: cards the teammate offers towards the toll
 }
 
 // Combat as sent to clients: server-computed totals so the UI never re-implements dungeon modifiers.
@@ -349,6 +358,7 @@ export interface CombatView extends CombatState {
   requiredPasses: string[];         // connected, living non-fighters who must pass before resolution
   interruptMsLeft: number | null;   // countdown for the UI (relative, so device clocks don't matter)
   modifiers: string[];              // human-readable breakdown of everything changing the totals
+  tollPledgedGold: number;          // team mode: gold the attacker's teammate has put towards the toll
 }
 
 export interface NegotiationOffer {
@@ -384,6 +394,7 @@ export interface TradeView extends TradeOffer {
 export interface ClientView extends PublicGameState {
   self: PrivatePlayer | null;
   trades: TradeView[];   // only the ones you are part of
+  giftUsed: boolean;     // team mode: you already gave your teammate something this turn
 }
 
 // ===== Wire protocol =====
@@ -425,7 +436,11 @@ export type ClientToServer =
   | { type: "updateSettings"; settings: Partial<RoomSettings> } // waiting room only
   | { type: "leaveGame" }                                         // give up your seat for good
   | { type: "restartGame" }                                       // everyone back to the waiting room
-  | { type: "removePlayer"; playerId: string };                   // waiting room: drop an offline seat
+  | { type: "removePlayer"; playerId: string }                    // waiting room: drop an offline seat
+  | { type: "chooseTeam"; team: TeamId | null }                   // waiting room, team mode
+  | { type: "shuffleTeams" }                                      // waiting room, team mode
+  | { type: "giveToTeammate"; cardId: string }                    // team mode: one card per own turn
+  | { type: "pledgeToll"; cardIds: string[] };                    // team mode: the teammate chips in on a toll
 
 export type GameAction = Exclude<ClientToServer, { type: "join" } | { type: "watch" }>;
 

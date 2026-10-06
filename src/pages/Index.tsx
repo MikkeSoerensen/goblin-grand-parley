@@ -13,6 +13,8 @@ import { ParleyPanel } from "@/components/game/ParleyPanel";
 import { EventStrip } from "@/components/game/EventStrip";
 import { TvView } from "@/components/game/TvView";
 import { GameMenu } from "@/components/game/GameMenu";
+import { TeamPicker, TeamTag } from "@/components/game/Teams";
+import { TEAM_LABEL } from "../../shared/rules";
 import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -87,6 +89,22 @@ export default function Index() {
           {/* House rules — anyone in the room can change them until the game starts */}
           <div className="space-y-2 text-left">
             <div>
+              <div className="text-xs font-ui opacity-70 mb-1">Spilform</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Spilform">
+                <Button size="sm" role="radio" aria-checked={!view.settings.teamMode}
+                  variant={!view.settings.teamMode ? "default" : "secondary"}
+                  onClick={() => send({ type: "updateSettings", settings: { teamMode: false } })}>
+                  Alle mod alle
+                </Button>
+                <Button size="sm" role="radio" aria-checked={view.settings.teamMode}
+                  variant={view.settings.teamMode ? "default" : "secondary"}
+                  onClick={() => send({ type: "updateSettings", settings: { teamMode: true } })}>
+                  🤝 Hold af 2
+                </Button>
+              </div>
+            </div>
+            {view.settings.teamMode && <TeamPicker view={view} />}
+            <div>
               <div className="text-xs font-ui opacity-70 mb-1">Spil til niveau</div>
               <div className="flex gap-1.5" role="radiogroup" aria-label="Spil til niveau">
                 {WIN_LEVELS.map(level => (
@@ -126,7 +144,7 @@ export default function Index() {
           <ul className="space-y-2 text-left">
             {view.players.map(p => (
               <li key={p.id} className="bg-muted/40 rounded px-3 py-2 font-display flex justify-between">
-                <span>{p.name} {view.self?.id === p.id && "(dig)"}</span>
+                <span className="flex items-center gap-2">{p.name} {view.self?.id === p.id && "(dig)"}{view.settings.teamMode && <TeamTag team={p.team} />}</span>
                 <span className="flex items-center gap-2">
                   <span className="text-xs opacity-60 font-ui" aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
                   {!p.connected && (
@@ -151,11 +169,14 @@ export default function Index() {
 
   if (view.status === "gameOver") {
     const winner = view.players.find(p => p.id === view.winnerId);
+    const winnerMate = view.settings.teamMode && winner?.team ? view.players.find(p => p.id !== winner.id && p.team === winner.team) : undefined;
     return (
       <main className="min-h-dvh flex items-center justify-center p-4">
         <div className="felt-table p-8 sm:p-10 text-center max-w-lg">
-          <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 Sejr!</h1>
-          <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} nåede niveau {view.settings.winLevel}!</p>
+          <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 {view.settings.teamMode && winner?.team ? `Hold ${TEAM_LABEL[winner.team]} vinder!` : "Sejr!"}</h1>
+          <p className="text-xl sm:text-2xl font-display mb-6">
+            {winner?.name} nåede niveau {view.settings.winLevel}!{winnerMate && <><br /><span className="text-base opacity-80">— med {winnerMate.name} som holdkammerat</span></>}
+          </p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button onClick={restartGame}>🔄 Spil igen (samme bord)</Button>
             <Button variant="ghost" onClick={leaveGame}>Forlad</Button>

@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useEffect, useState } from "react";
-import { CLASS_LABEL, hasClass, isTradable, tollPrice, tradeValue, treasuresText } from "../../../shared/rules";
+import { CLASS_LABEL, hasClass, isTradable, teammateOf, tollPrice, tradeValue, treasuresText } from "../../../shared/rules";
 import type { Card } from "../../../shared/types";
 import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
@@ -25,6 +25,7 @@ export function CombatPanel() {
   const [helpTreasures, setHelpTreasures] = useState<Record<string, number>>({});
   const [bribes, setBribes] = useState<Record<string, string[]>>({});
   const [tollPick, setTollPick] = useState<string[]>([]);
+  const [pledgePick, setPledgePick] = useState<string[]>([]);
 
   if (!view?.combat || !view.self) return null;
   const c = view.combat;
@@ -38,6 +39,11 @@ export function CombatPanel() {
   const hasSlippers = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
+  const conscript = c.conscriptId ? view.players.find(p => p.id === c.conscriptId) : null;
+  const teamMode = view.settings.teamMode;
+  const myMate = teammateOf(view.players, teamMode, self);
+  // Team mode: I am the attacker's teammate, fighting along.
+  const isFightingMate = teamMode && isHelper && myMate?.id === c.attackerId;
 
   // Totals come from the server, so every dungeon, anti-class boss and item bonus is always included.
   const { monsterTotal, playerTotal } = c;
@@ -54,7 +60,8 @@ export function CombatPanel() {
   const toll = tollPrice(monsterTotal);
   const tollBlocked = c.monsters.some(m => m.antiClass) ? "Bosser kan ikke købes fri."
     : toll === null ? `En kamp på ${monsterTotal} er for stor til at købe sig ud af (højst 16).` : null;
-  const tollPaid = myValuables.filter(x => tollPick.includes(x.id)).reduce((s, x) => s + tradeValue(x), 0);
+  const tollPaid = myValuables.filter(x => tollPick.includes(x.id)).reduce((s, x) => s + tradeValue(x), 0) + c.tollPledgedGold;
+  const pledgeSum = myValuables.filter(x => pledgePick.includes(x.id)).reduce((s, x) => s + tradeValue(x), 0);
 
   // Every class you have that has a combat ability (two with Guild Hopper).
   const combatClasses = (["Warrior", "Thief", "Wizard"] as const).filter(name => hasClass(self, name));
@@ -108,7 +115,7 @@ export function CombatPanel() {
         <div className={`rounded-lg p-3 border-2 ${winning ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}>
           <div className="text-xs opacity-70 font-ui">Spillere</div>
           <div className="font-display text-3xl brass-text">{playerTotal}</div>
-          <div className="text-xs opacity-70 font-ui truncate">{attacker.name}{helper && ` + ${helper.name}`}</div>
+          <div className="text-xs opacity-70 font-ui truncate">{attacker.name}{helper && ` + ${helper.name}`}{conscript && ` + ${conscript.name} (tvunget)`}</div>
         </div>
         <div className={`rounded-lg p-3 border-2 ${!winning ? "border-destructive bg-destructive/10" : "border-border bg-muted/30"}`}>
           <div className="text-xs opacity-70 font-ui">Monstre</div>
@@ -135,7 +142,23 @@ export function CombatPanel() {
       </div>
 
       {/* Negotiation */}
-      {isAttacker && !c.helperId && view.status !== "runAwayRoll" && (
+      {/* Team mode: the Slippers drag an opponent into the fight */}
+      {teamMode && isAttacker && hasSlippers && !c.conscriptId && view.status !== "runAwayRoll" && (
+        <div className="border-t border-border pt-3 mb-3">
+          <div className="font-display text-sm mb-1">💖 Smigrende Tøfler</div>
+          <p className="text-xs opacity-70 font-ui mb-1.5">Tving en modspiller med i kampen. De får intet, men tager straffen med, hvis I taber.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {view.players.filter(p => p.id !== self.id && p.id !== myMate?.id && !p.isDead).map(p => (
+              <Button key={p.id} size="sm" variant="outline" className="border-pink-500 text-pink-400 hover:bg-pink-900/40"
+                onClick={() => send({ type: "forceHelp", targetId: p.id })}>
+                {p.name} (styrke {p.combatPower})
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!teamMode && isAttacker && !c.helperId && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
           <div className="font-display text-sm mb-2 flex items-center gap-1"><HandHelping className="w-4 h-4"/> Bed om hjælp</div>
           <div className="grid gap-1.5">
@@ -201,9 +224,15 @@ export function CombatPanel() {
           </div>
         </div>
       )}
-      {c.contract && (
+      {c.contract && !teamMode && (
         <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-accent/20 border border-accent/40">
           🩸 Blodsed: hjælperen får {treasuresText(c.contract.treasures)} — låst.
+        </div>
+      )}
+      {teamMode && (
+        <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-primary/15 border border-primary/40">
+          {helper ? `🤝 ${helper.name} kæmper med som holdkammerat. Kun ${attacker.name} får niveauer og skatte — taber I, tager I begge straffen.`
+            : `🚷 ${attacker.name} kæmper uden sin holdkammerat.`}
         </div>
       )}
 
@@ -237,12 +266,42 @@ export function CombatPanel() {
                   );
                 })}
               </div>
+              {c.tollPledgedGold > 0 && (
+                <p className="text-xs font-ui mb-1.5 text-primary">🤝 {helper?.name} har lagt {c.tollPledgedGold}g i tolden.</p>
+              )}
               <Button size="sm" variant="outline" disabled={tollPaid < (toll ?? Infinity)}
                 onClick={() => { send({ type: "payToll", cardIds: tollPick }); setTollPick([]); }}>
                 Betal {tollPaid}g / {toll}g
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Team mode: the teammate can chip in on the toll */}
+      {isFightingMate && !tollBlocked && (view.status === "waitingForInterrupts" || view.status === "inCombat") && (
+        <div className="border-t border-border pt-3 mb-3">
+          <div className="font-display text-sm mb-1">🪙 Hjælp {attacker.name} med tolden ({toll}g)</div>
+          <p className="text-xs opacity-70 font-ui mb-1.5">Kortene bruges kun, hvis {attacker.name} betaler tolden.</p>
+          <div className="flex flex-wrap gap-1 mb-2">
+            {myValuables.length === 0 && <span className="text-xs italic opacity-60">Du har intet af værdi.</span>}
+            {myValuables.map(card => {
+              const on = pledgePick.includes(card.id);
+              return (
+                <button key={card.id} type="button" aria-pressed={on}
+                  onClick={() => setPledgePick(s => on ? s.filter(x => x !== card.id) : [...s, card.id])}
+                  className={`text-xs font-ui rounded border px-2 py-0.5 ${on ? "border-primary bg-primary/20" : "border-border bg-muted/40"}`}>
+                  {card.name} <span className="opacity-60">{tradeValue(card)}g</span>
+                </button>
+              );
+            })}
+          </div>
+          {(pledgePick.length > 0 || c.tollPledgedGold > 0) && (
+            <Button size="sm" variant="outline" onClick={() => send({ type: "pledgeToll", cardIds: pledgePick })}>
+              {pledgePick.length ? `Læg ${pledgeSum}g i tolden` : "Tag mine kort ud af tolden"}
+            </Button>
+          )}
+          {c.tollPledgedGold > 0 && <span className="ml-2 text-xs font-ui opacity-70">I tolden nu: {c.tollPledgedGold}g</span>}
         </div>
       )}
 

@@ -4,6 +4,9 @@ import type { EquipmentCard } from "../../../shared/types";
 import { cn } from "@/lib/utils";
 import { Crown, Heart, Swords, Wifi, WifiOff } from "lucide-react";
 import { EffectBadge } from "./EffectBadge";
+import { TeamTag } from "./Teams";
+import { TEAM_STYLE } from "./teamStyle";
+import { teammateOf } from "../../../shared/rules";
 
 export function Scoreboard() {
   const view = useGame(s => s.view);
@@ -24,6 +27,7 @@ export function Scoreboard() {
         {view.players.map((p, i) => {
           const isActive = i === view.activePlayerIndex;
           const isSelf = view.self?.id === p.id;
+          const isMate = !!view.self && teammateOf(view.players, view.settings.teamMode, view.self)?.id === p.id;
           return (
             <li
               key={p.id}
@@ -31,6 +35,7 @@ export function Scoreboard() {
                 "rounded-lg p-2 border transition-colors",
                 isActive ? "bg-primary/15 border-primary" : "bg-muted/30 border-border",
                 isSelf && "ring-1 ring-primary/60",
+                view.settings.teamMode && p.team && cn("border-l-4", TEAM_STYLE[p.team].bar),
               )}
             >
               <div className="flex items-center justify-between gap-2">
@@ -38,6 +43,8 @@ export function Scoreboard() {
                   {p.connected ? <Wifi className="w-3 h-3 text-primary"/> : <WifiOff className="w-3 h-3 text-destructive"/>}
                   {p.name}{isSelf && <span className="text-primary text-xs">(dig)</span>}
                   {p.isDead && " 💀"}
+                  {view.settings.teamMode && <TeamTag team={p.team} />}
+                  {isMate && <span className="text-[10px] font-ui opacity-70">holdkammerat</span>}
                 </span>
                 <span className="text-xs font-ui opacity-70">{p.handCount}🃏</span>
               </div>

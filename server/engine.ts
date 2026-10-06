@@ -7,7 +7,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { buildAllDecks, deckCopiesFor } from "../shared/deck.js";
 import {
   CLASS_LABEL, CLASS_PLURAL, RACE_LABEL, RACE_PLURAL, effectTotal, hasClass, hasEffect, hasRace, hasTag, isTradable,
-  levelsText, tollPrice, tradeValue, treasuresText,
+  levelsText, TEAM_LABEL, teammateOf, tollPrice, tradeValue, treasuresText,
 } from "../shared/rules.js";
 import type {
   ClassName, RaceName, Card, MonsterCard, EquipmentCard, DungeonCard, PrivatePlayer, PublicPlayer,
@@ -15,7 +15,7 @@ import type {
   NegotiationOffer, BadStuffKind, GameAction, ServerToClient, EffectExpiry, PlayerEffect, RoomSettings,
   TradeOffer, TradeView, NegotiationView, Highlight,
 } from "../shared/types.js";
-import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../shared/types.js";
+import { DEFAULT_SETTINGS, INTERRUPT_CHOICES, TEAM_IDS, THREAT_CHOICES, WIN_LEVELS } from "../shared/types.js";
 
 // ---------- randomness (injectable for deterministic tests) ----------
 let random: () => number = Math.random;
@@ -65,6 +65,8 @@ export interface Room {
   stats: RoomStats;
   turnNo: number;                          // increases every time the turn passes
   halflingSaleTurn: Record<string, number>; // Halfling: turnNo of their last double-value sale
+  teamGiftTurn: Record<string, number>;     // team mode: turnNo of each player's last gift to their teammate
+  elfBonusTurn: Record<string, number>;     // team mode: turnNo of each Elf's last helping bonus
   updatedAt: number;
 }
 
@@ -156,7 +158,27 @@ const toPublic = (p: PrivatePlayer): PublicPlayer => ({
   dualRace: p.dualRace,
   companion: p.companion,
   effects: p.effects,
+  team: p.team,
 });
+
+// ---------- team mode ----------
+// How much stronger monsters get when a teammate fights along: a share of the teammate's power.
+// Mutable only so the balance simulator can try other values.
+export const TEAM_TUNING = { share: 1 / 3 }; // chosen with the simulator: docs/balance/hold.md
+
+const mateOf = (room: Room, p: PrivatePlayer): PrivatePlayer | null => teammateOf(room.players, room.settings.teamMode, p);
+
+/** Everyone fighting on the players' side: attacker, helper (or teammate), and a conscript forced in by the Slippers. */
+export const fightersOf = (c: CombatState): string[] =>
+  [c.attackerId, c.helperId, c.conscriptId].filter((id): id is string => !!id);
+const isFighter = (c: CombatState, id: string) => fightersOf(c).includes(id);
+
+// The teammate in this fight (team mode), if they joined.
+const fightingMate = (room: Room, c: CombatState): PrivatePlayer | null => {
+  const attacker = room.players.find(p => p.id === c.attackerId);
+  const mate = attacker ? mateOf(room, attacker) : null;
+  return mate && c.helperId === mate.id ? mate : null;
+};
 
 // The single player strictly ahead of everyone else (null on a tie).
 export const leaderOf = (room: Room): PrivatePlayer | null => {
@@ -176,7 +198,7 @@ const threatBonus = (room: Room, attacker: PrivatePlayer | undefined): number =>
 const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: string[] } => {
   const mods: string[] = [];
   const attacker = room.players.find(p => p.id === c.attackerId);
-  const fighters = [c.attackerId, c.helperId].map(id => room.players.find(p => p.id === id)).filter(Boolean);
+  const fighters = fightersOf(c).map(id => room.players.find(p => p.id === id)).filter(Boolean);
   const isLeader = !!attacker && leaderOf(room)?.id === attacker.id;
   const goblins = c.monsters.filter(m => hasTag(m, "goblin")).length;
 
@@ -191,7 +213,7 @@ const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: st
       lvl += hated.bonus;
       mods.push(`${m.name} hader ${CLASS_PLURAL[hated.className as ClassName]}: +${hated.bonus}`);
     }
-    if (m.packHunter && !c.helperId) {
+    if (m.packHunter && !c.helperId && !c.conscriptId) {
       lvl += m.packHunter;
       mods.push(`${m.name} jager i flok — du kæmper alene: +${m.packHunter}`);
     }
@@ -215,6 +237,12 @@ const monsterSide = (room: Room, c: CombatState): { total: number; modifiers: st
     return s + lvl;
   }, 0) + c.monsterBonuses;
 
+  const mate = fightingMate(room, c);
+  if (mate) {
+    const bonus = Math.ceil(computePower(mate) * TEAM_TUNING.share);
+    total += bonus;
+    mods.push(`Holdkamp (${mate.name} kæmper med): +${bonus}`);
+  }
   const threat = threatBonus(room, attacker);
   if (threat > 0) {
     total += threat;
@@ -244,11 +272,12 @@ const playerSideTotal = (room: Room, c: CombatState): number => {
   if (a && multiMonster && a.equipment.armor?.cardId === "e-blood-plate") total += 3;
   const goblinLand = hasDungeon(room, "d-goblin");
   if (a && goblinLand && hasRace(a, "Goblin")) total += 3; // Home Turf
-  if (c.helperId) {
-    const h = room.players.find(p => p.id === c.helperId);
+  for (const id of [c.helperId, c.conscriptId]) {
+    const h = id ? room.players.find(p => p.id === id) : undefined;
     if (h) {
       total += computePower(h) - effectTotal(h, "combatPenalty");
-      if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) total += 3;
+      // Helping is the norm in team mode, so the Martyr's mace gives a little less there.
+      if (h.equipment.hands.some(eq => eq.cardId === "e-martyr-mace")) total += room.settings.teamMode ? 2 : 3;
       if (multiMonster && h.equipment.armor?.cardId === "e-blood-plate") total += 3;
       if (goblinLand && hasRace(h, "Goblin")) total += 3; // Home Turf
     }
@@ -262,7 +291,7 @@ export const requiredPasses = (room: Room): string[] => {
   const c = room.combat;
   if (!c) return [];
   return room.players
-    .filter(p => !p.isDead && p.connected && p.id !== c.attackerId && p.id !== c.helperId)
+    .filter(p => !p.isDead && p.connected && !isFighter(c, p.id))
     .map(p => p.id);
 };
 
@@ -309,6 +338,7 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
         requiredPasses: requiredPasses(room),
         interruptMsLeft: room.combat.interruptDeadline ? Math.max(0, room.combat.interruptDeadline - now()) : null,
         modifiers: monsterSide(room, room.combat).modifiers,
+        tollPledgedGold: pledgedGold(room, room.combat),
       }
     : null;
   return {
@@ -347,7 +377,18 @@ export const buildView = (room: Room, selfId: string | null): ClientView => {
     highlights: room.highlights.slice(-10),
     winnerId: room.winnerId,
     self,
+    giftUsed: !!self && room.teamGiftTurn[self.id] === room.turnNo,
   };
+};
+
+// What the attacker's teammate currently has in the toll (cards that moved away no longer count).
+const pledgedGold = (room: Room, c: CombatState): number => {
+  const mate = fightingMate(room, c);
+  if (!mate) return 0;
+  return (c.tollPledges?.[mate.id] ?? []).reduce((sum, id) => {
+    const card = ownedCard(mate, id);
+    return sum + (card ? tradeValue(card) : 0);
+  }, 0);
 };
 
 // ---------- room creation & sessions ----------
@@ -379,6 +420,8 @@ export const createRoom = (code: string): Room => {
     stats: emptyStats(),
     turnNo: 0,
     halflingSaleTurn: {},
+    teamGiftTurn: {},
+    elfBonusTurn: {},
     updatedAt: Date.now(),
   };
 };
@@ -454,6 +497,7 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
     hand: [], backpack: [], handCount: 0, backpackCount: 0,
     combatPower: 1, isDead: false, connected: true, effects: [],
     playerClass: null, extraClass: null, race: null, extraRace: null, dualClass: null, dualRace: null, companion: null,
+    team: null,
   };
   const token = newToken();
   room.players.push(player);
@@ -815,9 +859,11 @@ const applyBadStuff = (room: Room, p: PrivatePlayer, bs: BadStuffKind) => {
       p.isDead = true;
       p.effects = [];
       // Looting order: highest level opponents first, excluding dead one.
+      // Team mode: the teammate picks first, then the opponents.
+      const mate = mateOf(room, p);
       const order = room.players
         .filter(o => o.id !== p.id && !o.isDead)
-        .sort((a, b) => b.level - a.level)
+        .sort((a, b) => (b.id === mate?.id ? 1 : 0) - (a.id === mate?.id ? 1 : 0) || b.level - a.level)
         .map(o => o.id);
       if (pile.length > 0 && order.length > 0 && !room.looting) {
         room.statusBeforeLooting = room.status;
@@ -874,13 +920,24 @@ const startCombat = (room: Room, attacker: PrivatePlayer, monsterCard: MonsterCa
   };
   room.status = "waitingForInterrupts";
   room.combatFought = true;
+  // Team mode: your teammate is always in the fight — unless they can't be (dead, offline, Pariah, Misanthropy).
+  const mate = mateOf(room, attacker);
+  if (mate && !mate.isDead && mate.connected && !hasEffect(attacker, "noHelp") && !hasDungeon(room, "d-misanthropy")) {
+    room.combat.helperId = mate.id;
+    room.combat.contract = { helperId: mate.id, treasures: 0, accepted: true };
+    delete room.combat.passes[mate.id];
+    room.combat.log.push(`🤝 ${mate.name} kæmper med som holdkammerat.`);
+  } else if (mate && !mate.isDead) {
+    log(room, `🚷 ${mate.name} kan ikke være med i denne kamp — ${attacker.name} kæmper uden sin holdkammerat.`);
+  }
   syncCombatGate(room);
+  if (room.combat.helperId) sirenCheck(room);
 };
 
 const resetPasses = (room: Room) => {
   if (!room.combat) return;
   for (const k of Object.keys(room.combat.passes)) {
-    if (k !== room.combat.attackerId && k !== room.combat.helperId) {
+    if (!isFighter(room.combat, k)) {
       room.combat.passes[k] = false;
     }
   }
@@ -890,7 +947,7 @@ const resetPasses = (room: Room) => {
 // A non-fighter made the monster side stronger: remember them for the leader bounty.
 const markSaboteur = (room: Room, playerId: string) => {
   const c = room.combat;
-  if (!c || playerId === c.attackerId || playerId === c.helperId) return;
+  if (!c || isFighter(c, playerId)) return;
   c.saboteurs = c.saboteurs ?? [];
   if (!c.saboteurs.includes(playerId)) c.saboteurs.push(playerId);
   room.stats.sabotages++;
@@ -955,8 +1012,8 @@ const discardMonster = (room: Room, m: MonsterCard) => {
 const endCombat = (room: Room, won = false) => {
   const c = room.combat;
   if (!c) return;
-  for (const id of [c.attackerId, c.helperId]) {
-    const f = id ? room.players.find(p => p.id === id) : undefined;
+  for (const id of fightersOf(c)) {
+    const f = room.players.find(p => p.id === id);
     if (!f) continue;
     expireEffects(room, f, "afterNextCombat");
     if (won) expireEffects(room, f, "afterCombatWin");
@@ -977,7 +1034,10 @@ const checkVictory = (room: Room, p: PrivatePlayer, viaCombat: boolean) => {
     p.level = goal;
     room.winnerId = p.id;
     room.status = "gameOver";
-    shout(room, `🏆 ${p.name} når niveau ${goal} — SEJR!`);
+    const mate = mateOf(room, p);
+    shout(room, p.team && room.settings.teamMode
+      ? `🏆 ${p.name} når niveau ${goal} — hold ${TEAM_LABEL[p.team]}${mate ? ` (${p.name} og ${mate.name})` : ""} VINDER!`
+      : `🏆 ${p.name} når niveau ${goal} — SEJR!`);
   }
 };
 
@@ -989,7 +1049,7 @@ const finishRunAwayIfDone = (room: Room) => {
   if (!combat) return;
   const ran = combat.ranAway ?? [];
   const done = (id: string | null) => !id || ran.includes(id) || room.players.find(p => p.id === id)?.isDead === true;
-  if (!done(combat.attackerId) || !done(combat.helperId)) return;
+  if (!fightersOf(combat).every(done)) return;
   endCombat(room);
   room.currentPhase = 3;
   // applyBadStuff kan have skiftet status til "looting".
@@ -1007,6 +1067,11 @@ export const handleAction = (room: Room, playerId: string, msg: GameAction): { e
   return { error, events };
 };
 
+const LOOTING_PAUSES = new Set<GameAction["type"]>([
+  "playInCombat", "useClassAbility", "askForHelp", "respondHelp", "forceHelp", "pass", "resolveCombat", "runAway",
+  "flee", "cowardlyFlee", "payToll", "pledgeToll", "sacrificeCompanion", "suddenSwap", "kickDoor", "lookForTrouble", "lootRoom",
+]);
+
 const handle = (room: Room, playerId: string, msg: GameAction): string | null => {
   const player = room.players.find(p => p.id === playerId);
   if (!player) return "Ukendt spiller.";
@@ -1022,6 +1087,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     return null;
   }
   if (room.status === "gameOver") return "Spillet er slut.";
+  // While a body (or a leaver's things) is being picked over, the fight waits.
+  if (room.status === "looting" && LOOTING_PAUSES.has(msg.type)) return "Vent lidt — der plyndres først.";
 
   switch (msg.type) {
     case "rename": {
@@ -1047,17 +1114,50 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!(WIN_LEVELS as readonly number[]).includes(next.winLevel)) return "Ugyldigt vindertrin.";
       if (!(INTERRUPT_CHOICES as readonly number[]).includes(next.interruptSeconds)) return "Ugyldig nedtælling.";
       if (!(THREAT_CHOICES as readonly string[]).includes(next.threat)) return "Ugyldig trussel.";
+      if (typeof next.teamMode !== "boolean") return "Ugyldig spilform.";
       room.settings = next;
-      log(room, `⚙️ ${player.name}: spil til niveau ${next.winLevel}, pas-nedtælling ${next.interruptSeconds ? `${next.interruptSeconds} sek.` : "slået fra"}, monstertrussel ${THREAT_LABEL[next.threat]}.`);
+      log(room, `⚙️ ${player.name}: spil til niveau ${next.winLevel}, pas-nedtælling ${next.interruptSeconds ? `${next.interruptSeconds} sek.` : "slået fra"}, monstertrussel ${THREAT_LABEL[next.threat]}${next.teamMode ? ", holdspil" : ""}.`);
+      return null;
+    }
+
+    case "chooseTeam": {
+      if (room.status !== "lobby") return "Holdene ligger fast, når spillet er startet.";
+      if (!room.settings.teamMode) return "Slå holdspil til først.";
+      if (msg.team && room.players.filter(p => p.id !== playerId && p.team === msg.team).length >= 2) return `Hold ${TEAM_LABEL[msg.team]} er fuldt.`;
+      player.team = msg.team;
+      return null;
+    }
+
+    case "shuffleTeams": {
+      if (room.status !== "lobby") return "Holdene ligger fast, når spillet er startet.";
+      if (!room.settings.teamMode) return "Slå holdspil til først.";
+      const mixed = shuffle(room.players);
+      mixed.forEach((p, i) => { p.team = TEAM_IDS[Math.floor(i / 2)] ?? null; });
+      if (mixed.length % 2 === 1) mixed[mixed.length - 1].team = null; // the odd one out picks a team when someone joins
+      log(room, `🎲 ${player.name} blander holdene.`);
       return null;
     }
 
     case "startGame": {
       if (room.status !== "lobby") return "Spillet er allerede startet.";
       if (room.players.length < 2) return "Der skal være mindst 2 spillere.";
+      if (room.settings.teamMode) {
+        if (room.players.length < 4 || room.players.length % 2 === 1) return "Holdspil kræver et lige antal spillere (mindst 4).";
+        if (room.players.some(p => !p.team)) return "Alle skal vælge et hold.";
+        const sizes = new Map<string, number>();
+        for (const p of room.players) sizes.set(p.team!, (sizes.get(p.team!) ?? 0) + 1);
+        if ([...sizes.values()].some(n => n !== 2)) return "Hvert hold skal have præcis 2 spillere.";
+        // Teams take turns: first players of every team, then the second players (A1, B1, C1, A2, B2, C2).
+        const order = [...new Set(room.players.map(p => p.team!))];
+        const seat = (round: number) => order.map(t => room.players.filter(p => p.team === t)[round]);
+        room.players = [...seat(0), ...seat(1)];
+        room.activePlayerIndex = 0;
+      }
       // Fresh decks sized for the table: one set per 6 players.
       const copies = deckCopiesFor(room.players.length);
       const decks = buildAllDecks(copies);
+      // Bribing for help means nothing when your teammate always fights along.
+      if (room.settings.teamMode) decks.dungeon = decks.dungeon.filter(d => d.cardId !== "d-bribery");
       room.decks = { door: shuffle(decks.door), treasure: shuffle(decks.treasure), dungeon: shuffle(decks.dungeon) };
       room.discards = { door: [], treasure: [], dungeon: [] };
       if (copies > 1) log(room, `🃏 ${room.players.length} spillere: der spilles med ${copies} sæt dør- og skattekort.`);
@@ -1212,7 +1312,10 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const charityLimit = hasDungeon(room, "d-infinite") ? Infinity // Dimension of Hoarding
         : (hasDungeon(room, "d-charity") ? 4 : 5) + (hasRace(player, "Dwarf") ? 1 : 0);
       if (player.hand.length > charityLimit) {
-        const others = room.players.filter(p => p.id !== playerId);
+        // Team mode: charity goes to the weakest opponent, never to your own teammate.
+        const mateId = mateOf(room, player)?.id;
+        const opponents = room.players.filter(p => p.id !== playerId && p.id !== mateId);
+        const others = opponents.length ? opponents : room.players.filter(p => p.id !== playerId);
         const minLevel = Math.min(...others.map(p => p.level));
         const candidates = others.filter(p => p.level === minLevel).map(p => p.id);
         room.charity = { fromId: playerId, cardCount: player.hand.length - charityLimit, candidates };
@@ -1451,7 +1554,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (!msg.targetId) return "Du skal vælge, hvem der skal klistres fast!";
         const target = room.players.find(p => p.id === msg.targetId);
         if (!target || target.isDead) return "Spilleren blev ikke fundet.";
-        if (target.id !== combat.attackerId && target.id !== combat.helperId) return "Du kan kun klistre en, der kæmper.";
+        if (!isFighter(combat, target.id)) return "Du kan kun klistre en, der kæmper.";
         if (combat.ranAway?.includes(target.id)) return `${target.name} har allerede slået for at flygte.`;
 
         combat.gluedPlayers = combat.gluedPlayers ?? [];
@@ -1568,7 +1671,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       if (msg.side === "attacker") {
         // Hvis man IKKE er med i kampen, må man KUN kaste kort på angriberen for at sabotere dem!
-        if (bonusAmount > 0 && player.id !== combat.attackerId && player.id !== combat.helperId) {
+        if (bonusAmount > 0 && !isFighter(combat, player.id)) {
           return "Kun kæmperne kan styrke angriberen. Du kan kun sabotere dem med negative kort!";
         }
         combat.attackerBonuses += bonusAmount;
@@ -1691,7 +1794,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       if (msg.ability === "berserk") {
         if (!hasClass(player, "Warrior")) return "Du er ikke Kriger.";
-        if (c.attackerId !== playerId && c.helperId !== playerId) return "Du skal være med i kampen for at gå berserk.";
+        if (!isFighter(c, playerId)) return "Du skal være med i kampen for at gå berserk.";
 
         c.warriorDiscardCount = c.warriorDiscardCount || {};
         const currentUsed = c.warriorDiscardCount[playerId] || 0;
@@ -1722,7 +1825,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         if (!msg.targetId) return "Vælg et mål.";
         const target = room.players.find(p => p.id === msg.targetId);
         if (!target) return "Spilleren blev ikke fundet.";
-        if (target.id !== c.attackerId && target.id !== c.helperId) return "Du kan kun dolke spillere, der er med i kampen.";
+        if (!isFighter(c, target.id)) return "Du kan kun dolke spillere, der er med i kampen.";
 
         c.backstabbedBy = c.backstabbedBy || {};
         c.backstabbedBy[target.id] = c.backstabbedBy[target.id] || [];
@@ -1744,7 +1847,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
       if (msg.ability === "charm") {
         if (!hasClass(player, "Wizard")) return "Du er ikke Troldmand.";
-        if (c.attackerId !== playerId && c.helperId !== playerId) return "Du skal være med i kampen for at fortrylle.";
+        if (!isFighter(c, playerId)) return "Du skal være med i kampen for at fortrylle.";
         if (!msg.monsterId) return "Vælg et monster.";
         const reqCards = player.equipment.hands.some(h => h.cardId === "e-archmage-staff") ? 2 : 3;
         if (player.hand.length < reqCards) return `Du skal have mindst ${reqCards} kort på hånden for at fortrylle.`;
@@ -1773,6 +1876,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     }
 
     case "askForHelp": {
+      if (room.settings.teamMode) return "I holdspil kæmper din holdkammerat altid med — der kan ikke bedes om hjælp.";
       if (hasDungeon(room, "d-misanthropy")) return "Menneskehadets Fangehul: Alle kæmper alene!";
       if (hasDungeon(room, "d-bribery") && msg.treasures < 2) return "Fangehullet med Åbenlys Bestikkelse: Du skal tilbyde mindst 2 skatte!";
       if (!room.combat || room.combat.attackerId !== playerId) return "Kun angriberen kan bede om hjælp.";
@@ -1803,11 +1907,22 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!room.combat || room.combat.attackerId !== playerId) return "Kun angriberen kan tvinge nogen til at hjælpe.";
       if (combatDecided(room)) return "Kampen er afgjort — nu skal der flygtes!";
       if (hasEffect(player, "noHelp")) return "Ingen vil hjælpe dig lige nu (Udstødt).";
-      if (room.combat.helperId) return "Du har allerede en hjælper.";
       if (player.equipment.feet?.cardId !== "e-kneepads") return "Du har ikke Smigrende Tøfler på.";
 
       const target = room.players.find(p => p.id === msg.targetId);
       if (!target || target.isDead || target.id === playerId) return "Ugyldigt mål.";
+
+      // Team mode: drag an opponent into the fight as an extra fighter, next to your teammate.
+      if (room.settings.teamMode) {
+        if (target.id === mateOf(room, player)?.id) return "Din holdkammerat kæmper allerede med — vælg en modspiller.";
+        if (room.combat.conscriptId) return "Du har allerede tvunget en modspiller med.";
+        room.combat.conscriptId = target.id;
+        delete room.combat.passes[target.id];
+        reopenInterrupts(room);
+        shout(room, `💖 ${player.name} bruger Smigrende Tøfler og TVINGER ${target.name} med i kampen! Tabes den, tager ${target.name} straffen med.`);
+        return null;
+      }
+      if (room.combat.helperId) return "Du har allerede en hjælper.";
 
       // Tving dem ind i kampen (og de får 0 skatte for det!)
       room.combat.helperId = target.id;
@@ -1825,6 +1940,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       const offer = room.negotiations.find(o => o.id === msg.offerId);
       if (!offer || offer.toId !== playerId) return "Tilbuddet er ikke til dig.";
       if (offer.status !== "pending") return "Du har allerede svaret.";
+      if (room.settings.teamMode) return "I holdspil kan der ikke bedes om hjælp.";
       offer.status = msg.accept ? "accepted" : "rejected";
       if (msg.accept && room.combat && !room.combat.helperId && !combatDecided(room)) {
         // The bribe changes hands now — and stays changed, whatever happens in the fight.
@@ -1856,7 +1972,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
     case "pass": {
       if (!room.combat) return "Der er ingen kamp.";
-      if (room.combat.attackerId === playerId || room.combat.helperId === playerId) return "Kæmperne kan ikke melde pas.";
+      if (isFighter(room.combat, playerId)) return "Kæmperne kan ikke melde pas.";
       if (player.isDead) return "Døde spillere kan ikke melde pas.";
       room.combat.passes[playerId] = true;
       syncCombatGate(room);
@@ -1907,11 +2023,15 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         attacker.level += totalLevels;
         // Elves learn from the strong: a level only for helping someone higher than themselves.
         const attackerLevelBefore = attacker.level - totalLevels;
-        if (helper && hasRace(helper, "Elf") && attackerLevelBefore > helper.level && helper.level < room.settings.winLevel - 1) {
+        // Team mode: the teammate helps every fight, so the Elf bonus comes at most once per round.
+        const lastElf = room.elfBonusTurn[helper?.id ?? ""];
+        const elfReady = !room.settings.teamMode || lastElf === undefined || room.turnNo - lastElf >= room.players.length;
+        if (helper && hasRace(helper, "Elf") && elfReady && attackerLevelBefore > helper.level && helper.level < room.settings.winLevel - 1) {
           helper.level += 1;
+          room.elfBonusTurn[helper.id] = room.turnNo;
           log(room, `🧝 ${helper.name} stiger et niveau for at hjælpe en stærkere helt (Elver).`);
         }
-        shout(room, `🏆 Sejr! +${levelsText(totalLevels)} og +${treasuresText(attackerShare)} til ${attacker.name}${helper ? `, +${helperShare} til ${helper.name}` : ""}.`);
+        shout(room, `🏆 Sejr! +${levelsText(totalLevels)} og +${treasuresText(attackerShare)} til ${attacker.name}${helper && helperShare > 0 ? `, +${helperShare} til ${helper.name}` : ""}.`);
 
         endCombat(room, true);
         refreshDerived(attacker);
@@ -1921,7 +2041,8 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         checkVictory(room, attacker, true);
       } else {
         room.status = "runAwayRoll";
-        shout(room, `Nederlag! ${attacker.name}${helper ? ` og ${helper.name}` : ""} må flygte.`);
+        const others = [helper, room.players.find(p => p.id === c.conscriptId)].filter(Boolean).map(p => p!.name);
+        shout(room, `Nederlag! ${[attacker.name, ...others].join(" og ")} må flygte.`);
         payBounty(room);
       }
       return null;
@@ -1931,7 +2052,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!room.combat) return "Der er ingen kamp.";
       if (room.status !== "runAwayRoll") return "Det er ikke tid til at flygte.";
       const combat = room.combat;
-      if (playerId !== combat.attackerId && playerId !== combat.helperId) return "Du er ikke med i denne kamp.";
+      if (!isFighter(combat, playerId)) return "Du er ikke med i denne kamp.";
       combat.ranAway = combat.ranAway ?? [];
       if (combat.ranAway.includes(playerId)) return "Du har allerede slået for at flygte.";
 
@@ -2098,11 +2219,19 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (c.monsters.some(m => m.antiClass)) return "Denne boss kan ikke købes fri.";
       const price = tollPrice(monsterTotal(room, c));
       if (price === null) return "Denne kamp er for stor til at købe sig ud af.";
-      const cards = valuables(player, msg.cardIds, "owned");
-      if (typeof cards === "string") return cards;
+      const own = valuables(player, msg.cardIds, "owned");
+      if (typeof own === "string") return own;
+      // Team mode: the teammate may have put cards towards the toll.
+      const mate = fightingMate(room, c);
+      const pledged = mate ? valuables(mate, c.tollPledges?.[mate.id] ?? [], "owned") : [];
+      if (typeof pledged === "string") return `${mate!.name}s kort til tolden er her ikke længere.`;
+      const cards = [...own, ...pledged];
+      if (cards.length === 0) return "Vælg kort at betale tolden med.";
       const paid = cards.reduce((sum, x) => sum + tradeValue(x), 0);
-      if (paid < price) return `Tolden er ${price}g — du tilbød ${paid}g.`;
-      for (const x of cards) discardCard(room, takeOwned(player, x.id)!);
+      if (paid < price) return `Tolden er ${price}g — I tilbød ${paid}g.`;
+      for (const x of own) discardCard(room, takeOwned(player, x.id)!);
+      for (const x of pledged) discardCard(room, takeOwned(mate!, x.id)!);
+      if (mate) refreshDerived(mate);
       shout(room, `🪙 ${player.name} betaler told med ${cardNames(cards)} (${paid}g) og går forbi ${c.monsters.map(m => m.name).join(" & ")}.`);
       room.stats.tolls++;
       endCombat(room);
@@ -2110,6 +2239,39 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       room.status = "normalTurn";
       room.currentPhase = 3;
       refreshDerived(player);
+      return null;
+    }
+
+    case "pledgeToll": {
+      const c = room.combat;
+      if (!c || !room.settings.teamMode) return "Der er ingen told at betale.";
+      if (fightingMate(room, c)?.id !== playerId) return "Kun angriberens holdkammerat kan lægge kort i tolden.";
+      if (room.status !== "waitingForInterrupts" && room.status !== "inCombat") return "For sent at betale — kampen er afgjort.";
+      const cards = valuables(player, msg.cardIds, "owned");
+      if (typeof cards === "string") return cards;
+      c.tollPledges = { ...c.tollPledges, [playerId]: cards.map(x => x.id) };
+      log(room, cards.length
+        ? `🪙 ${player.name} lægger ${cardNames(cards)} (${cards.reduce((s, x) => s + tradeValue(x), 0)}g) i tolden.`
+        : `🪙 ${player.name} tager sine kort ud af tolden igen.`);
+      return null;
+    }
+
+    case "giveToTeammate": {
+      if (!room.settings.teamMode) return "Det kan kun lade sig gøre i holdspil.";
+      const mate = mateOf(room, player);
+      if (!mate) return "Du har ingen holdkammerat.";
+      if (!isActive(room, playerId)) return "Du kan kun give din holdkammerat noget i din egen tur.";
+      if (room.status !== "normalTurn" || room.combat) return "Der gives kun gaver uden for kamp.";
+      if (player.isDead || mate.isDead) return "De døde giver ikke gaver.";
+      if (room.teamGiftTurn[playerId] === room.turnNo) return "Du har allerede givet din holdkammerat én ting i denne tur.";
+      const card = takeOwned(player, msg.cardId);
+      if (!card) return "Det kort har du ikke.";
+      receive(mate, card);
+      room.teamGiftTurn[playerId] = room.turnNo;
+      validateClassEquipment(room, player);
+      refreshDerived(player);
+      refreshDerived(mate);
+      shout(room, `🎁 ${player.name} giver ${card.name} til holdkammeraten ${mate.name}.`);
       return null;
     }
 
@@ -2130,7 +2292,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
     case "sacrificeCompanion": {
       const combat = room.combat;
       if (!combat || room.status !== "runAwayRoll") return "Du kan kun ofre en følgesvend under en flugt.";
-      if (playerId !== combat.attackerId && playerId !== combat.helperId) return "Du er ikke med i denne kamp.";
+      if (!isFighter(combat, playerId)) return "Du er ikke med i denne kamp.";
       if (combat.ranAway?.includes(playerId)) return "Du er allerede sluppet væk.";
       const buddy = player.companion;
       if (!buddy?.sacrificable) return "Din følgesvend kan ikke dække din flugt.";
@@ -2213,19 +2375,27 @@ const finishLooting = (room: Room, deadId: string) => {
   }
 };
 
-// Everything a player holds goes to the discard piles.
-const discardBelongings = (room: Room, p: PrivatePlayer) => {
+// Everything a player holds, taken off them.
+const takeBelongings = (p: PrivatePlayer): Card[] => {
   const held: Card[] = [
     ...p.hand, ...p.backpack, ...allEquipped(p),
     ...[p.playerClass, p.extraClass, p.race, p.extraRace, p.dualClass, p.dualRace, p.companion].filter((c): c is NonNullable<typeof c> => !!c),
   ];
-  for (const c of held) discardCard(room, c);
+  for (const c of held) {
+    if (c.type === "equipment" && c.forgedWith) { held.push(c.forgedWith); delete c.forgedWith; }
+  }
   p.hand = []; p.backpack = [];
   p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
   p.playerClass = p.extraClass = null;
   p.race = p.extraRace = null;
   p.dualClass = p.dualRace = null;
   p.companion = null;
+  return held;
+};
+
+// Everything a player holds goes to the discard piles.
+const discardBelongings = (room: Room, p: PrivatePlayer) => {
+  for (const c of takeBelongings(p)) discardCard(room, c);
 };
 
 /** Removes a seat for good. Safe in any state: fights, looting, charity and deals are untangled. */
@@ -2234,9 +2404,13 @@ export const removePlayer = (room: Room, playerId: string) => {
   if (idx < 0) return;
   const p = room.players[idx];
   const wasActive = idx === room.activePlayerIndex && room.status !== "lobby";
+  // Team mode: the teammate left behind picks two of the leaver's cards (unless a body is being looted right now).
+  const heir = room.status !== "lobby" && !room.looting ? mateOf(room, p) : null;
+  let legacy: Card[] = [];
 
   if (room.status !== "lobby") {
-    discardBelongings(room, p);
+    if (heir) legacy = takeBelongings(p);
+    else discardBelongings(room, p);
     room.negotiations = room.negotiations.filter(o => o.fromId !== playerId && o.toId !== playerId);
     room.trades = room.trades.filter(t => t.fromId !== playerId && t.toId !== playerId);
 
@@ -2246,6 +2420,12 @@ export const removePlayer = (room: Room, playerId: string) => {
       c.saboteurs = c.saboteurs?.filter(id => id !== playerId);
       c.swarmCalled = c.swarmCalled?.filter(id => id !== playerId);
       if (c.turncoatId === playerId) c.turncoatId = null;
+      if (c.tollPledges) delete c.tollPledges[playerId];
+      if (c.conscriptId === playerId) {
+        c.conscriptId = null;
+        c.ranAway = c.ranAway?.filter(id => id !== playerId);
+        if (room.status === "runAwayRoll") finishRunAwayIfDone(room);
+      }
       if (c.attackerId === playerId) {
         endCombat(room); // the fight goes with them
         if (room.status !== "looting") room.status = "normalTurn";
@@ -2284,6 +2464,8 @@ export const removePlayer = (room: Room, playerId: string) => {
   room.players.splice(idx, 1);
   delete room.sessions[playerId];
   delete room.halflingSaleTurn[playerId];
+  delete room.teamGiftTurn[playerId];
+  delete room.elfBonusTurn[playerId];
   if (idx < room.activePlayerIndex) room.activePlayerIndex--;
 
   if (room.status === "lobby") {
@@ -2293,6 +2475,7 @@ export const removePlayer = (room: Room, playerId: string) => {
   shout(room, `🚪 ${p.name} forlod spillet.`);
 
   if (room.players.length < 2) {
+    for (const c of legacy) discardCard(room, c);
     restartGame(room, "Der er ikke spillere nok tilbage — alle tilbage til venteværelset.");
     return;
   }
@@ -2307,6 +2490,24 @@ export const removePlayer = (room: Room, playerId: string) => {
     room.combatFought = false;
     room.turnNo++;
     log(room, `▶ ${room.players[room.activePlayerIndex].name}s tur.`);
+  }
+  if (heir && legacy.length > 0 && room.charity) {
+    // Someone is mid-charity: no time to choose — the two most valuable cards go straight to the teammate.
+    const best = [...legacy].sort((a, b) => goldValueOf(b) - goldValueOf(a)).slice(0, 2);
+    for (const c of legacy) {
+      if (best.includes(c)) heir.hand.push(c);
+      else discardCard(room, c);
+    }
+    refreshDerived(heir);
+    shout(room, `🎒 ${heir.name} arver ${cardNames(best)} fra ${p.name}.`);
+  } else if (heir && legacy.length > 0) {
+    room.statusBeforeLooting = room.status;
+    room.status = "looting";
+    room.looting = {
+      deadId: p.id, deadName: p.name, reason: "left", pile: legacy,
+      orderQueue: legacy.length > 1 ? [heir.id, heir.id] : [heir.id],
+    };
+    shout(room, `🎒 ${heir.name} må beholde 2 af ${p.name}s kort.`);
   }
   syncCombatGate(room);
 };
@@ -2325,7 +2526,7 @@ export const restartGame = (room: Room, reason: string) => {
     status: "lobby" as AppStatus, activePlayerIndex: 0, currentPhase: 1 as Phase,
     combat: null, negotiations: [], trades: [], charity: null, looting: null,
     winnerId: null, combatFought: false, statusBeforeLooting: null,
-    stats: emptyStats(), turnNo: 0, halflingSaleTurn: {},
+    stats: emptyStats(), turnNo: 0, halflingSaleTurn: {}, teamGiftTurn: {}, elfBonusTurn: {},
   });
   shout(room, `🔄 ${reason}`);
 };

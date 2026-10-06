@@ -3,7 +3,7 @@ import { GameCard } from "./GameCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
-import { CLASS_LABEL, hasClass, hasTag } from "../../../shared/rules";
+import { CLASS_LABEL, hasClass, hasTag, teammateOf } from "../../../shared/rules";
 import { EffectBadge } from "./EffectBadge";
 import { useInspect } from "@/lib/inspect";
 import { Info } from "lucide-react";
@@ -37,6 +37,7 @@ export function PlayerHand() {
     !c.forgedWith && ((!!c.classReq && !hasClass(self, c.classReq)) || (c.cardId === "e-kneepads" && hasClass(self, "Warrior")));
 
   const isMyTurn = view.players[view.activePlayerIndex]?.id === self.id;
+  const mate = teammateOf(view.players, view.settings.teamMode, self);
   const inCombat = view.status === "inCombat" || view.status === "waitingForInterrupts";
   const card = self.hand.find(c => c.id === selected) ?? self.backpack.find(c => c.id === selected) ?? null;
 
@@ -351,6 +352,12 @@ export function PlayerHand() {
 
           {isMyTurn && !inCombat && (
             <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Smid</Button>
+          )}
+          {mate && !mate.isDead && isMyTurn && view.status === "normalTurn" && !view.combat && (
+            <Button size="sm" variant="outline" className="border-primary text-primary" disabled={view.giftUsed}
+              onClick={() => { send({ type: "giveToTeammate", cardId: card.id }); setSelected(null); }}>
+              🎁 {view.giftUsed ? "Du har givet en gave i denne tur" : `Giv til ${mate.name}`}
+            </Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => inspect(card)}><Info className="w-4 h-4 mr-1"/>Detaljer</Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Luk</Button>

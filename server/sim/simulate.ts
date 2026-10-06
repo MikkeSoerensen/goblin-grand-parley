@@ -2,7 +2,7 @@
 // summarizes how the rules behave (game length, class win rates, monster difficulty).
 
 import type { Threat, WinLevel } from "../../shared/types.js";
-import { createRoom, handleAction, joinRoom, leaderOf, setRandomSource, type Room } from "../engine.js";
+import { createRoom, handleAction, joinRoom, leaderOf, setRandomSource, TEAM_TUNING, type Room } from "../engine.js";
 import { botStep, newMemory, type Rng } from "./bot.js";
 
 export const mulberry32 = (seed: number): Rng => {
@@ -36,12 +36,14 @@ export interface GameResult {
   sabotages: number;
   bribes: number;
   tolls: number;
+  winnerTeamSeat?: number;        // team mode: 0 = the team that moved first
+  winnerMateLevel?: number | null; // team mode: the winner's teammate's level at the end
 }
 
 const MAX_TURNS = 1200;
 const MAX_STEPS = 60_000;
 
-export const playGame = (players: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal"): GameResult => {
+export const playGame = (players: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal", teams = false): GameResult => {
   setRandomSource(mulberry32(seed));
   const rnd = mulberry32(seed ^ 0x9e3779b9);
   const rooms = new Map<string, Room>();
@@ -50,10 +52,12 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
     if (!r.ok) throw new Error(r.error);
   }
   const room = rooms.get("SIM") ?? createRoom("SIM");
-  const settingsErr = handleAction(room, room.players[0].id, { type: "updateSettings", settings: { winLevel, threat } }).error;
+  const settingsErr = handleAction(room, room.players[0].id, { type: "updateSettings", settings: { winLevel, threat, teamMode: teams } }).error;
   if (settingsErr) throw new Error(settingsErr);
+  if (teams) handleAction(room, room.players[0].id, { type: "shuffleTeams" });
   const err = handleAction(room, room.players[0].id, { type: "startGame" }).error;
   if (err) throw new Error(err);
+  const teamSeat = room.players.map(p => p.team); // first round of seats = team order
 
   const mem = newMemory();
   const res: GameResult = {
@@ -103,6 +107,11 @@ export const playGame = (players: number, seed: number, winLevel: WinLevel = 10,
 
   res.finished = room.status === "gameOver";
   const winner = room.players.find(p => p.id === room.winnerId);
+  if (teams && winner) {
+    res.winnerTeamSeat = teamSeat.indexOf(winner.team);
+    const mate = room.players.find(p => p.id !== winner.id && p.team === winner.team);
+    res.winnerMateLevel = mate?.level ?? null;
+  }
   res.winnerClass = winner ? winner.playerClass?.className ?? "none" : null;
   res.classesAtEnd = room.players.map(p => p.playerClass?.className ?? "none");
   const raceLabel = (p: Room["players"][number]) => [p.race?.raceName, p.extraRace?.raceName].filter(Boolean).join("+") || "none";
@@ -127,6 +136,10 @@ const quantile = (xs: number[], q: number) => {
 
 export interface Summary {
   players: number;
+  teams: boolean;
+  teamShare: number;
+  firstTeamWinRate: number | null; // team mode: share of wins for the team that moves first
+  mateLevelMean: number | null;    // team mode: average level of the winner's teammate
   winLevel: WinLevel;
   threat: Threat;
   leadChanges: number;
@@ -151,8 +164,8 @@ export interface Summary {
   monsters: [string, { fights: number; wins: number }][];
 }
 
-export const runBatch = (players: number, games: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal"): Summary => {
-  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919, winLevel, threat));
+export const runBatch = (players: number, games: number, seed: number, winLevel: WinLevel = 10, threat: Threat = "normal", teams = false): Summary => {
+  const results = Array.from({ length: games }, (_, i) => playGame(players, seed + i * 7919, winLevel, threat, teams));
   const done = results.filter(r => r.finished);
   const classWinRate: Summary["classWinRate"] = {};
   for (const r of results) {
@@ -174,8 +187,12 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
   }
   const rounds = done.map(r => r.turns / players);
   const sum = (f: (r: GameResult) => number) => results.reduce((s, r) => s + f(r), 0);
+  const teamWins = results.filter(r => r.winnerTeamSeat !== undefined);
+  const mates = teamWins.map(r => r.winnerMateLevel).filter((x): x is number => typeof x === "number");
   return {
-    players, games, winLevel, threat,
+    players, games, winLevel, threat, teams, teamShare: TEAM_TUNING.share,
+    firstTeamWinRate: teams ? teamWins.filter(r => r.winnerTeamSeat === 0).length / Math.max(1, teamWins.length) : null,
+    mateLevelMean: teams && mates.length ? mates.reduce((s, x) => s + x, 0) / mates.length : null,
     leadChanges: sum(r => r.leadChanges) / games,
     bounties: sum(r => r.bounties) / games,
     turncoats: sum(r => r.turncoats) / games,
@@ -200,10 +217,17 @@ export const runBatch = (players: number, games: number, seed: number, winLevel:
 
 export const formatReport = (summaries: Summary[], title: string): string => {
   const lines: string[] = [`# ${title}`, ""];
-  lines.push("| Spillere | Mål | Threat | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
-  lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|");
+  lines.push("| Spillere | Hold | Mål | Threat | Spil | Afsluttet | Låst fast | Runder (median) | Runder (90%) | Kampe/spil | Kampe vundet | Med hjælper | Dødsfald/spil |");
+  lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {
-    lines.push(`| ${s.players} | ${s.winLevel} | ${s.threat} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
+    const mode = s.teams ? `ja (tillæg ${Math.round(s.teamShare * 100)}%)` : "nej";
+    lines.push(`| ${s.players} | ${mode} | ${s.winLevel} | ${s.threat} | ${s.games} | ${pct(s.finished, s.games)} | ${s.stuck} | ${s.roundsMedian.toFixed(1)} | ${s.roundsP90.toFixed(1)} | ${s.combatsPerGame.toFixed(1)} | ${pct(s.combatWinRate, 1)} | ${pct(s.helpedRate, 1)} | ${s.deathsPerGame.toFixed(2)} |`);
+  }
+  if (summaries.some(s => s.teams)) {
+    lines.push("", "## Holdspil", "", "| Spillere | Tillæg | Mål | Første hold vinder | Fair | Vinderens holdkammerat, niveau (gns.) |", "|---|---|---|---|---|---|");
+    for (const s of summaries.filter(x => x.teams)) {
+      lines.push(`| ${s.players} | ${Math.round(s.teamShare * 100)}% | ${s.winLevel} | ${pct(s.firstTeamWinRate ?? 0, 1)} | ${pct(2 / s.players, 1)} | ${s.mateLevelMean?.toFixed(1) ?? "–"} |`);
+    }
   }
   lines.push("", "## Socialt kaos (pr. spil)", "", "| Spillere | Mål | Threat | Føring skifter hænder | Sabotage-kort | Dusører udbetalt | Overløbere (Siren) | Hele bordet ramt | Bestikkelser | Toll betalt |", "|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {

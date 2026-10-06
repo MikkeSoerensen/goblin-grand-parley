@@ -2,7 +2,7 @@
 // Anything that does not match is rejected before it reaches the engine.
 
 import { z } from "zod";
-import type { ClientToServer } from "../shared/types.js";
+import { TEAM_IDS, type ClientToServer } from "../shared/types.js";
 
 const id = z.string().min(1).max(64);
 const ids = z.array(id).max(60);
@@ -38,7 +38,7 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("proposeTrade"), toId: id, give: ids.max(10), take: ids.max(10) }),
   z.object({ type: z.literal("respondTrade"), tradeId: id, accept: z.boolean() }),
   z.object({ type: z.literal("cancelTrade"), tradeId: id }),
-  z.object({ type: z.literal("payToll"), cardIds: ids.min(1).max(15) }),
+  z.object({ type: z.literal("payToll"), cardIds: ids.max(15) }),
   z.object({ type: z.literal("respondHelp"), offerId: id, accept: z.boolean() }),
   z.object({ type: z.literal("pass") }),
   z.object({ type: z.literal("resolveCombat") }),
@@ -67,12 +67,17 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("leaveGame") }),
   z.object({ type: z.literal("restartGame") }),
   z.object({ type: z.literal("removePlayer"), playerId: id }),
+  z.object({ type: z.literal("chooseTeam"), team: z.enum(TEAM_IDS).nullable() }),
+  z.object({ type: z.literal("shuffleTeams") }),
+  z.object({ type: z.literal("giveToTeammate"), cardId: id }),
+  z.object({ type: z.literal("pledgeToll"), cardIds: ids.max(15) }),
   z.object({
     type: z.literal("updateSettings"),
     settings: z.object({
       winLevel: z.union([z.literal(10), z.literal(15), z.literal(20)]).optional(),
       interruptSeconds: z.union([z.literal(0), z.literal(10), z.literal(15), z.literal(30)]).optional(),
       threat: z.enum(["calm", "normal", "brutal"]).optional(),
+      teamMode: z.boolean().optional(),
     }).strict(),
   }),
 ]);

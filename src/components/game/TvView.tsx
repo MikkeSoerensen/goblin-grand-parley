@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/lib/store";
-import { hasClass, treasuresText } from "../../../shared/rules";
+import { hasClass, TEAM_LABEL, treasuresText } from "../../../shared/rules";
+import { TeamTag } from "./Teams";
 import { JoinInfo } from "./JoinInfo";
 import { Scoreboard } from "./Scoreboard";
 import { TableArea } from "./TableArea";
@@ -41,7 +42,7 @@ function TvCombat() {
     <section aria-label="Kamp" className="felt-table p-5 space-y-4 border-2 border-primary/60">
       <div className="grid grid-cols-2 gap-4">
         <div className={`rounded-xl p-4 border-2 ${winning ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}>
-          <div className="text-lg opacity-70 font-ui">{name(c.attackerId)}{helper ? ` + ${helper.name}` : ""}</div>
+          <div className="text-lg opacity-70 font-ui">{name(c.attackerId)}{helper ? ` + ${helper.name}` : ""}{c.conscriptId ? ` + ${name(c.conscriptId)} (tvunget)` : ""}</div>
           <div className="font-display text-7xl brass-text">{c.playerTotal}</div>
         </div>
         <div className={`rounded-xl p-4 border-2 ${!winning ? "border-destructive bg-destructive/10" : "border-border bg-muted/30"}`}>
@@ -102,12 +103,13 @@ export function TvView() {
             <ul className="space-y-2">
               {view.players.map(p => (
                 <li key={p.id} className="text-2xl font-display bg-muted/40 rounded px-4 py-2 flex justify-between">
-                  {p.name}<span aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
+                  <span className="flex items-center gap-3">{p.name}{view.settings.teamMode && <TeamTag team={p.team} className="text-sm px-2 py-1" />}</span>
+                  <span aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
                 </li>
               ))}
             </ul>
             <p className="text-lg font-ui opacity-70">
-              Spil til niveau {view.settings.winLevel} · trussel {THREAT_LABEL[view.settings.threat]} · pas-nedtælling {view.settings.interruptSeconds ? `${view.settings.interruptSeconds} sek.` : "fra"}
+              {view.settings.teamMode ? "Holdspil · " : ""}Spil til niveau {view.settings.winLevel} · trussel {THREAT_LABEL[view.settings.threat]} · pas-nedtælling {view.settings.interruptSeconds ? `${view.settings.interruptSeconds} sek.` : "fra"}
             </p>
           </div>
         </div>
@@ -120,8 +122,11 @@ export function TvView() {
     return (
       <main className="min-h-dvh flex items-center justify-center p-8">
         <div className="felt-table p-16 text-center space-y-6">
-          <h1 className="font-display text-8xl brass-text">🏆 {winner?.name}</h1>
-          <p className="text-4xl font-display">nåede niveau {view.settings.winLevel}!</p>
+          <h1 className="font-display text-8xl brass-text">🏆 {view.settings.teamMode && winner?.team ? `Hold ${TEAM_LABEL[winner.team]}` : winner?.name}</h1>
+          {view.settings.teamMode && winner?.team && (
+            <p className="text-3xl font-display">{view.players.filter(p => p.team === winner.team).map(p => p.name).join(" & ")} vinder —</p>
+          )}
+          <p className="text-4xl font-display">{view.settings.teamMode ? `${winner?.name} ` : ""}nåede niveau {view.settings.winLevel}!</p>
           <Button variant="ghost" onClick={leave}>Stop med at vise dette rum</Button>
         </div>
       </main>

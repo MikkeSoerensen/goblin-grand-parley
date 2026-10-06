@@ -1,13 +1,21 @@
 // Small rule helpers shared by the server engine and the client UI,
 // so both always agree on what a tag, class, race or effect means.
 
-import type { Card, ClassName, EffectKind, MonsterCard, MonsterTag, PlayerEffect, PublicPlayer, RaceName } from "./types";
+import type { Card, ClassName, EffectKind, MonsterCard, MonsterTag, PlayerEffect, PublicPlayer, RaceName, TeamId } from "./types";
 
 // Danish display names. Rules keep using the English ids (ClassName/RaceName).
 export const CLASS_LABEL: Record<ClassName, string> = { Warrior: "Kriger", Cleric: "Præst", Thief: "Tyv", Wizard: "Troldmand" };
 export const CLASS_PLURAL: Record<ClassName, string> = { Warrior: "krigere", Cleric: "præster", Thief: "tyve", Wizard: "troldmænd" };
 export const RACE_LABEL: Record<RaceName, string> = { Goblin: "Goblin", Elf: "Elver", Dwarf: "Dværg", Halfling: "Halvling" };
 export const RACE_PLURAL: Record<RaceName, string> = { Goblin: "gobliner", Elf: "elvere", Dwarf: "dværge", Halfling: "halvlinger" };
+
+export const TEAM_LABEL: Record<TeamId, string> = {
+  red: "Rød", blue: "Blå", green: "Grøn", yellow: "Gul", purple: "Lilla", orange: "Orange", pink: "Pink", teal: "Turkis",
+};
+
+/** Your teammate in team mode (null without team mode, or when you are alone on your team). */
+export const teammateOf = <P extends Pick<PublicPlayer, "id" | "team">>(players: P[], teamMode: boolean, p: Pick<PublicPlayer, "id" | "team">): P | null =>
+  teamMode && p.team ? players.find(o => o.id !== p.id && o.team === p.team) ?? null : null;
 
 export const levelsText = (n: number) => `${n} ${n === 1 ? "niveau" : "niveauer"}`;
 export const treasuresText = (n: number) => `${n} ${n === 1 ? "skat" : "skatte"}`;

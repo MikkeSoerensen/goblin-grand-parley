@@ -3,6 +3,7 @@
 import type {
   BadStuffKind, Card, CurseCard, EnhancerCard, EquipmentCard, MonsterCard, OneShotCard, Slot,
 } from "../shared/types.js";
+import { TEAM_IDS } from "../shared/types.js";
 import { createRoom, handleAction, joinRoom, setRandomSource, type Room } from "./engine.js";
 
 let seq = 0;
@@ -59,7 +60,7 @@ export interface Table {
 }
 
 /** A started game with `n` players, empty hands and player 0 active. */
-export const startedTable = (n: number, names = ["Ann", "Bo", "Cy", "Di", "Ed", "Fi"]): Table => {
+export const startedTable = (n: number, names = ["Ann", "Bo", "Cy", "Di", "Ed", "Fi", "Gus", "Hal"], teams = false): Table => {
   const rooms = new Map<string, Room>();
   const ids: string[] = [];
   const tokens: string[] = [];
@@ -70,6 +71,14 @@ export const startedTable = (n: number, names = ["Ann", "Bo", "Cy", "Di", "Ed", 
     tokens.push(r.token);
   }
   const room = rooms.get("TEST")!;
+  if (teams) {
+    // Players 0+1, 2+3, 4+5 … are teammates. Seats become 0, 2, 4 …, 1, 3, 5 ….
+    handleAction(room, ids[0], { type: "updateSettings", settings: { teamMode: true } });
+    ids.forEach((id, i) => {
+      const e = handleAction(room, id, { type: "chooseTeam", team: TEAM_IDS[Math.floor(i / 2)] }).error;
+      if (e) throw new Error(e);
+    });
+  }
   const err = handleAction(room, ids[0], { type: "startGame" }).error;
   if (err) throw new Error(err);
   // Empty the dealt hands (into the discard piles, so no card leaves the game).

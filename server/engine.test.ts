@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ClassCard, DungeonCard, GameAction, MateCard } from "../shared/types.js";
-import { buildView, handleAction, joinRoom, requiredPasses, setConnected, setRandomSource, type Room } from "./engine.js";
+import { buildView, fightersOf, handleAction, joinRoom, requiredPasses, setConnected, setRandomSource, type Room } from "./engine.js";
 import {
   ROLL_1, ROLL_6, allCardIds, curse, equipment, fixRandom, monster, oneShot, seeded, startedTable, type Table,
 } from "./test-helpers.js";
@@ -297,7 +297,7 @@ const progressAction = (room: Room, rnd: () => number): { playerId: string; msg:
     }
     case "runAwayRoll": {
       const c = room.combat!;
-      const fighter = [c.attackerId, c.helperId].find(id => id && !c.ranAway?.includes(id)
+      const fighter = fightersOf(c).find(id => !c.ranAway?.includes(id)
         && !room.players.find(p => p.id === id)?.isDead);
       return fighter ? { playerId: fighter, msg: { type: "runAway" } } : null;
     }
@@ -357,6 +357,9 @@ const chaosAction = (room: Room, rnd: () => number): { playerId: string; msg: Ga
     { type: "cancelTrade", tradeId: pick(room.trades)?.id ?? "none" },
     { type: "payToll", cardIds: [card, card2] },
     { type: "useClassAbility", ability: "cleanse", cardIds: [card, card2], targetId: other.id, effectId: pick(other.effects)?.id },
+    { type: "giveToTeammate", cardId: pick([...mine, ...[p.equipment.head, p.equipment.armor, ...p.equipment.hands].filter(Boolean)])?.id ?? card },
+    { type: "pledgeToll", cardIds: rnd() < 0.3 ? [] : [card, card2].filter(x => x !== "none") },
+    { type: "shuffleTeams" },
   ];
   return { playerId: p.id, msg: pick(actions)! };
 };
@@ -388,13 +391,19 @@ describe("fuzz: conservation, consistency and liveness", () => {
       setRandomSource(seeded(seed * 7919));
       const rooms = new Map<string, Room>();
       const ids: string[] = [];
-      const n = 2 + (seed % 9); // 2-10 players: covers doubled decks too
+      // Every third seed plays in teams of two (4, 6 or 8 players).
+      const teams = seed % 3 === 0;
+      const n = teams ? 4 + 2 * ((seed / 3) % 3) : 2 + (seed % 9); // 2-10 players: covers doubled decks too
       for (let i = 0; i < n; i++) {
         const r = joinRoom(rooms, { name: `P${i}`, roomCode: "FUZZ" });
         if (!r.ok) throw new Error(r.error);
         ids.push(r.playerId);
       }
       const room = rooms.get("FUZZ")!;
+      if (teams) {
+        expect(handleAction(room, ids[0], { type: "updateSettings", settings: { teamMode: true } }).error).toBeNull();
+        expect(handleAction(room, ids[0], { type: "shuffleTeams" }).error).toBeNull();
+      }
       expect(handleAction(room, ids[0], { type: "startGame" }).error).toBeNull();
       const universe = [...allCardIds(room)].sort();
 
@@ -417,6 +426,12 @@ describe("fuzz: conservation, consistency and liveness", () => {
         }
         if (rnd() < 0.002 && room.status !== "lobby") {
           expect(handleAction(room, room.players[0].id, { type: "restartGame" }).error).toBeNull();
+          if (room.settings.teamMode) {
+            // Someone may have left: re-deal the teams, or play without them if the numbers don't add up.
+            const even = room.players.length >= 4 && room.players.length % 2 === 0;
+            if (even) handleAction(room, room.players[0].id, { type: "shuffleTeams" });
+            else handleAction(room, room.players[0].id, { type: "updateSettings", settings: { teamMode: false } });
+          }
           expect(handleAction(room, room.players[0].id, { type: "startGame" }).error).toBeNull();
           universe.splice(0, universe.length, ...[...allCardIds(room)].sort()); // a brand-new deck
           assertInvariants(room, universe, `restartGame (step ${step})`);

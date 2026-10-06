@@ -68,6 +68,25 @@ export function LootingModal() {
   const dead = view.players.find(p => p.id === view.looting!.deadId);
   const nextId = view.looting.orderQueue[0];
   const isMine = nextId === view.self.id;
+  const nextName = view.players.find(p => p.id === nextId)?.name;
+  if (view.looting.reason === "left") {
+    const picks = view.looting.orderQueue.length;
+    return (
+      <div className="fixed inset-0 bg-background/85 backdrop-blur z-40 flex items-center justify-center p-4">
+        <div className="bg-popover border-2 border-primary rounded-xl p-5 max-w-3xl w-full">
+          <h2 className="font-display text-xl brass-text mb-1">🎒 Arv fra {view.looting.deadName}</h2>
+          <p className="text-sm opacity-80 mb-3">
+            {view.looting.deadName} har forladt spillet. {isMine ? `Vælg ${picks === 1 ? "ét kort mere" : "2 kort"}, du vil beholde — resten smides.` : `${nextName} vælger 2 kort at beholde…`}
+          </p>
+          <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto scroll-thin">
+            {view.looting.pile.map(c => (
+              <GameCard key={c.id} card={c} size="md" onClick={isMine ? () => send({ type: "lootBody", cardId: c.id }) : undefined}/>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 bg-background/85 backdrop-blur z-40 flex items-center justify-center p-4">
       <div className="bg-popover border-2 border-destructive rounded-xl p-5 max-w-3xl w-full">

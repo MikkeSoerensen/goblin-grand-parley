@@ -2,9 +2,9 @@
 // (handleAction) with a simple, reasonable strategy — the point is comparable numbers
 // between versions of the rules, not strong play.
 
-import { hasClass, isTradable, tollPrice, tradeValue } from "../../shared/rules.js";
+import { hasClass, isTradable, teammateOf, tollPrice, tradeValue } from "../../shared/rules.js";
 import type { Card, EquipmentCard, GameAction, MonsterCard, PrivatePlayer } from "../../shared/types.js";
-import { buildView, handleAction, requiredPasses, type Room } from "../engine.js";
+import { buildView, fightersOf, handleAction, requiredPasses, TEAM_TUNING, type Room } from "../engine.js";
 
 export type Rng = () => number;
 
@@ -12,6 +12,11 @@ const gold = (c: Card): number => ("goldValue" in c ? c.goldValue : 0);
 const byGoldAsc = (a: Card, b: Card) => gold(a) - gold(b);
 const activePlayer = (room: Room) => room.players[room.activePlayerIndex];
 const leader = (room: Room) => room.players.reduce((best, p) => (p.level > best.level ? p : best));
+const mateOf = (room: Room, p: PrivatePlayer) => teammateOf(room.players, room.settings.teamMode, p);
+const teamEdge = (room: Room, p: PrivatePlayer) => {
+  const mate = mateOf(room, p);
+  return mate && !mate.isDead && mate.connected ? Math.floor(mate.combatPower * (1 - TEAM_TUNING.share)) : 0;
+};
 
 const equippedInSlot = (p: PrivatePlayer, c: EquipmentCard): number => {
   const e = p.equipment;
@@ -74,7 +79,7 @@ export const botStep = (room: Room, mem: BotMemory, rnd: Rng, turnNo: number): b
     }
     case "runAwayRoll": {
       const c = room.combat!;
-      const fighter = [c.attackerId, c.helperId].find(id => id && !c.ranAway?.includes(id) && !room.players.find(p => p.id === id)?.isDead);
+      const fighter = fightersOf(c).find(id => !c.ranAway?.includes(id) && !room.players.find(p => p.id === id)?.isDead);
       if (!fighter) return false;
       // Throw the Lackey at anything that would kill or cripple us.
       const me = room.players.find(p => p.id === fighter)!;
@@ -158,7 +163,7 @@ const combatStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
       }
     }
     // Still losing and nobody coming? Buy our way past with spare valuables if the toll is affordable.
-    if (!c.helperId && once(mem.doneThisCombat, "toll")) {
+    if ((!c.helperId || room.settings.teamMode) && once(mem.doneThisCombat, "toll")) {
       const price = c.monsters.some(m => m.antiClass) ? null : tollPrice(view.monsterTotal);
       const spares = [...attacker.backpack, ...attacker.hand.filter(x => x.type !== "monster")].filter(isTradable).sort(byGoldAsc);
       const pay: string[] = [];
@@ -184,7 +189,8 @@ const turnStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
     if (p.id === me.id || p.isDead) continue;
     const curse = p.hand.find(c => c.type === "curse");
     if (curse && once(done, `curse:${p.id}`) && rnd() < 0.5) {
-      const target = room.players.filter(o => o.id !== p.id && !o.isDead).sort((a, b) => b.level - a.level)[0];
+      const mateId = mateOf(room, p)?.id;
+      const target = room.players.filter(o => o.id !== p.id && o.id !== mateId && !o.isDead).sort((a, b) => b.level - a.level)[0];
       if (target && handleAction(room, p.id, { type: "castCurse", cardId: curse.id, targetId: target.id }).error === null) return true;
     }
   }
@@ -230,6 +236,13 @@ const turnStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
       if (tryFirst(room, me.id, [{ type: "useClassAbility", ability: "cleanse", cardIds: cheap, targetId: me.id, effectId: myCurse.id }])) return true;
     }
   }
+  // Team mode: the support player feeds the main one — their best spare item, once a turn.
+  const mate = mateOf(room, me);
+  if (mate && !mate.isDead && mate.level > me.level && once(done, "gift")) {
+    const spare = me.backpack.filter((x): x is EquipmentCard => x.type === "equipment" && x.bonus > equippedInSlot(mate, x))
+      .sort((a, b) => b.bonus - a.bonus)[0];
+    if (spare && tryFirst(room, me.id, [{ type: "giveToTeammate", cardId: spare.id }])) return true;
+  }
   for (const c of me.hand.filter(x => x.type === "go-up-a-level")) {
     if (once(done, `up:${c.id}`) && tryFirst(room, me.id, [{ type: "playCard", cardId: c.id }])) return true;
   }
@@ -258,7 +271,8 @@ const turnStep = (room: Room, mem: BotMemory, rnd: Rng): boolean => {
     if (room.currentPhase === 2) {
       const beatable = me.hand
         .filter((x): x is MonsterCard => x.type === "monster")
-        .filter(m => me.combatPower > m.level + 1)
+        // In team mode the teammate fights along (minus what the monster gains from them).
+        .filter(m => me.combatPower + teamEdge(room, me) > m.level + 1)
         .sort((a, b) => b.levelsAwarded - a.levelsAwarded)[0];
       if (beatable && handleAction(room, me.id, { type: "lookForTrouble", cardId: beatable.id }).error === null) return true;
     }
