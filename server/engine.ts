@@ -1,4 +1,4 @@
-// Authoritative Munchkin game engine.
+// Authoritative Goblin Grand Parley game engine.
 // Pure game rules: no sockets, no file I/O. The transport layer (app.ts) calls
 // joinRoom / handleAction / setConnected and broadcasts buildView() afterwards.
 

@@ -67,7 +67,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
   if (faceDown) {
     return (
       <div className={cn("card-base bg-gradient-wood border-2 border-wood-light flex items-center justify-center", sizes[size], className)}>
-        <span className="brass-text font-display font-bold text-lg">M</span>
+        <span className="brass-text font-display font-bold text-lg">G</span>
       </div>
     );
   }

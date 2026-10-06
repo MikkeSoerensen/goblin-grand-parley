@@ -21,10 +21,10 @@ export function Lobby() {
   return (
     <main className="min-h-dvh flex items-center justify-center p-4">
       <form onSubmit={submit} className="felt-table p-6 sm:p-8 max-w-md w-full">
-        <h1 className="font-display text-4xl sm:text-5xl brass-text text-center mb-1 flex items-center justify-center gap-3">
-          <Dice5 className="w-9 h-9 sm:w-10 sm:h-10 text-primary"/> Munchkin
+        <h1 className="font-display text-4xl sm:text-5xl brass-text text-center mb-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+          <Dice5 className="w-9 h-9 sm:w-10 sm:h-10 text-primary shrink-0"/> Goblin Grand Parley
         </h1>
-        <p className="text-center text-muted-foreground mb-6 italic">Kick the door. Kill the monster. Steal the treasure. Stab your friends.</p>
+        <p className="text-center text-muted-foreground mb-6 italic">Kick the door. Strike a deal. Break it.</p>
 
         <div className="space-y-3">
           <div>

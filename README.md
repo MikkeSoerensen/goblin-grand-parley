@@ -1,6 +1,7 @@
-# 🎲 Munchkin — LAN Multiplayer
+# 👺 Goblin Grand Parley — LAN Multiplayer
 
-A turn-based card game inspired by Munchkin, built with React + TypeScript on the client and a Node.js + Socket.io authoritative server. Designed to be **run locally from VSCode** so you and your friends can play on the same Wi-Fi.
+A chaotic, social dungeon card game: kick doors, fight monsters, strike deals with your friends — and break them.
+Built with React + TypeScript on the client and a Node.js + Socket.io authoritative server, made to be **run locally** so everyone on the same Wi-Fi can play from their phone.
 
 ## ✨ Features
 
@@ -36,7 +37,7 @@ npm start       # builds client + server and starts the game on port 3001
 The server prints the address to share:
 
 ```
-🎲  Munchkin server listening on port 3001
+👺  Goblin Grand Parley server listening on port 3001
     Local:  http://localhost:3001
     LAN:    http://192.168.1.42:3001   ← share with friends on same Wi-Fi
     Saved games: …/data/rooms.json (0 room(s) restored)

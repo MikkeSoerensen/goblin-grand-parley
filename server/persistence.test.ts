@@ -10,7 +10,7 @@ import { allCardIds, startedTable } from "./test-helpers.js";
 
 const dirs: string[] = [];
 const tempDir = () => {
-  const d = mkdtempSync(path.join(tmpdir(), "munchkin-"));
+  const d = mkdtempSync(path.join(tmpdir(), "ggp-"));
   dirs.push(d);
   return d;
 };

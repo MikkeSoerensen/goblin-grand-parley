@@ -1,4 +1,4 @@
-// Entry point: starts the Munchkin LAN server (bundled to dist-server/index.mjs by `npm run build`).
+// Entry point: starts the Goblin Grand Parley LAN server (bundled to dist-server/index.mjs by `npm run build`).
 //   PORT         (default 3001)
 //   HOST         (default 0.0.0.0 — all interfaces; use 127.0.0.1 behind a reverse proxy)
 //   DATA_FILE    (default ./data/rooms.json) — where running games are saved
@@ -26,7 +26,7 @@ const corsOrigins = (process.env.CORS_ORIGIN ?? "").split(",").map(o => o.trim()
 try {
   const server = await startGameServer({ port, host, dataFile, distDir, corsOrigins });
 
-  console.log(`\n🎲  Munchkin server listening on port ${server.port}`);
+  console.log(`\n👺  Goblin Grand Parley server listening on port ${server.port}`);
   console.log(`    Local:  http://localhost:${server.port}`);
   if (host === "0.0.0.0" || host === "::") for (const ip of lanAddresses()) console.log(`    LAN:    http://${ip}:${server.port}   ← share with friends on same Wi-Fi`);
   console.log(`    Saved games: ${dataFile} (${server.rooms.size} room(s) restored)\n`);

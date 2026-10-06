@@ -8,7 +8,7 @@ export interface Session {
   watching?: boolean; // TV mode: this screen shows the table, it has no seat
 }
 
-const KEY = "munchkin:session";
+const KEY = "ggp:session";
 
 export const loadSession = (): Session | null => {
   try {

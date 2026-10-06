@@ -13,7 +13,7 @@ const cleanup: (() => Promise<void> | void)[] = [];
 afterEach(async () => { for (const f of cleanup.splice(0).reverse()) await f(); });
 
 const tempFile = () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "munchkin-app-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "ggp-app-"));
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
   return path.join(dir, "rooms.json");
 };
