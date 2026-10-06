@@ -32,7 +32,7 @@ describe("taking over a free seat", () => {
     const r = joinRoom(t.rooms, { name: "Ann", roomCode: "TEST" });
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.error).toMatch(/still connected/);
+      expect(r.error).toMatch(/stadig forbundet/);
       expect(r.freeSeats).toEqual(["Cy"]);
     }
   });
@@ -108,7 +108,7 @@ describe("leaving the game", () => {
     t.act(1, { type: "leaveGame" });
     expect(t.room.status).toBe("lobby");
     expect(t.room.players).toHaveLength(1);
-    expect(buildView(t.room, t.ids[0]).highlights.at(-1)?.text).toMatch(/back to the waiting room/);
+    expect(buildView(t.room, t.ids[0]).highlights.at(-1)?.text).toMatch(/venteværelset/);
   });
 
   it("works after the game is over too", () => {
@@ -139,7 +139,7 @@ describe("starting over", () => {
   it("is refused before a game has started", () => {
     const t = startedTable(2);
     t.room.status = "lobby";
-    expect(t.act(0, { type: "restartGame" })).toMatch(/hasn't started/);
+    expect(t.act(0, { type: "restartGame" })).toMatch(/ikke startet/);
   });
 });
 
@@ -152,14 +152,14 @@ describe("waiting-room cleanup", () => {
       return r.playerId;
     });
     const room = rooms.get("WAIT")!;
-    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[1] }).error).toMatch(/connected/);
-    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[0] }).error).toMatch(/another/);
+    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[1] }).error).toMatch(/er forbundet/);
+    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[0] }).error).toMatch(/anden spiller/);
     setConnected(room, ids[1], false);
     expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[1] }).error).toBeNull();
     expect(room.players.map(p => p.name)).toEqual(["Ann", "Cy"]);
 
     handleAction(room, ids[0], { type: "startGame" });
     setConnected(room, ids[2], false);
-    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[2] }).error).toMatch(/waiting room/);
+    expect(handleAction(room, ids[0], { type: "removePlayer", playerId: ids[2] }).error).toMatch(/venteværelset/);
   });
 });

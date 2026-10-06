@@ -40,7 +40,7 @@ describe("lingering curses", () => {
     const t = startedTable(2);
     curseOn(t, 0, "c-goblin-head");
     expect(t.player(0).effects.map(e => [e.kind, e.amount, e.expires])).toEqual([["dicePenalty", 1, "afterCombatWin"]]);
-    expect(t.player(0).effects[0].name).toBe("Goblin on Your Head");
+    expect(t.player(0).effects[0].name).toBe("Goblin på hovedet");
     t.player(0).level = 5;
     fight(t, 1);
     t.act(0, { type: "resolveCombat" });
@@ -81,7 +81,7 @@ describe("remedies", () => {
     expect(t.act(0, { type: "removeEffect", cardId: potion.id, targetId: t.ids[1], effectId })).toMatch(/Ring/);
     const r = ring();
     t.player(0).hand.push(r);
-    expect(t.act(0, { type: "removeEffect", cardId: r.id, targetId: t.ids[1], effectId: "nope" })).toMatch(/No such/);
+    expect(t.act(0, { type: "removeEffect", cardId: r.id, targetId: t.ids[1], effectId: "nope" })).toMatch(/findes ikke/);
     expect(t.player(0).hand).toContain(r);
   });
 
@@ -91,9 +91,9 @@ describe("remedies", () => {
     const a = oneShot(1), b = oneShot(1);
     t.player(0).hand.push(a, b);
     const effectId = t.player(1).effects[0].id;
-    expect(t.act(0, { type: "useClassAbility", ability: "cleanse", cardIds: [a.id, b.id], targetId: t.ids[1], effectId })).toMatch(/Not a Cleric/);
+    expect(t.act(0, { type: "useClassAbility", ability: "cleanse", cardIds: [a.id, b.id], targetId: t.ids[1], effectId })).toMatch(/ikke Præst/);
     t.player(0).playerClass = cleric();
-    expect(t.act(0, { type: "useClassAbility", ability: "cleanse", cardIds: [a.id, a.id], targetId: t.ids[1], effectId })).toMatch(/exactly 2/);
+    expect(t.act(0, { type: "useClassAbility", ability: "cleanse", cardIds: [a.id, a.id], targetId: t.ids[1], effectId })).toMatch(/præcis 2/);
     expect(t.act(0, { type: "useClassAbility", ability: "cleanse", cardIds: [a.id, b.id], targetId: t.ids[1], effectId })).toBeNull();
     expect(t.player(1).effects).toHaveLength(0);
     expect(t.player(0).hand).toHaveLength(0);
@@ -118,7 +118,7 @@ describe("companions", () => {
     const t = startedTable(2);
     t.player(0).companion = buddy("t-lackey");
     fight(t, 20, { kind: "death" });
-    expect(t.act(0, { type: "sacrificeCompanion" })).toMatch(/while running away/);
+    expect(t.act(0, { type: "sacrificeCompanion" })).toMatch(/under en flugt/);
     t.act(0, { type: "resolveCombat" });
     expect(t.act(0, { type: "sacrificeCompanion" })).toBeNull();
     expect(t.player(0).isDead).toBe(false);
@@ -129,7 +129,7 @@ describe("companions", () => {
     u.player(0).companion = buddy("t-boar");
     fight(u, 20);
     u.act(0, { type: "resolveCombat" });
-    expect(u.act(0, { type: "sacrificeCompanion" })).toMatch(/can't cover/);
+    expect(u.act(0, { type: "sacrificeCompanion" })).toMatch(/kan ikke dække/);
   });
 
   it("the Battle Boar adds +1 to Run Away", () => {

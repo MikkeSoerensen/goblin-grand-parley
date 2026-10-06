@@ -3,7 +3,8 @@ import { GameCard } from "./GameCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { Card, EquipmentCard } from "../../../shared/types";
-import { hasClass, hasTag } from "../../../shared/rules";
+import { CLASS_LABEL, hasClass, hasTag } from "../../../shared/rules";
+import { EffectBadge } from "./EffectBadge";
 import { useInspect } from "@/lib/inspect";
 import { Info } from "lucide-react";
 import { Backpack, Hand, Trash2, Coins, Shield, Zap } from "lucide-react";
@@ -98,27 +99,35 @@ export function PlayerHand() {
     }>
       <div className="flex items-center justify-between mb-2 gap-2">
         <h3 className="font-display text-lg brass-text flex items-center gap-2">
-          <Hand className="w-5 h-5"/> {showBackpack ? "Backpack" : "Hand"} ({showBackpack ? self.backpack.length : self.hand.length})
+          <Hand className="w-5 h-5"/> {showBackpack ? "Rygsæk" : "Hånd"} ({showBackpack ? self.backpack.length : self.hand.length})
         </h3>
         <div className="flex gap-1.5">
           <Button size="sm" variant={showBackpack ? "default" : "secondary"} onClick={() => setShowBackpack(s => !s)}>
-            <Backpack className="w-4 h-4 mr-1"/> Backpack ({self.backpack.length})
+            <Backpack className="w-4 h-4 mr-1"/> Rygsæk ({self.backpack.length})
           </Button>
           
           {isSelling ? (
             <>
               <Button size="sm" variant="default" disabled={sellTotal < 1000} onClick={() => { send({ type: "sell", cardIds: sellMode }); setSellMode([]); setIsSelling(false); }}>
-                <Coins className="w-4 h-4 mr-1"/> Confirm Sell ({sellTotal}g)
+                <Coins className="w-4 h-4 mr-1"/> Bekræft salg ({sellTotal}g)
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setSellMode([]); setIsSelling(false); }}>Cancel</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setSellMode([]); setIsSelling(false); }}>Annullér</Button>
             </>
           ) : (
             <Button size="sm" variant="secondary" onClick={() => { setIsSelling(true); setSelected(null); }}>
-              <Coins className="w-4 h-4 mr-1"/> Sell Items
+              <Coins className="w-4 h-4 mr-1"/> Sælg genstande
             </Button>
           )}
         </div>
       </div>
+
+      {/* Your own lasting curses, right where you play — hover or tap one to see what it does */}
+      {self.effects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 -mt-1 mb-1">
+          <span className="text-xs font-ui opacity-70">Forbandelser på dig:</span>
+          {self.effects.map(e => <EffectBadge key={e.id} effect={e} size="md" />)}
+        </div>
+      )}
 
       {/* Cards: wrap on mobile (vertical scroll), horizontal-scroll strip on desktop */}
         <div className={
@@ -146,7 +155,7 @@ export function PlayerHand() {
           </div>
         ))}
         {(showBackpack ? self.backpack : self.hand).length === 0 && (
-          <div className="text-muted-foreground italic px-4 py-8 w-full text-center">Empty.</div>
+          <div className="text-muted-foreground italic px-4 py-8 w-full text-center">Tom.</div>
         )}
       </div>
 
@@ -164,24 +173,24 @@ export function PlayerHand() {
             <>
               {card.classReq && !hasClass(self, card.classReq) ? (
                 <Button size="sm" variant="secondary" disabled className="opacity-50">
-                  <Shield className="w-4 h-4 mr-1"/>Requires {card.classReq}
+                  <Shield className="w-4 h-4 mr-1"/>Kræver {CLASS_LABEL[card.classReq]}
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Equip</Button>
+                <Button size="sm" onClick={() => handleAction("equip")}><Shield className="w-4 h-4 mr-1"/>Tag på</Button>
               )}
-              <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>To Backpack</Button>
+              <Button size="sm" variant="secondary" onClick={() => handleAction("backpack")}>Læg i rygsækken</Button>
             </>
           )}
 
           {goldValueOf(card) !== undefined && isMyTurn && !inCombat && (
             <Button size="sm" variant="outline" onClick={() => handleAction("sell")}>
-              <Coins className="w-4 h-4 mr-1"/>Sell ({goldValueOf(card)}g)
+              <Coins className="w-4 h-4 mr-1"/>Sælg ({goldValueOf(card)}g)
             </Button>
           )}
 
           {card.type === "curse" && (
             <div className="flex items-center gap-2 border-l-2 border-destructive pl-2 ml-1">
-              <span className="text-sm font-bold text-destructive">Cast on:</span>
+              <span className="text-sm font-bold text-destructive">Kast på:</span>
               {view.players.map(p => (
                 <Button 
                   key={p.id} 
@@ -192,7 +201,7 @@ export function PlayerHand() {
                     setSelected(null);
                   }}
                 >
-                  {p.id === self.id ? "Yourself" : p.name}
+                  {p.id === self.id ? "Dig selv" : p.name}
                 </Button>
               ))}
             </div>
@@ -200,17 +209,17 @@ export function PlayerHand() {
 
           {card.type === "class" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
-              <Zap className="w-4 h-4 mr-1"/> {self.playerClass && self.dualClass && !self.extraClass ? `Also become ${card.name}` : `Become ${card.name}`}
+              <Zap className="w-4 h-4 mr-1"/> {self.playerClass && self.dualClass && !self.extraClass ? `Bliv også ${card.name}` : `Bliv ${card.name}`}
             </Button>
           )}
           {card.type === "race" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
-              🧬 {self.race && self.dualRace && !self.extraRace ? `Also become ${card.name}` : `Become ${card.name}`}
+              🧬 {self.race && self.dualRace && !self.extraRace ? `Bliv også ${card.name}` : `Bliv ${card.name}`}
             </Button>
           )}
           {card.type === "companion" && isMyTurn && !inCombat && (
             <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>
-              🐾 {self.companion ? `Replace ${self.companion.name} with ${card.name}` : `Recruit ${card.name}`}
+              🐾 {self.companion ? `Udskift ${self.companion.name} med ${card.name}` : `Hverv ${card.name}`}
             </Button>
           )}
 
@@ -218,7 +227,7 @@ export function PlayerHand() {
           {(card.type === "remedy" || hasClass(self, "Cleric")) && cursedPlayers.length > 0 && (
             <div className="w-full mt-1 flex flex-col gap-1">
               <span className="text-sm font-bold text-sky-300">
-                {card.type === "remedy" ? "💍 Remove a curse from:" : `🙏 Cleanse (discards this + ${cleansePartner?.name ?? "another card"}):`}
+                {card.type === "remedy" ? "💍 Fjern en forbandelse fra:" : `🙏 Rens (smider dette kort + ${cleansePartner?.name ?? "et andet kort"}):`}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {cursedPlayers.flatMap(p => p.effects.map(e => (
@@ -229,7 +238,7 @@ export function PlayerHand() {
                       else if (cleansePartner) send({ type: "useClassAbility", ability: "cleanse", cardIds: [card.id, cleansePartner.id], targetId: p.id, effectId: e.id });
                       setSelected(null);
                     }}>
-                    {p.id === self.id ? "You" : p.name}: {e.name}
+                    {p.id === self.id ? "Dig" : p.name}: {e.name}
                   </Button>
                 )))}
               </div>
@@ -237,19 +246,19 @@ export function PlayerHand() {
           )}
 
           {card.type === "dual" && isMyTurn && !inCombat && (
-            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>🌟 Play {card.name}</Button>
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}>🌟 Spil {card.name}</Button>
           )}
           {card.type === "equipment" && isMyTurn && !inCombat && forgedPapers && needsPapers(card) && (
             <Button size="sm" variant="outline" className="border-amber-400 text-amber-300" onClick={() => {
               send({ type: "equip", cardId: card.id, forceSwap: true, forgedPapersId: forgedPapers.id });
               setSelected(null);
             }}>
-              📜 Equip with Forged Papers
+              📜 Tag på med forfalskede papirer
             </Button>
           )}
 
           {(card.type === "oneshot" || card.type === "go-up-a-level" || card.type === "portal") && isMyTurn && !inCombat && card.cardId !== "o-friendship" && card.cardId !== "o-flask-glue" && (
-            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Play / Use</Button>
+            <Button size="sm" variant="default" onClick={() => handleAction("playCard")}><Zap className="w-4 h-4 mr-1"/>Spil / brug</Button>
           )}
 
           {card.type === "monster" && hasTag(card, "goblin") && view.combat && view.combat.monsters.some(m => hasTag(m, "goblin")) && (
@@ -257,18 +266,18 @@ export function PlayerHand() {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
             }}>
-              👺 Goblin Swarm!
+              👺 Goblinsværm!
             </Button>
           )}
 
           {card.type === "monster" && isMyTurn && view.currentPhase === 2 && view.status === "normalTurn" && (
-            <Button size="sm" variant="default" onClick={() => handleAction("lookForTrouble")}>👁️ Look for Trouble</Button>
+            <Button size="sm" variant="default" onClick={() => handleAction("lookForTrouble")}>👁️ Opsøg ballade</Button>
           )}
 
           {inCombat && playableInCombat(card) && (
             <>
-              <Button size="sm" onClick={() => handleAction("playAttacker")}>⚔️ Play for attacker</Button>
-              <Button size="sm" variant="destructive" onClick={() => handleAction("playMonster")}>👹 Play for monster</Button>
+              <Button size="sm" onClick={() => handleAction("playAttacker")}>⚔️ Spil for angriberen</Button>
+              <Button size="sm" variant="destructive" onClick={() => handleAction("playMonster")}>👹 Spil for monsteret</Button>
             </>
           )}
 
@@ -291,7 +300,7 @@ export function PlayerHand() {
               send({ type: "useClassAbility", ability: "backstab", cardIds: [card.id], targetId: view.combat!.attackerId });
               setSelected(null);
             }}>
-              🗡️ Backstab Attacker (-2)
+              🗡️ Dolk angriberen i ryggen (−2)
             </Button>
           )}
 
@@ -302,7 +311,7 @@ export function PlayerHand() {
              return (
               <div className="w-full mt-2 border-t border-purple-500/30 pt-2">
                 <span className="text-sm font-bold text-purple-500 flex items-center mb-1">
-                  🗡️ Steal from: (Costs this card{hasPicks ? " - 3+ to succeed!" : ""})
+                  🗡️ Stjæl fra: (koster dette kort · lykkes på {hasPicks ? "2+" : "3+"})
                 </span>
                 <div className="flex flex-col gap-2">
                   {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => {
@@ -336,22 +345,22 @@ export function PlayerHand() {
               send({ type: "useClassAbility", ability: "resurrect", cardIds: [card.id] });
               setSelected(null);
             }}>
-              🙏 Resurrect Door Card
+              🙏 Genopliv dørkort
             </Button>
           )}
 
           {isMyTurn && !inCombat && (
-            <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Discard</Button>
+            <Button size="sm" variant="ghost" onClick={() => handleAction("discard")}><Trash2 className="w-4 h-4 mr-1"/>Smid</Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => inspect(card)}><Info className="w-4 h-4 mr-1"/>Details</Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+          <Button size="sm" variant="ghost" onClick={() => inspect(card)}><Info className="w-4 h-4 mr-1"/>Detaljer</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Luk</Button>
 
           {card.type === "monster" && view.combat && wanderingMonsterCard && (
             <Button size="sm" variant="outline" className="border-red-500 text-red-500" onClick={() => {
               send({ type: "playInCombat", cardId: wanderingMonsterCard.id, extraCardId: card.id });
               setSelected(null);
             }}>
-              🐉 Wander into combat
+              🐉 Send ind i kampen
             </Button>
           )}
 
@@ -360,7 +369,7 @@ export function PlayerHand() {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
             }}>
-              💞 Play Evil Twin
+              💞 Spil Ond Tvilling
             </Button>
           )}
 
@@ -369,13 +378,13 @@ export function PlayerHand() {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
             }}>
-              💖 Play Truce Tea (End Combat)
+              💖 Spil Våbenhvile-te (afslut kampen)
             </Button>
           )}
 
           {card.cardId === "o-flask-glue" && view.combat && (
             <div className="flex flex-col gap-2 border-l-2 border-yellow-500 pl-2 ml-1 mt-2 w-full">
-              <span className="text-sm font-bold text-yellow-500">Throw glue at:</span>
+              <span className="text-sm font-bold text-yellow-500">Kast harpiks på:</span>
               <div className="flex flex-wrap gap-2">
                 {[view.combat?.attackerId, view.combat?.helperId].filter(Boolean).map(id => {
                   const p = view.players.find(player => player.id === id);

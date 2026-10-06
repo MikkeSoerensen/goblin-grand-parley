@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useGame } from "@/lib/store";
-import { hasClass } from "../../../shared/rules";
+import { hasClass, treasuresText } from "../../../shared/rules";
 import { JoinInfo } from "./JoinInfo";
 import { Scoreboard } from "./Scoreboard";
 import { TableArea } from "./TableArea";
 import { GameCard } from "./GameCard";
 import { EventStrip } from "./EventStrip";
 import { CardDetails } from "./CardDetails";
+
+const THREAT_LABEL = { calm: "rolig", normal: "normal", brutal: "brutal" } as const;
 
 // Counts down locally from the server's "ms left" so the TV clock never matters.
 function useCountdown(msLeft: number | null): number | null {
@@ -36,7 +38,7 @@ function TvCombat() {
   const passed = c.requiredPasses.filter(id => c.passes[id]).length;
 
   return (
-    <section aria-label="Combat" className="felt-table p-5 space-y-4 border-2 border-primary/60">
+    <section aria-label="Kamp" className="felt-table p-5 space-y-4 border-2 border-primary/60">
       <div className="grid grid-cols-2 gap-4">
         <div className={`rounded-xl p-4 border-2 ${winning ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}>
           <div className="text-lg opacity-70 font-ui">{name(c.attackerId)}{helper ? ` + ${helper.name}` : ""}</div>
@@ -51,16 +53,16 @@ function TvCombat() {
         <ul className="text-lg font-ui space-y-0.5">{c.modifiers.map(m => <li key={m}>⚠️ {m}</li>)}</ul>
       )}
       <div className="flex gap-3 justify-center flex-wrap">{c.monsters.map(m => <GameCard key={m.id} card={m} size="lg" />)}</div>
-      {c.turncoatId && <div className="text-xl text-destructive font-ui">🎶 {name(c.turncoatId)} fights for the monster!</div>}
+      {c.turncoatId && <div className="text-xl text-destructive font-ui">🎶 {name(c.turncoatId)} kæmper for monsteret!</div>}
       {view.negotiations.filter(n => n.status === "pending").map(n => (
         <div key={n.id} className="text-lg font-ui">
-          🤝 {name(n.fromId)} asks {name(n.toId)} for help: {n.treasures} treasure(s){n.items.length ? ` + ${n.items.map(i => i.name).join(", ")}` : ""}
+          🤝 {name(n.fromId)} beder {name(n.toId)} om hjælp: {treasuresText(n.treasures)}{n.items.length ? ` + ${n.items.map(i => i.name).join(", ")}` : ""}
         </div>
       ))}
       <div className="flex items-center gap-4 text-lg font-ui">
-        <span>{view.status === "runAwayRoll" ? "🏃 Running away…" : `Pass votes: ${passed}/${c.requiredPasses.length}`}</span>
+        <span>{view.status === "runAwayRoll" ? "🏃 Flygter…" : `Meldt pas: ${passed}/${c.requiredPasses.length}`}</span>
         {countdown !== null && view.status === "waitingForInterrupts" && view.settings.interruptSeconds > 0 && (
-          <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden" role="timer" aria-label={`${Math.ceil(countdown / 1000)} seconds left to interrupt`}>
+          <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden" role="timer" aria-label={`${Math.ceil(countdown / 1000)} sekunder tilbage til at blande sig`}>
             <div className="h-full bg-primary transition-[width] duration-200 ease-linear"
               style={{ width: `${(100 * countdown) / (view.settings.interruptSeconds * 1000)}%` }} />
           </div>
@@ -80,7 +82,7 @@ export function TvView() {
 
   const offline = !connected && (
     <div role="status" className="fixed top-0 inset-x-0 z-[60] bg-destructive text-destructive-foreground text-center font-ui py-2">
-      Connection lost — reconnecting…
+      Forbindelsen er tabt — forbinder igen…
     </div>
   );
 
@@ -91,12 +93,12 @@ export function TvView() {
         <div className="felt-table p-10 max-w-4xl w-full grid md:grid-cols-2 gap-10 items-center">
           <div className="space-y-4 text-center">
             <h1 className="font-display text-6xl brass-text">Goblin Grand Parley</h1>
-            <p className="text-2xl">Room <b className="font-mono tracking-widest">{roomCode}</b></p>
+            <p className="text-2xl">Rum <b className="font-mono tracking-widest">{roomCode}</b></p>
             <JoinInfo qrSize={280} stacked />
           </div>
           <div className="space-y-3">
-            <h2 className="font-display text-3xl">At the table</h2>
-            {view.players.length === 0 && <p className="text-xl opacity-70 italic">Scan the code to join…</p>}
+            <h2 className="font-display text-3xl">Ved bordet</h2>
+            {view.players.length === 0 && <p className="text-xl opacity-70 italic">Scan koden for at være med…</p>}
             <ul className="space-y-2">
               {view.players.map(p => (
                 <li key={p.id} className="text-2xl font-display bg-muted/40 rounded px-4 py-2 flex justify-between">
@@ -105,7 +107,7 @@ export function TvView() {
               ))}
             </ul>
             <p className="text-lg font-ui opacity-70">
-              Play to level {view.settings.winLevel} · threat {view.settings.threat} · pass countdown {view.settings.interruptSeconds ? `${view.settings.interruptSeconds}s` : "off"}
+              Spil til niveau {view.settings.winLevel} · trussel {THREAT_LABEL[view.settings.threat]} · pas-nedtælling {view.settings.interruptSeconds ? `${view.settings.interruptSeconds} sek.` : "fra"}
             </p>
           </div>
         </div>
@@ -119,8 +121,8 @@ export function TvView() {
       <main className="min-h-dvh flex items-center justify-center p-8">
         <div className="felt-table p-16 text-center space-y-6">
           <h1 className="font-display text-8xl brass-text">🏆 {winner?.name}</h1>
-          <p className="text-4xl font-display">reached level {view.settings.winLevel}!</p>
-          <Button variant="ghost" onClick={leave}>Stop showing this room</Button>
+          <p className="text-4xl font-display">nåede niveau {view.settings.winLevel}!</p>
+          <Button variant="ghost" onClick={leave}>Stop med at vise dette rum</Button>
         </div>
       </main>
     );
@@ -140,10 +142,10 @@ export function TvView() {
           <JoinInfo qrSize={96} />
         </div>
         <Scoreboard />
-        <section aria-label="What happened" className="felt-table p-3 text-base font-ui space-y-1 max-h-72 overflow-y-auto scroll-thin">
+        <section aria-label="Hvad der skete" className="felt-table p-3 text-base font-ui space-y-1 max-h-72 overflow-y-auto scroll-thin">
           {view.log.slice(-10).map((l, i) => <div key={i} className="opacity-90">{l}</div>)}
         </section>
-        <Button variant="ghost" size="sm" onClick={leave}>Stop showing this room</Button>
+        <Button variant="ghost" size="sm" onClick={leave}>Stop med at vise dette rum</Button>
       </aside>
       <EventStrip />
       <CardDetails />

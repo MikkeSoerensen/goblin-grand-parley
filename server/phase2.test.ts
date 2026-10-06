@@ -33,7 +33,7 @@ describe("races", () => {
   it("a new race replaces the old one; the same race twice is refused", () => {
     const t = startedTable(2);
     expect(play(t, 0, race("Elf"))).toBeNull();
-    expect(play(t, 0, race("Elf"))).toMatch(/already/);
+    expect(play(t, 0, race("Elf"))).toMatch(/allerede/);
     expect(play(t, 0, race("Dwarf"))).toBeNull();
     expect(t.player(0).race?.raceName).toBe("Dwarf");
     expect(t.room.discards.door.some(c => c.type === "race" && c.raceName === "Elf")).toBe(true);
@@ -66,7 +66,7 @@ describe("races", () => {
     p.equipment.bigItem = equipment(3, 300, "bigItem", { isBig: true });
     const plate = equipment(4, 1100, "armor", { isBig: true });
     p.hand.push(plate);
-    expect(t.act(0, { type: "equip", cardId: plate.id })).toMatch(/Big item/);
+    expect(t.act(0, { type: "equip", cardId: plate.id })).toMatch(/stor genstand/);
     p.race = race("Dwarf");
     expect(t.act(0, { type: "equip", cardId: plate.id })).toBeNull();
 
@@ -95,7 +95,7 @@ describe("races", () => {
     fight(t, 4, { tags: ["beast"] });
     const g1 = monster(2, undefined, { tags: ["goblin"] }), g2 = monster(2, undefined, { tags: ["beast"] }), g3 = monster(1, undefined, { tags: ["goblin"] });
     t.player(1).hand.push(g1, g2, g3);
-    expect(t.act(1, { type: "playInCombat", cardId: g2.id })).toMatch(/cannot be played/); // not a goblin
+    expect(t.act(1, { type: "playInCombat", cardId: g2.id })).toMatch(/kan ikke spilles/); // not a goblin
     expect(t.act(1, { type: "playInCombat", cardId: g1.id })).toBeNull();
     // Now a goblin is in the fight, so the normal Goblin swarm rule lets more goblins in anyway.
     expect(t.act(1, { type: "playInCombat", cardId: g3.id })).toBeNull();
@@ -163,7 +163,7 @@ describe("Guild Hopper and Mixed Heritage", () => {
     fight(t, 5);
     const view = buildView(t.room, t.ids[0]).combat!;
     expect(view.monsterTotal).toBe(5 + 4); // level 1 → threat 0, show-off +2 +2
-    expect(view.modifiers.some(m => m.startsWith("Show-off"))).toBe(true);
+    expect(view.modifiers.some(m => m.startsWith("Blærerøv"))).toBe(true);
     t.room.settings.threat = "calm";
     expect(buildView(t.room, t.ids[0]).combat!.monsterTotal).toBe(5);
   });
@@ -176,7 +176,7 @@ describe("Forged Guild Papers", () => {
     const axe = equipment(3, 800, "twoHands", { cardId: "e-bloodaxe", classReq: "Warrior" });
     const fp = papers();
     p.hand.push(axe, fp);
-    expect(t.act(0, { type: "equip", cardId: axe.id })).toMatch(/Only a Warrior/);
+    expect(t.act(0, { type: "equip", cardId: axe.id })).toMatch(/Kun en Kriger/);
     expect(t.act(0, { type: "equip", cardId: axe.id, forgedPapersId: fp.id })).toBeNull();
     expect(p.equipment.hands[0].forgedWith?.id).toBe(fp.id);
     expect(p.hand).toHaveLength(0);
@@ -187,7 +187,7 @@ describe("Forged Guild Papers", () => {
     const helm = equipment(1, 300, "head");
     const fp = papers();
     t.player(0).hand.push(helm, fp);
-    expect(t.act(0, { type: "equip", cardId: helm.id, forgedPapersId: fp.id })).toMatch(/no requirement/);
+    expect(t.act(0, { type: "equip", cardId: helm.id, forgedPapersId: fp.id })).toMatch(/ingen krav/);
     expect(t.player(0).hand).toContain(fp);
   });
 

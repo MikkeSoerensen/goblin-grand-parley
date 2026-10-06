@@ -161,7 +161,7 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
 
     socket.on("msg", (raw: unknown) => {
       try {
-        if (!allow()) { emit(socket.id, { type: "error", message: "Slow down — too many actions." }); return; }
+        if (!allow()) { emit(socket.id, { type: "error", message: "Ro på — for mange handlinger på én gang." }); return; }
 
         const parsed = parseClientMessage(raw);
         if (!parsed.ok) { emit(socket.id, { type: "error", message: parsed.error }); return; }
@@ -194,7 +194,7 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
           const previous = playerSocket.get(res.playerId);
           if (previous && previous !== socket.id) {
             bindings.delete(previous);
-            emit(previous, { type: "error", message: "You joined from another tab or device; this one is now inactive." });
+            emit(previous, { type: "error", message: "Du er logget ind fra en anden fane eller enhed; denne er nu inaktiv." });
           }
           bindings.set(socket.id, { roomCode: res.room.code, playerId: res.playerId });
           playerSocket.set(res.playerId, socket.id);
@@ -207,9 +207,9 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
         }
 
         const b = bindings.get(socket.id);
-        if (!b) { emit(socket.id, { type: "error", message: "Join a room first." }); return; }
+        if (!b) { emit(socket.id, { type: "error", message: "Gå ind i et rum først." }); return; }
         const room = rooms.get(b.roomCode);
-        if (!room) { emit(socket.id, { type: "error", message: "Room not found." }); return; }
+        if (!room) { emit(socket.id, { type: "error", message: "Rummet blev ikke fundet." }); return; }
 
         const { error, events } = handleAction(room, b.playerId, msg);
         if (msg.type === "leaveGame" && !error) {
@@ -229,7 +229,7 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
         save();
       } catch (e) {
         console.error(e);
-        emit(socket.id, { type: "error", message: "Server error." });
+        emit(socket.id, { type: "error", message: "Serverfejl." });
       }
     });
 

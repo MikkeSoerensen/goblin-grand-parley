@@ -39,9 +39,9 @@ describe("snapshot round-trip", () => {
     old.rooms[0].table.push({ id: "x3-mate-1", cardId: "m-rat", name: "Mate of Old Dragon Name", type: "monster", deck: "door" });
 
     const r = deserializeRooms(JSON.stringify(old)).get("TEST")!;
-    expect(r.players[0].hand.at(-1)?.name).toBe("Cinderwyrm the Unfed");
-    expect(r.players[0].equipment.head?.name).toBe("Helm of Many Horns");
-    expect(r.table.at(-1)?.name).toBe("Evil Twin of Cinderwyrm the Unfed");
+    expect(r.players[0].hand.at(-1)?.name).toBe("Glødeormen den Umættelige");
+    expect(r.players[0].equipment.head?.name).toBe("Mangehornshjelmen");
+    expect(r.table.at(-1)?.name).toBe("Ond Tvilling af Glødeormen den Umættelige");
   });
 
   it("drops rooms nobody has touched for a week", () => {

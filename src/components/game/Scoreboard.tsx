@@ -1,20 +1,9 @@
 import { useGame } from "@/lib/store";
 import { useInspect } from "@/lib/inspect";
-import type { EffectExpiry, EffectKind, EquipmentCard } from "../../../shared/types";
+import type { EquipmentCard } from "../../../shared/types";
 import { cn } from "@/lib/utils";
 import { Crown, Heart, Swords, Wifi, WifiOff } from "lucide-react";
-
-const EFFECT_TEXT: Record<EffectKind, (amount: number) => string> = {
-  dicePenalty: n => `−${n} on every die roll`,
-  combatPenalty: n => `−${n} in combat`,
-  noHelp: () => "nobody can help you in combat",
-  halfSellValue: () => "your items sell for half",
-};
-const EXPIRY_TEXT: Record<EffectExpiry, string> = {
-  permanent: "until removed",
-  afterNextCombat: "until your next combat ends",
-  afterCombatWin: "until you win a combat",
-};
+import { EffectBadge } from "./EffectBadge";
 
 export function Scoreboard() {
   const view = useGame(s => s.view);
@@ -29,7 +18,7 @@ export function Scoreboard() {
   return (
     <aside className="bg-popover/95 backdrop-blur border border-border rounded-xl shadow-card p-3 w-full md:w-72 md:max-h-[80vh] overflow-y-auto scroll-thin shrink-0">
       <h2 className="font-display text-lg brass-text mb-2 flex items-center gap-2">
-        <Crown className="w-5 h-5 text-primary" /> Scoreboard
+        <Crown className="w-5 h-5 text-primary" /> Stillingen
       </h2>
       <ul className="space-y-1.5">
         {view.players.map((p, i) => {
@@ -47,7 +36,7 @@ export function Scoreboard() {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-display font-bold truncate flex items-center gap-1.5">
                   {p.connected ? <Wifi className="w-3 h-3 text-primary"/> : <WifiOff className="w-3 h-3 text-destructive"/>}
-                  {p.name}{isSelf && <span className="text-primary text-xs">(you)</span>}
+                  {p.name}{isSelf && <span className="text-primary text-xs">(dig)</span>}
                   {p.isDead && " 💀"}
                 </span>
                 <span className="text-xs font-ui opacity-70">{p.handCount}🃏</span>
@@ -78,7 +67,7 @@ export function Scoreboard() {
                     className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-200 border border-emerald-500/40 cursor-help"
                     title={r.effectText}
                   >
-                    🧬 {r.raceName}
+                    🧬 {r.name}
                   </button>
                 ))}
                 {p.companion && (
@@ -92,18 +81,10 @@ export function Scoreboard() {
                 )}
               </div>
               
-              {/* Lasting effects (persistent curses etc.) — the tooltip says when they wear off */}
+              {/* Lasting effects (persistent curses etc.) — hover or tap one to see what it does */}
               {p.effects.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
-                  {p.effects.map(e => (
-                    <span
-                      key={e.id}
-                      className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive border border-destructive/40 cursor-help"
-                      title={`${e.name}: ${EFFECT_TEXT[e.kind](e.amount)} — ${EXPIRY_TEXT[e.expires]}`}
-                    >
-                      🌀 {e.name}
-                    </span>
-                  ))}
+                  {p.effects.map(e => <EffectBadge key={e.id} effect={e} />)}
                 </div>
               )}
 

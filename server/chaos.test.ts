@@ -42,7 +42,7 @@ describe("threat", () => {
     const t = startedTable(2);
     t.player(0).level = 6;
     fight(t, 5);
-    expect(modifiers(t)).toContain("Threat (Ann is level 6): +2");
+    expect(modifiers(t)).toContain("Trussel (Ann er på niveau 6): +2");
   });
 });
 
@@ -98,7 +98,7 @@ describe("Siren's call", () => {
     fixRandom(ROLL_1);
     const { error, events } = recruit(t, 1);
     expect(error).toBeNull();
-    expect((events as Extract<ServerToClient, { type: "rolled" }>[])[0].reason).toBe("Siren's Call");
+    expect((events as Extract<ServerToClient, { type: "rolled" }>[])[0].reason).toBe("Sirenens kald");
     const c = t.room.combat!;
     expect(c.helperId).toBeNull();
     expect(c.turncoatId).toBe(t.ids[1]);

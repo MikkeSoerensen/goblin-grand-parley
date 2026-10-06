@@ -15,8 +15,8 @@ export function CharityModal() {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur z-40 flex items-center justify-center p-4">
         <div className="bg-popover border border-border rounded-xl p-6 text-center max-w-sm">
-          <h2 className="font-display text-xl brass-text mb-2">Charity</h2>
-          <p>{view.players.find(p => p.id === view.charity!.fromId)?.name} is choosing {view.charity.cardCount} card(s) to give.</p>
+          <h2 className="font-display text-xl brass-text mb-2">Velgørenhed</h2>
+          <p>{view.players.find(p => p.id === view.charity!.fromId)?.name} vælger {view.charity.cardCount} kort at give væk.</p>
         </div>
       </div>
     );
@@ -30,8 +30,8 @@ export function CharityModal() {
   return (
     <div className="fixed inset-0 bg-background/85 backdrop-blur z-40 flex items-center justify-center p-4">
       <div className="bg-popover border-2 border-primary rounded-xl p-5 max-w-3xl w-full">
-        <h2 className="font-display text-xl brass-text mb-1">Charity</h2>
-        <p className="text-sm opacity-80 mb-3">You have more than 5 cards. Choose <b>{need}</b> to give to {candidates.length === 1 ? candidates[0].name : "the lowest-level opponent (pick recipient below)"}.</p>
+        <h2 className="font-display text-xl brass-text mb-1">Velgørenhed</h2>
+        <p className="text-sm opacity-80 mb-3">Du har for mange kort på hånden. Vælg <b>{need}</b>, som du giver til {candidates.length === 1 ? candidates[0].name : "modstanderen med det laveste niveau (vælg modtager nedenfor)"}.</p>
         <div className="flex flex-wrap gap-2 mb-3 max-h-72 overflow-y-auto scroll-thin">
           {self.hand.map((c, i) => (
             // NYT: key er nu en kombination af ID og Index, og onCLick bruger 'i'
@@ -45,7 +45,7 @@ export function CharityModal() {
           <div className="flex gap-2 mb-3 flex-wrap">
             {candidates.map(p => (
               <Button key={p.id} size="sm" variant={recipient === p.id ? "default" : "secondary"} onClick={() => setRecipient(p.id)}>
-                {p.name} (Lvl {p.level})
+                {p.name} (niv. {p.level})
               </Button>
             ))}
           </div>
@@ -55,7 +55,7 @@ export function CharityModal() {
           const cardIds = selectedIndices.map(i => self.hand[i].id);
           send({ type: "charityGive", cardIds, toId: autoTo! });
         }}>
-          Give {selectedIndices.length}/{need}
+          Giv {selectedIndices.length}/{need}
         </Button>
       </div>
     </div>
@@ -71,8 +71,8 @@ export function LootingModal() {
   return (
     <div className="fixed inset-0 bg-background/85 backdrop-blur z-40 flex items-center justify-center p-4">
       <div className="bg-popover border-2 border-destructive rounded-xl p-5 max-w-3xl w-full">
-        <h2 className="font-display text-xl text-destructive mb-1">💀 Looting the Body</h2>
-        <p className="text-sm opacity-80 mb-3">{dead?.name} has died. {isMine ? "Pick one card to take." : `Waiting for ${view.players.find(p => p.id === nextId)?.name} to pick…`}</p>
+        <h2 className="font-display text-xl text-destructive mb-1">💀 Liget plyndres</h2>
+        <p className="text-sm opacity-80 mb-3">{dead?.name} er død. {isMine ? "Vælg ét kort, du vil tage." : `Venter på, at ${view.players.find(p => p.id === nextId)?.name} vælger…`}</p>
         <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto scroll-thin">
           {view.looting.pile.map(c => (
             <GameCard key={c.id} card={c} size="md" onClick={isMine ? () => send({ type: "lootBody", cardId: c.id }) : undefined}/>

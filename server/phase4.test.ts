@@ -57,10 +57,10 @@ describe("trades", () => {
   });
 
   it.each([
-    ["a worthless card", (t: Table) => { const z = equipment(1, 0, "head"); t.player(0).hand.push(z); return { give: [z.id], take: [] as string[] }; }, /no gold value/],
-    ["the other player's hidden cards", (t: Table) => { const h = valuable(300); t.player(1).hand.push(h); return { give: [] as string[], take: [h.id] }; }, /isn't wearing/],
-    ["nothing at all", () => ({ give: [] as string[], take: [] as string[] }), /at least one/],
-    ["the same card twice", (t: Table) => { const p = valuable(300); t.player(0).hand.push(p); return { give: [p.id, p.id], take: [] as string[] }; }, /twice/],
+    ["a worthless card", (t: Table) => { const z = equipment(1, 0, "head"); t.player(0).hand.push(z); return { give: [z.id], take: [] as string[] }; }, /ingen guldværdi/],
+    ["the other player's hidden cards", (t: Table) => { const h = valuable(300); t.player(1).hand.push(h); return { give: [] as string[], take: [h.id] }; }, /har ikke den genstand på/],
+    ["nothing at all", () => ({ give: [] as string[], take: [] as string[] }), /mindst ét/],
+    ["the same card twice", (t: Table) => { const p = valuable(300); t.player(0).hand.push(p); return { give: [p.id, p.id], take: [] as string[] }; }, /to gange/],
   ])("refuses offering %s", (_label, setup, error) => {
     const t = startedTable(2);
     const { give, take } = setup(t);
@@ -72,7 +72,7 @@ describe("trades", () => {
     fight(t, 1);
     const potion = valuable(300);
     t.player(0).hand.push(potion);
-    expect(t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [potion.id], take: [] })).toMatch(/outside of fights/);
+    expect(t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [potion.id], take: [] })).toMatch(/uden for kampe/);
   });
 
   it("falls through if a card moved in the meantime", () => {
@@ -81,7 +81,7 @@ describe("trades", () => {
     t.player(0).hand.push(potion);
     t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [potion.id], take: [] });
     t.act(0, { type: "discard", cardId: potion.id });
-    expect(t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: true })).toMatch(/fell through/);
+    expect(t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: true })).toMatch(/faldt til jorden/);
     expect(t.room.trades).toHaveLength(0);
   });
 
@@ -90,8 +90,8 @@ describe("trades", () => {
     const cards = Array.from({ length: 4 }, () => valuable(100));
     t.player(0).hand.push(...cards);
     for (const c of cards.slice(0, 3)) expect(t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [c.id], take: [] })).toBeNull();
-    expect(t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [cards[3].id], take: [] })).toMatch(/3 open/);
-    expect(t.act(1, { type: "cancelTrade", tradeId: t.room.trades[0].id })).toMatch(/from you/);
+    expect(t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [cards[3].id], take: [] })).toMatch(/3 åbne/);
+    expect(t.act(1, { type: "cancelTrade", tradeId: t.room.trades[0].id })).toMatch(/intet sådant handelstilbud/);
     expect(t.act(0, { type: "cancelTrade", tradeId: t.room.trades[0].id })).toBeNull();
     expect(t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: false })).toBeNull();
     expect(t.room.trades).toHaveLength(1);
@@ -137,14 +137,14 @@ describe("bribes for help", () => {
     fight(t, 20);
     const theirs = valuable(300);
     t.player(1).hand.push(theirs);
-    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 0, itemIds: [theirs.id] })).toMatch(/doesn't have/);
+    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 0, itemIds: [theirs.id] })).toMatch(/har ikke det kort/);
 
     const mine = valuable(300);
     t.player(0).hand.push(mine);
     t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 0, itemIds: [mine.id] });
     t.player(0).hand = t.player(0).hand.filter(c => c.id !== mine.id);
     t.room.discards.treasure.push(mine);
-    expect(t.act(1, { type: "respondHelp", offerId: t.room.negotiations[0].id, accept: true })).toMatch(/no longer has/);
+    expect(t.act(1, { type: "respondHelp", offerId: t.room.negotiations[0].id, accept: true })).toMatch(/ikke længere/);
     expect(t.room.combat!.helperId).toBeNull();
   });
 });
@@ -169,7 +169,7 @@ describe("toll", () => {
     expect(t.player(0).isDead).toBe(false);
     expect(t.room.discards.treasure).toEqual(expect.arrayContaining([a, b]));
     expect(sortedIds(t)).toEqual(before);
-    expect(t.act(0, { type: "lootRoom" })).toMatch(/Already fought/);
+    expect(t.act(0, { type: "lootRoom" })).toMatch(/allerede kæmpet/);
   });
 
   it("prices the fight's total, so enhancers make escaping dearer", () => {
@@ -194,7 +194,7 @@ describe("toll", () => {
     fight(big, 17);
     const c2 = valuable(9000);
     big.player(0).hand.push(c2);
-    expect(big.act(0, { type: "payToll", cardIds: [c2.id] })).toMatch(/too big/);
+    expect(big.act(0, { type: "payToll", cardIds: [c2.id] })).toMatch(/for stor/);
 
     const late = startedTable(2);
     fight(late, 12);
@@ -202,7 +202,7 @@ describe("toll", () => {
     late.act(0, { type: "resolveCombat" });
     const c3 = valuable(9000);
     late.player(0).hand.push(c3);
-    expect(late.act(0, { type: "payToll", cardIds: [c3.id] })).toMatch(/Too late/);
+    expect(late.act(0, { type: "payToll", cardIds: [c3.id] })).toMatch(/For sent/);
   });
 });
 
@@ -214,7 +214,7 @@ describe("highlights (the table's event strip)", () => {
     t.act(0, { type: "proposeTrade", toId: t.ids[1], give: [potion.id], take: [] });
     t.act(1, { type: "respondTrade", tradeId: t.room.trades[0].id, accept: true });
     const seenByBystander = buildView(t.room, t.ids[2]).highlights;
-    expect(seenByBystander.at(-1)?.text).toMatch(/trade:/);
+    expect(seenByBystander.at(-1)?.text).toMatch(/handler:/);
     const ids = seenByBystander.map(h => h.id);
     expect([...ids].sort((a, b) => a - b)).toEqual(ids);
   });

@@ -15,7 +15,7 @@ const root = path.resolve(here, "..");
 
 const port = Number(process.env.PORT ?? 3001);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
-  console.error(`Invalid PORT "${process.env.PORT}".`);
+  console.error(`Ugyldig PORT "${process.env.PORT}".`);
   process.exit(1);
 }
 const host = process.env.HOST ?? "0.0.0.0";
@@ -26,20 +26,20 @@ const corsOrigins = (process.env.CORS_ORIGIN ?? "").split(",").map(o => o.trim()
 try {
   const server = await startGameServer({ port, host, dataFile, distDir, corsOrigins });
 
-  console.log(`\n👺  Goblin Grand Parley server listening on port ${server.port}`);
-  console.log(`    Local:  http://localhost:${server.port}`);
+  console.log(`\n👺  Goblin Grand Parley-serveren kører på port ${server.port}`);
+  console.log(`    Lokalt: http://localhost:${server.port}`);
   if (host === "0.0.0.0" || host === "::") {
     const net = networkReport();
-    for (const ip of net.lan) console.log(`    LAN:    http://${ip}:${server.port}   ← share with friends on same Wi-Fi`);
+    for (const ip of net.lan) console.log(`    LAN:    http://${ip}:${server.port}   ← del med vennerne på samme Wi-Fi`);
     if (net.skipped.length) {
       console.log(`
-    ⚠️  VPN / virtual network found: ${net.skipped.map(s => `${s.adapter} (${s.ip})`).join(", ")}`);
-      console.log("        Phones on your Wi-Fi usually can't connect while a VPN is on.");
-      console.log("        Disconnect it, or turn on its \"Allow LAN connections\" setting.");
+    ⚠️  VPN / virtuelt netværk fundet: ${net.skipped.map(s => `${s.adapter} (${s.ip})`).join(", ")}`);
+      console.log("        Telefoner på dit Wi-Fi kan som regel ikke forbinde, mens en VPN er tændt.");
+      console.log("        Slå den fra, eller slå dens \"Allow LAN connections\"-indstilling til.");
     }
-    if (net.lan.length === 0) console.log("    ⚠️  No Wi-Fi/Ethernet address found — is this computer on the network?");
+    if (net.lan.length === 0) console.log("    ⚠️  Ingen Wi-Fi/Ethernet-adresse fundet — er computeren på netværket?");
   }
-  console.log(`    Saved games: ${dataFile} (${server.rooms.size} room(s) restored)\n`);
+  console.log(`    Gemte spil: ${dataFile} (${server.rooms.size} rum genskabt)\n`);
 
   let stopping = false;
   const shutdown = async () => {
@@ -52,7 +52,7 @@ try {
   process.on("SIGTERM", shutdown);
 } catch (err) {
   const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EADDRINUSE") console.error(`Port ${port} is already in use — is the server already running? Set PORT to use another port.`);
+  if (code === "EADDRINUSE") console.error(`Port ${port} er allerede i brug — kører serveren allerede? Sæt PORT for at bruge en anden port.`);
   else console.error(err);
   process.exit(1);
 }

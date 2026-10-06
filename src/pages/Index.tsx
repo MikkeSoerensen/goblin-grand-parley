@@ -35,7 +35,7 @@ export default function Index() {
   }, [error, clearError]);
 
   useEffect(() => {
-    if (lastRoll) toast(`🎲 Rolled ${lastRoll.result} (${lastRoll.reason})`);
+    if (lastRoll) toast(`🎲 Slog ${lastRoll.result} (${lastRoll.reason})`);
   }, [lastRoll]);
 
   // Auto-switch to combat tab when combat begins (mobile only),
@@ -53,12 +53,12 @@ export default function Index() {
     return (
       <main className="min-h-dvh flex items-center justify-center p-4">
         <div className="felt-table p-6 sm:p-8 text-center max-w-md">
-          <h1 className="font-display text-3xl brass-text mb-2">Connecting…</h1>
+          <h1 className="font-display text-3xl brass-text mb-2">Forbinder…</h1>
           <p className="text-muted-foreground text-sm">
-            If this hangs, the game server isn't running or this device is on a different network. On the host computer run:
+            Hænger det her, kører spilserveren ikke, eller også er enheden på et andet netværk. Kør dette på værtscomputeren:
           </p>
           <pre className="bg-black/40 rounded p-2 mt-3 text-xs font-mono text-left">npm start</pre>
-          <p className="text-xs opacity-70 mt-3">See <code>README.md</code> for LAN setup.</p>
+          <p className="text-xs opacity-70 mt-3">Se <code>README.md</code> for opsætning på netværket.</p>
         </div>
       </main>
     );
@@ -70,7 +70,7 @@ export default function Index() {
   // Shown over every screen while the socket is down; the store re-joins automatically.
   const reconnecting = !connected && (
     <div role="status" className="fixed top-0 inset-x-0 z-[60] bg-destructive text-destructive-foreground text-center text-sm font-ui py-1.5 shadow-lg">
-      Connection lost — reconnecting…
+      Forbindelsen er tabt — forbinder igen…
     </div>
   );
 
@@ -80,44 +80,44 @@ export default function Index() {
         {reconnecting}
         <div className="felt-table p-6 sm:p-8 max-w-lg w-full text-center space-y-4">
           <div>
-            <h1 className="font-display text-3xl sm:text-4xl brass-text">Waiting Room</h1>
-            <p className="text-muted-foreground">Room <b className="font-mono tracking-widest text-foreground">{roomCode}</b></p>
+            <h1 className="font-display text-3xl sm:text-4xl brass-text">Venteværelset</h1>
+            <p className="text-muted-foreground">Rum <b className="font-mono tracking-widest text-foreground">{roomCode}</b></p>
           </div>
           <JoinInfo />
           {/* House rules — anyone in the room can change them until the game starts */}
           <div className="space-y-2 text-left">
             <div>
-              <div className="text-xs font-ui opacity-70 mb-1">Play to level</div>
-              <div className="flex gap-1.5" role="radiogroup" aria-label="Play to level">
+              <div className="text-xs font-ui opacity-70 mb-1">Spil til niveau</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Spil til niveau">
                 {WIN_LEVELS.map(level => (
                   <Button key={level} size="sm" role="radio" aria-checked={view.settings.winLevel === level}
                     variant={view.settings.winLevel === level ? "default" : "secondary"}
                     onClick={() => send({ type: "updateSettings", settings: { winLevel: level } })}>
-                    {level}{level === 10 ? " (normal)" : level === 20 ? " (epic)" : ""}
+                    {level}{level === 10 ? " (normal)" : level === 20 ? " (episk)" : ""}
                   </Button>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-xs font-ui opacity-70 mb-1">Monster threat (monsters grow with the attacker's level)</div>
-              <div className="flex gap-1.5" role="radiogroup" aria-label="Monster threat">
+              <div className="text-xs font-ui opacity-70 mb-1">Monstertrussel (monstrene vokser med angriberens niveau)</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Monstertrussel">
                 {THREAT_CHOICES.map(t => (
                   <Button key={t} size="sm" role="radio" aria-checked={view.settings.threat === t}
                     variant={view.settings.threat === t ? "default" : "secondary"}
                     onClick={() => send({ type: "updateSettings", settings: { threat: t } })}>
-                    {t === "calm" ? "Calm" : t === "normal" ? "Normal" : "Brutal"}
+                    {t === "calm" ? "Rolig" : t === "normal" ? "Normal" : "Brutal"}
                   </Button>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-xs font-ui opacity-70 mb-1">Auto-pass countdown in fights</div>
-              <div className="flex gap-1.5" role="radiogroup" aria-label="Auto-pass countdown">
+              <div className="text-xs font-ui opacity-70 mb-1">Nedtælling til automatisk pas i kampe</div>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Nedtælling til automatisk pas">
                 {INTERRUPT_CHOICES.map(secs => (
                   <Button key={secs} size="sm" role="radio" aria-checked={view.settings.interruptSeconds === secs}
                     variant={view.settings.interruptSeconds === secs ? "default" : "secondary"}
                     onClick={() => send({ type: "updateSettings", settings: { interruptSeconds: secs } })}>
-                    {secs === 0 ? "Off" : `${secs}s`}
+                    {secs === 0 ? "Fra" : `${secs} sek.`}
                   </Button>
                 ))}
               </div>
@@ -126,12 +126,12 @@ export default function Index() {
           <ul className="space-y-2 text-left">
             {view.players.map(p => (
               <li key={p.id} className="bg-muted/40 rounded px-3 py-2 font-display flex justify-between">
-                <span>{p.name} {view.self?.id === p.id && "(you)"}</span>
+                <span>{p.name} {view.self?.id === p.id && "(dig)"}</span>
                 <span className="flex items-center gap-2">
                   <span className="text-xs opacity-60 font-ui" aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
                   {!p.connected && (
                     <button type="button" className="text-xs font-ui opacity-70 hover:opacity-100 hover:text-destructive"
-                      aria-label={`Remove ${p.name} (offline)`} title="Remove this offline seat"
+                      aria-label={`Fjern ${p.name} (offline)`} title="Fjern denne plads uden forbindelse"
                       onClick={() => send({ type: "removePlayer", playerId: p.id })}>✕</button>
                   )}
                 </span>
@@ -140,9 +140,9 @@ export default function Index() {
           </ul>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button size="lg" disabled={view.players.length < 2} onClick={() => send({ type: "startGame" })}>
-              {view.players.length < 2 ? "Need ≥ 2 players" : "Start Game"}
+              {view.players.length < 2 ? "Kræver mindst 2 spillere" : "Start spillet"}
             </Button>
-            <Button size="lg" variant="ghost" onClick={leaveGame}>Leave room</Button>
+            <Button size="lg" variant="ghost" onClick={leaveGame}>Forlad rummet</Button>
           </div>
         </div>
       </main>
@@ -154,11 +154,11 @@ export default function Index() {
     return (
       <main className="min-h-dvh flex items-center justify-center p-4">
         <div className="felt-table p-8 sm:p-10 text-center max-w-lg">
-          <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 Victory!</h1>
-          <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} reached Level {view.settings.winLevel}!</p>
+          <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 Sejr!</h1>
+          <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} nåede niveau {view.settings.winLevel}!</p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <Button onClick={restartGame}>🔄 Play again (same table)</Button>
-            <Button variant="ghost" onClick={leaveGame}>Leave</Button>
+            <Button onClick={restartGame}>🔄 Spil igen (samme bord)</Button>
+            <Button variant="ghost" onClick={leaveGame}>Forlad</Button>
           </div>
         </div>
       </main>
@@ -199,10 +199,10 @@ export default function Index() {
   const negotiationForMe = view.negotiations.some(n => n.toId === view.self?.id && n.status === "pending");
 
   const tabs: { id: MobileTab; label: string; icon: typeof Dices; badge?: boolean; disabled?: boolean }[] = [
-    { id: "table", label: "Table", icon: Dices, badge: isMyTurn && !inCombat },
-    { id: "hand", label: "Hand", icon: HandIcon, badge: handOverflow },
-    { id: "players", label: "Players", icon: Users, badge: view.trades.some(t => t.toId === view.self?.id) },
-    { id: "combat", label: "Combat", icon: Swords, badge: inCombat || negotiationForMe, disabled: !inCombat },
+    { id: "table", label: "Bord", icon: Dices, badge: isMyTurn && !inCombat },
+    { id: "hand", label: "Hånd", icon: HandIcon, badge: handOverflow },
+    { id: "players", label: "Spillere", icon: Users, badge: view.trades.some(t => t.toId === view.self?.id) },
+    { id: "combat", label: "Kamp", icon: Swords, badge: inCombat || negotiationForMe, disabled: !inCombat },
   ];
 
   return (
@@ -234,8 +234,8 @@ export default function Index() {
             ) : (
               <div className="felt-table p-6 text-center text-muted-foreground">
                 <Swords className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p className="font-display">No active combat.</p>
-                <p className="text-xs mt-1">This tab opens automatically when a fight starts.</p>
+                <p className="font-display">Ingen kamp i gang.</p>
+                <p className="text-xs mt-1">Fanen åbner af sig selv, når en kamp starter.</p>
               </div>
             )}
           </div>

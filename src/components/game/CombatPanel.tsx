@@ -2,7 +2,7 @@ import { useGame, send } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GameCard } from "./GameCard";
 import { useEffect, useState } from "react";
-import { hasClass, isTradable, tollPrice, tradeValue } from "../../../shared/rules";
+import { CLASS_LABEL, hasClass, isTradable, tollPrice, tradeValue, treasuresText } from "../../../shared/rules";
 import type { Card } from "../../../shared/types";
 import { Swords, HandHelping, Dice5, AlertTriangle, Zap } from "lucide-react";
 
@@ -52,8 +52,8 @@ export function CombatPanel() {
     ...[e.head, e.armor, e.feet, e.bigItem, ...e.hands, ...e.none].filter((x): x is NonNullable<typeof x> => !!x),
   ].filter(isTradable);
   const toll = tollPrice(monsterTotal);
-  const tollBlocked = c.monsters.some(m => m.antiClass) ? "Bosses can't be bought off."
-    : toll === null ? `A fight of ${monsterTotal} is too big to buy your way out of (max 16).` : null;
+  const tollBlocked = c.monsters.some(m => m.antiClass) ? "Bosser kan ikke købes fri."
+    : toll === null ? `En kamp på ${monsterTotal} er for stor til at købe sig ud af (højst 16).` : null;
   const tollPaid = myValuables.filter(x => tollPick.includes(x.id)).reduce((s, x) => s + tradeValue(x), 0);
 
   // Every class you have that has a combat ability (two with Guild Hopper).
@@ -75,12 +75,12 @@ export function CombatPanel() {
 
   const handleResolveClick = () => {
     if (!allPassed) {
-      alert("Vent lige lidt! ✋\n\nDine modstandere skal trykke 'Pass', før du kan afslutte kampen eller flygte. De har stadig deres tid til at kaste en sidste forbandelse!");
+      alert("Vent lige lidt! ✋\n\nDine modstandere skal trykke 'Pas', før du kan afslutte kampen eller flygte. De har stadig tid til at kaste en sidste forbandelse!");
       return;
     }
 
     if (!winning) {
-      const confirmRun = window.confirm("Advarsel: Monsteret er stærkere end dig!\n\nEr du sikker på, at du ikke vil bede om hjælp eller bruge flere items? Trykker du OK, accepterer du nederlaget og går direkte til at slå om at flygte (Run Away).");
+      const confirmRun = window.confirm("Advarsel: Monsteret er stærkere end dig!\n\nEr du sikker på, at du ikke vil bede om hjælp eller bruge flere items? Trykker du OK, accepterer du nederlaget og går direkte til at slå for at flygte.");
       if (confirmRun) {
         send({ type: "flee" });
       }
@@ -93,25 +93,25 @@ export function CombatPanel() {
     <div className="relative z-50 mx-auto bg-popover/95 backdrop-blur border-2 border-primary/60 shadow-glow-brass rounded-xl p-4 max-w-2xl">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-display text-xl brass-text flex items-center gap-2">
-          <Swords className="w-5 h-5"/> Combat
+          <Swords className="w-5 h-5"/> Kamp
         </h2>
         <div className="text-sm font-ui opacity-80">
-          {view.status === "waitingForInterrupts" && "Waiting for opponents to pass…"}
-          {view.status === "inCombat" && !winning && (isAttacker ? "You are losing! Ask for help or run." : `${attacker.name} is losing!`)}
-          {view.status === "inCombat" && winning && "Ready to declare victory!"}
-          {view.status === "runAwayRoll" && "Run away phase"}
+          {view.status === "waitingForInterrupts" && "Venter på, at modstanderne melder pas…"}
+          {view.status === "inCombat" && !winning && (isAttacker ? "Du taber! Bed om hjælp eller flygt." : `${attacker.name} taber!`)}
+          {view.status === "inCombat" && winning && "Klar til at erklære sejr!"}
+          {view.status === "runAwayRoll" && "Flugtfase"}
         </div>
       </div>
 
       {/* Score */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className={`rounded-lg p-3 border-2 ${winning ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}>
-          <div className="text-xs opacity-70 font-ui">Players</div>
+          <div className="text-xs opacity-70 font-ui">Spillere</div>
           <div className="font-display text-3xl brass-text">{playerTotal}</div>
           <div className="text-xs opacity-70 font-ui truncate">{attacker.name}{helper && ` + ${helper.name}`}</div>
         </div>
         <div className={`rounded-lg p-3 border-2 ${!winning ? "border-destructive bg-destructive/10" : "border-border bg-muted/30"}`}>
-          <div className="text-xs opacity-70 font-ui">Monsters</div>
+          <div className="text-xs opacity-70 font-ui">Monstre</div>
           <div className="font-display text-3xl text-destructive">{monsterTotal}</div>
           <div className="text-xs opacity-70 font-ui truncate">{c.monsters.map(m => m.name).join(", ")}</div>
         </div>
@@ -119,7 +119,7 @@ export function CombatPanel() {
 
       {/* Why the monster side is as strong as it is (threat, pack hunters, turncoats …) */}
       {c.modifiers.length > 0 && (
-        <ul className="mb-3 space-y-0.5 text-xs font-ui rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2" aria-label="Monster modifiers">
+        <ul className="mb-3 space-y-0.5 text-xs font-ui rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2" aria-label="Monsterets tillæg">
           {c.modifiers.map(m => <li key={m}>⚠️ {m}</li>)}
         </ul>
       )}
@@ -137,11 +137,11 @@ export function CombatPanel() {
       {/* Negotiation */}
       {isAttacker && !c.helperId && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
-          <div className="font-display text-sm mb-2 flex items-center gap-1"><HandHelping className="w-4 h-4"/> Ask for help</div>
+          <div className="font-display text-sm mb-2 flex items-center gap-1"><HandHelping className="w-4 h-4"/> Bed om hjælp</div>
           <div className="grid gap-1.5">
             {view.players.filter(p => p.id !== self.id && !p.isDead).map(p => (
               <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="flex-1 truncate">{p.name} (Pwr {p.combatPower})</span>
+                <span className="flex-1 truncate">{p.name} (styrke {p.combatPower})</span>
                 <input 
                   type="number" 
                   min={0} 
@@ -157,7 +157,7 @@ export function CombatPanel() {
                     setBribes(s => { const next = { ...s }; delete next[p.id]; return next; });
                   }}
                 >
-                  Offer
+                  Tilbyd
                 </Button>
                 
                 <Button size="sm" variant="ghost" className="px-2" aria-expanded={bribes[p.id] !== undefined}
@@ -166,7 +166,7 @@ export function CombatPanel() {
                     if (next[p.id] === undefined) next[p.id] = []; else delete next[p.id];
                     return next;
                   })}>
-                  + items
+                  + genstande
                 </Button>
 
                 {/* NY KNAP: Slippers of Sweet-Talking */}
@@ -177,13 +177,13 @@ export function CombatPanel() {
                     className="border-pink-500 text-pink-500 hover:bg-pink-900/40"
                     onClick={() => send({ type: "forceHelp", targetId: p.id })}
                   >
-                    💖 Force
+                    💖 Tving
                   </Button>
                 )}
                 {bribes[p.id] !== undefined && (
                   <div className="basis-full flex flex-wrap gap-1 pl-2 pb-1">
-                    <span className="text-xs opacity-70 w-full">Bribe {p.name} — paid the moment they accept, never returned:</span>
-                    {myValuables.length === 0 && <span className="text-xs italic opacity-60">You have nothing of value.</span>}
+                    <span className="text-xs opacity-70 w-full">Bestik {p.name} — betales i det øjeblik de siger ja, og gives aldrig tilbage:</span>
+                    {myValuables.length === 0 && <span className="text-xs italic opacity-60">Du har intet af værdi.</span>}
                     {myValuables.map(card => {
                       const on = bribes[p.id].includes(card.id);
                       return (
@@ -203,29 +203,29 @@ export function CombatPanel() {
       )}
       {c.contract && (
         <div className="text-xs font-ui mb-2 px-2 py-1 rounded bg-accent/20 border border-accent/40">
-          🩸 Blood Oath: helper gets {c.contract.treasures} treasure(s) — locked.
+          🩸 Blodsed: hjælperen får {treasuresText(c.contract.treasures)} — låst.
         </div>
       )}
 
       {/* Others at the table see who is bribing whom */}
       {view.negotiations.filter(n => n.toId !== self.id && n.fromId !== self.id && n.status === "pending" && n.items.length > 0).map(n => (
         <div key={n.id} className="text-xs font-ui mb-2 px-2 py-1 rounded bg-muted/40 border border-border">
-          💰 {view.players.find(p => p.id === n.fromId)?.name} is bribing {view.players.find(p => p.id === n.toId)?.name} with {n.items.map(i => i.name).join(", ")}.
+          💰 {view.players.find(p => p.id === n.fromId)?.name} bestikker {view.players.find(p => p.id === n.toId)?.name} med {n.items.map(i => i.name).join(", ")}.
         </div>
       ))}
 
       {isAttacker && (view.status === "waitingForInterrupts" || view.status === "inCombat") && (
         <div className="border-t border-border pt-3 mb-3">
-          <div className="font-display text-sm mb-1">🪙 Pay a toll</div>
+          <div className="font-display text-sm mb-1">🪙 Betal told</div>
           {tollBlocked ? (
             <p className="text-xs opacity-70 font-ui">{tollBlocked}</p>
           ) : (
             <>
               <p className="text-xs opacity-70 font-ui mb-1.5">
-                Toll for a fight of {monsterTotal}: <b>{toll}g</b>. You walk away — no levels, no treasure, no Bad Stuff. The cards are discarded.
+                Told for en kamp på {monsterTotal}: <b>{toll}g</b>. Du går din vej — ingen niveauer, ingen skatte, ingen straf. Kortene smides.
               </p>
               <div className="flex flex-wrap gap-1 mb-2">
-                {myValuables.length === 0 && <span className="text-xs italic opacity-60">You have nothing of value.</span>}
+                {myValuables.length === 0 && <span className="text-xs italic opacity-60">Du har intet af værdi.</span>}
                 {myValuables.map(card => {
                   const on = tollPick.includes(card.id);
                   return (
@@ -239,7 +239,7 @@ export function CombatPanel() {
               </div>
               <Button size="sm" variant="outline" disabled={tollPaid < (toll ?? Infinity)}
                 onClick={() => { send({ type: "payToll", cardIds: tollPick }); setTollPick([]); }}>
-                Pay {tollPaid}g / {toll}g
+                Betal {tollPaid}g / {toll}g
               </Button>
             </>
           )}
@@ -249,11 +249,11 @@ export function CombatPanel() {
       {view.negotiations.filter(n => n.toId === self.id && n.status === "pending").map(n => (
         <div key={n.id} className="border-t border-border pt-2 mb-2 flex items-center gap-2 text-sm">
           <span className="flex-1">
-            {view.players.find(p => p.id === n.fromId)?.name} offers <b>{n.treasures}</b> treasure(s)
-            {n.items.length > 0 && <> + <b>{n.items.map(i => i.name).join(", ")}</b> up front</>} for help.
+            {view.players.find(p => p.id === n.fromId)?.name} tilbyder <b>{treasuresText(n.treasures)}</b>
+            {n.items.length > 0 && <> + <b>{n.items.map(i => i.name).join(", ")}</b> på forhånd</>} for hjælp.
           </span>
-          <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Accept (Blood Oath)</Button>
-          <Button size="sm" variant="ghost" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: false })}>Decline</Button>
+          <Button size="sm" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: true })}>Sig ja (blodsed)</Button>
+          <Button size="sm" variant="ghost" onClick={() => send({ type: "respondHelp", offerId: n.id, accept: false })}>Afslå</Button>
         </div>
       ))}
 
@@ -261,7 +261,7 @@ export function CombatPanel() {
       {combatClasses.length > 0 && view.status !== "runAwayRoll" && (
         <div className="border-t border-border pt-3 mb-3">
           <div className="font-display text-sm mb-2 flex items-center gap-1 text-indigo-400">
-            <Zap className="w-4 h-4"/> {combatClasses.join(" & ")} Abilities
+            <Zap className="w-4 h-4"/> Evner: {combatClasses.map(cl => CLASS_LABEL[cl]).join(" & ")}
           </div>
           <div className="flex gap-2 flex-wrap">
             
@@ -274,18 +274,18 @@ export function CombatPanel() {
                   <Button 
                     key={m.id} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white"
                     onClick={() => {
-                      if(window.confirm(`Er du sikker på du vil kassere HELE din hånd for at Charm'e ${m.name}?`)) {
+                      if(window.confirm(`Er du sikker på, at du vil smide HELE din hånd for at fortrylle ${m.name}?`)) {
                         send({ type: "useClassAbility", ability: "charm", cardIds: [], monsterId: m.id });
                       }
                     }}
                   >
-                    🪄 Charm {m.name} (Discard Hand)
+                    🪄 Fortryl {m.name} (smid hånden)
                   </Button>
                 ));
               } else {
                 return (
                   <div className="text-xs font-ui text-muted-foreground italic">
-                    You need at least {charmCost} cards in hand to use Charm.
+                    Du skal have mindst {charmCost} kort på hånden for at fortrylle.
                   </div>
                 );
               }
@@ -296,7 +296,7 @@ export function CombatPanel() {
               const hasAxe = self.equipment.hands.some(h => h.cardId === "e-bloodaxe");
               return (
                 <div className="text-xs font-ui px-3 py-2 bg-orange-900/30 rounded border border-orange-500/30 text-orange-200">
-                  💡 <b>Berserk:</b> Click on cards in your hand to discard them for {hasAxe ? <b>+2</b> : <b>+1</b>} combat power (max 3 per combat). {hasAxe && "🪓 Axe active!"}
+                  💡 <b>Berserk:</b> Tryk på kort på din hånd for at smide dem for {hasAxe ? <b>+2</b> : <b>+1</b>} kampstyrke hver (højst 3 pr. kamp). {hasAxe && "🪓 Øksen er aktiv!"}
                 </div>
               );
             })()}
@@ -304,7 +304,7 @@ export function CombatPanel() {
             {/* Thief: Backstab (Guide-tekst) */}
             {hasClass(self, "Thief") && (
               <div className="text-xs font-ui px-3 py-2 bg-indigo-900/30 rounded border border-indigo-500/30">
-                💡 <b>Backstab:</b> Click on a card in your hand to discard it and give {attacker.name} -2 in combat.
+                💡 <b>Dolk i ryggen:</b> Tryk på et kort på din hånd for at smide det og give {attacker.name} −2 i kampen.
               </div>
             )}
 
@@ -318,14 +318,14 @@ export function CombatPanel() {
         {/* Pass Knap */}
         {canPass && view.status !== "runAwayRoll" && (
           <Button size="sm" variant={myPass ? "secondary" : "default"} onClick={() => send({ type: "pass" })} className={!myPass ? "pulse-glow" : ""}>
-            {myPass ? "✓ Passed" : "Pass"}
+            {myPass ? "✓ Meldt pas" : "Pas"}
           </Button>
         )}
 
         {/* NY KNAP: d-swapping (Steal from helper) */}
         {hasSwapping && isAttacker && c.helperId && !c.swapUsed && (
           <Button size="sm" variant="outline" className="border-blue-500 text-blue-400 hover:bg-blue-900/40" onClick={() => send({ type: "suddenSwap" })}>
-            🔄 Steal Card from Helper
+            🔄 Stjæl kort fra hjælperen
           </Button>
         )}
         
@@ -333,15 +333,15 @@ export function CombatPanel() {
         {isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant={winning ? "default" : "destructive"} onClick={handleResolveClick}>
             {winning 
-              ? (allPassed ? "🎉 Finish & Win!" : "Attempt to Win") 
-              : <><AlertTriangle className="w-4 h-4 mr-1"/> {allPassed ? "Accept Defeat" : "Attempt to Flee"}</>}
+              ? (allPassed ? "🎉 Afslut og vind!" : "Prøv at vinde") 
+              : <><AlertTriangle className="w-4 h-4 mr-1"/> {allPassed ? "Accepter nederlaget" : "Prøv at flygte"}</>}
           </Button>
         )}
 
         {/* NY KNAP: d-cowards (Insta-Flee) */}
         {hasCowards && isAttacker && (view.status === "inCombat" || view.status === "waitingForInterrupts") && (
           <Button size="sm" variant="outline" className="border-purple-500 text-purple-400 hover:bg-purple-900/40" onClick={() => send({ type: "cowardlyFlee" })}>
-            🐔 Cowardly Flee (Instant)
+            🐔 Flygt som en kujon (straks)
           </Button>
         )}
 
@@ -352,19 +352,19 @@ export function CombatPanel() {
             {/* A loyal companion can cover your escape */}
             {self.companion?.sacrificable && !c.ranAway?.includes(self.id) && (
               <Button size="sm" variant="outline" className="w-fit border-lime-400 text-lime-300" onClick={() => send({ type: "sacrificeCompanion" })}>
-                🫡 Sacrifice {self.companion.name} to escape
+                🫡 Ofr {self.companion.name} for at slippe væk
               </Button>
             )}
 
             {/* Standard Run Away */}
             <Button size="sm" variant="destructive" className="w-fit" onClick={() => send({ type: "runAway" })}>
-              <Dice5 className="w-4 h-4 mr-1"/> Roll to Run Away
+              <Dice5 className="w-4 h-4 mr-1"/> Slå for at flygte
             </Button>
             
             {/* NY MENU: d-chaos (Advantage Reroll) */}
             {hasChaos && self.hand.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 bg-purple-900/20 p-2 rounded border border-purple-500/30">
-                <span className="text-xs text-purple-300 font-bold px-1 w-full sm:w-auto">🌪️ Chaos Reroll (Discard to roll twice):</span>
+                <span className="text-xs text-purple-300 font-bold px-1 w-full sm:w-auto">🌪️ Kaos-omslag (smid et kort og slå to gange):</span>
                 {self.hand.map(c => (
                   <Button 
                     key={c.id} 
@@ -373,7 +373,7 @@ export function CombatPanel() {
                     className="h-6 text-[10px] px-2 border-purple-500/50 hover:bg-purple-500/20" 
                     onClick={() => send({ type: "runAway", discardId: c.id })}
                   >
-                    Discard {c.name}
+                    Smid {c.name}
                   </Button>
                 ))}
               </div>
@@ -382,13 +382,13 @@ export function CombatPanel() {
         )}
         
         <div className="flex-1 text-right text-xs opacity-70 font-ui self-center mt-2 w-full">
-          Pass votes: {passCount}/{expectedPasses}
+          Meldt pas: {passCount}/{expectedPasses}
         </div>
         {countdown !== null && view.status === "waitingForInterrupts" && view.settings.interruptSeconds > 0 && (
-          <div className="w-full mt-1" role="timer" aria-label={`${Math.ceil(countdown / 1000)} seconds until everyone passes`}>
+          <div className="w-full mt-1" role="timer" aria-label={`${Math.ceil(countdown / 1000)} sekunder til alle melder pas`}>
             <div className="flex justify-between text-[11px] font-ui opacity-70 mb-0.5">
-              <span>Auto-pass in</span>
-              <span>{Math.ceil(countdown / 1000)}s</span>
+              <span>Automatisk pas om</span>
+              <span>{Math.ceil(countdown / 1000)} sek.</span>
             </div>
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <div

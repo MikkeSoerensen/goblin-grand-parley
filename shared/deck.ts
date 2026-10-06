@@ -2,8 +2,9 @@ import type {
   Card, MonsterCard, EquipmentCard, CurseCard, OneShotCard, EnhancerCard,
   GoUpLevelCard, BadStuffKind, Slot, ClassCard, WanderingMonsterCard, MateCard,
   PortalCard, DungeonCard, MonsterTag, RaceCard, RaceName, DualCard, ForgedPapersCard,
-  RemedyCard, CompanionCard, PlayerEffect,
+  RemedyCard, CompanionCard, PlayerEffect, ClassName,
 } from "./types";
+import { CLASS_LABEL, RACE_LABEL } from "./rules";
 
 let _id = 0;
 const uid = () => `c${++_id}`;
@@ -21,9 +22,9 @@ export const MONSTER_TAGS: Readonly<Record<string, MonsterTag[]>> = {
 
 // Big monsters that don't bother with weak players: at or below this level you escape automatically.
 export const MONSTER_IGNORES: Readonly<Record<string, number>> = {
-  "m-rat": 5,    // Cinderwyrm the Unfed
-  "m-bull": 4,   // The Furnace Bull
-  "m-dragon": 4, // The Bog Kraken
+  "m-rat": 5,    // Glødeormen den Umættelige
+  "m-bull": 4,   // Essetyren
+  "m-dragon": 4, // Mosekrakenen
 };
 
 // ---------- helpers ----------
@@ -41,7 +42,7 @@ const monster = (
 
 const equipment = (
   cardId: string, name: string, bonus: number, goldValue: number, slot: Slot, isBig = false, copies = 1, flavor?: string,
-  classReq?: "Warrior" | "Cleric" | "Thief" | "Wizard" // <--- NY
+  classReq?: ClassName // <--- NY
 ): EquipmentCard[] => Array.from({ length: copies }, () => ({
   id: uid(), cardId, name, type: "equipment", deck: "treasure",
   bonus, goldValue, slot, isBig, flavor, classReq // <--- NY
@@ -49,12 +50,12 @@ const equipment = (
 
 const wanderingMonster = (copies = 1): WanderingMonsterCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId: "c-wandering", name: "Uninvited Guest", type: "wandering-monster", deck: "door", flavor: "Play this card along with a Monster from your hand to add it to any combat."
+    id: uid(), cardId: "c-wandering", name: "Ubuden Gæst", type: "wandering-monster", deck: "door", flavor: "Spil kortet sammen med et monster fra din hånd for at sende det ind i en hvilken som helst kamp."
   }));
 
 const mate = (copies = 1): MateCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId: "c-mate", name: "Evil Twin", type: "mate", deck: "door", flavor: "Duplicates a monster in combat!"
+    id: uid(), cardId: "c-mate", name: "Ond Tvilling", type: "mate", deck: "door", flavor: "Kopierer et monster i kampen!"
   }));
 
 const portal = (cardId: string, name: string, effectText: string, copies = 1): PortalCard[] =>
@@ -77,14 +78,14 @@ const oneShot = (cardId: string, name: string, bonus: number, goldValue: number,
     id: uid(), cardId, name, type: "oneshot", deck: "treasure", bonus, goldValue, target, flavor,
   }));
 
-  const classCard = (cardId: string, name: "Warrior" | "Cleric" | "Thief" | "Wizard", effectText: string, copies = 1): ClassCard[] =>
+const classCard = (cardId: string, className: ClassName, effectText: string, copies = 1): ClassCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId, name, type: "class", deck: "door", className: name, effectText,
+    id: uid(), cardId, name: CLASS_LABEL[className], type: "class", deck: "door", className, effectText,
   }));
 
 const race = (cardId: string, raceName: RaceName, effectText: string, copies = 2): RaceCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId, name: raceName, type: "race", deck: "door", raceName, effectText,
+    id: uid(), cardId, name: RACE_LABEL[raceName], type: "race", deck: "door", raceName, effectText,
   }));
 
 const dual = (cardId: string, name: string, dualKind: DualCard["dualKind"], effectText: string): DualCard[] =>
@@ -92,18 +93,19 @@ const dual = (cardId: string, name: string, dualKind: DualCard["dualKind"], effe
 
 const forgedPapers = (copies: number): ForgedPapersCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId: "t-forged-papers", name: "Forged Guild Papers", type: "forged-papers", deck: "treasure", goldValue: 0,
-    effectText: "Play as you equip an item: ignore its class requirement (and other 'only'/'not usable by' rules). The papers stay with the item.",
+    id: uid(), cardId: "t-forged-papers", name: "Forfalskede Laugspapirer", type: "forged-papers", deck: "treasure", goldValue: 0,
+    effectText: "Spil kortet, når du tager en genstand på: Se bort fra dens klassekrav (og andre 'kun'/'kan ikke bruges af'-regler). Papirerne bliver hos genstanden.",
   }));
 
 // A curse that sticks: it puts a lasting effect on the victim.
+export const CURSE_PREFIX = "Forbandelse! ";
 const lingeringCurse = (cardId: string, name: string, effect: Omit<PlayerEffect, "id" | "sourceCardId" | "name">, effectText: string, copies: number): CurseCard[] =>
-  curse(cardId, name, { kind: "addEffect", effect: { ...effect, name: name.replace(/^Curse! /, ""), sourceCardId: cardId } }, effectText, copies);
+  curse(cardId, name, { kind: "addEffect", effect: { ...effect, name: name.replace(CURSE_PREFIX, ""), sourceCardId: cardId } }, effectText, copies);
 
 const remedy = (copies: number): RemedyCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId: "t-ring", name: "Ring of Second Chances", type: "remedy", deck: "treasure", goldValue: 300,
-    effectText: "Play any time: remove one lasting effect (a curse that sticks) from ANY player.",
+    id: uid(), cardId: "t-ring", name: "Andenchancens Ring", type: "remedy", deck: "treasure", goldValue: 300,
+    effectText: "Spil når som helst: Fjern én vedvarende effekt (en forbandelse, der hænger ved) fra en VILKÅRLIG spiller.",
   }));
 
 const companion = (cardId: string, name: string, stats: Pick<CompanionCard, "bonus" | "runBonus" | "sacrificable" | "upkeep" | "goldValue">, effectText: string, copies: number): CompanionCard[] =>
@@ -116,7 +118,7 @@ const enhancer = (cardId: string, name: string, bonus: number, goldValue: number
 
 const goUp = (copies: number): GoUpLevelCard[] =>
   Array.from({ length: copies }, () => ({
-    id: uid(), cardId: "go-up", name: "Level Up!", type: "go-up-a-level", deck: "treasure", goldValue: 0,
+    id: uid(), cardId: "go-up", name: "Op i Niveau!", type: "go-up-a-level", deck: "treasure", goldValue: 0,
   }));
 
 // ---------- DOOR DECK (~70) ----------
@@ -124,146 +126,146 @@ export const buildDoorDeck = (): Card[] => {
   const cards: Card[] = [];
 
   // Monsters (~50)
-  cards.push(...monster("m-rat", "Cinderwyrm the Unfed",  20, 5, 2, { kind: "death" }, "You die. Horribly.", 1));
-  cards.push(...monster("m-king", "The Tax-Collector Lich",          16, 4, 2, { kind: "loseAllItems" }, "Lose all items.", 1));
-  cards.push(...monster("m-bull", "The Furnace Bull",       18, 4, 2, { kind: "death" }, "You are squished. Dead.", 1));
-  cards.push(...monster("m-undead", "Bone Stallion",    14, 3, 2, { kind: "loseLevel", amount: 2 }, "Lose 2 levels.", 1));
-  cards.push(...monster("m-wraith", "The Grave Twins",  14, 3, 2, { kind: "loseLevel", amount: 2 }, "Lose 2 levels.", 1));
-  cards.push(...monster("m-shrieker", "The Howling Scribe",12, 3, 2, { kind: "loseItem", slot: "head" }, "Lose your head item.", 1));
-  cards.push(...monster("m-dragon", "The Bog Kraken",      18, 4, 2, { kind: "death" }, "Dragged to a watery grave.", 1));
-  cards.push(...monster("m-troll", "Stone Golem",      14, 2, 2, { kind: "loseItem", slot: "armor" }, "Your armor crumbles.", 2));
-  cards.push(...monster("m-vamp",  "Vampire",          12, 2, 2, { kind: "loseLevel", amount: 1 }, "Drained. Lose 1 level.", 2));
-  cards.push(...monster("m-mummy", "Mummy",            12, 2, 1, { kind: "loseItem", slot: "biggest" }, "Lose biggest item.", 2));
-  cards.push(...monster("m-troll2","Gossip Demon",     12, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
-  cards.push(...monster("m-flying","Leaping Bog Toads",     10, 2, 1, { kind: "loseItem", slot: "feet" }, "Lose your footgear.", 2));
-  cards.push(...monster("m-orc",   "Pickpocket Imps",          10, 2, 1, { kind: "loseItem", slot: "any" }, "Lose any one item.", 2));
-  cards.push(...monster("m-floating","Hovering Hex-Eye",   10, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
-  cards.push(...monster("m-pit",   "Dungeon Mastiff",          8, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your boots off.", 3));
-  cards.push(...monster("m-large", "Furious Cave Rooster", 2, 1, 1, { kind: "loseLevel", amount: 1 }, "Pecked. Lose 1 level.", 3));
-  cards.push(...monster("m-net",   "Toll Troll",         8, 2, 1, { kind: "loseLevel", amount: 1 }, "Lose 1 level.", 2));
-  cards.push(...monster("m-amazon","Shieldmaiden Raider",           8, 2, 1, { kind: "loseHandItems" }, "Lose all hand items.", 1));
-  cards.push(...monster("m-leper", "Coin Sprite",        4, 1, 1, { kind: "loseItem", slot: "any" }, "Steals one item.", 2));
-  cards.push(...monster("m-snails","Rabid Rat",          1, 1, 1, { kind: "loseLevel", amount: 1 }, "Bitten. Lose 1 level.", 3));
-  cards.push(...monster("m-flat",  "Flying Squirrel",   2, 1, 1, { kind: "loseItem", slot: "head" }, "Knocks your hat off.", 2));
-  cards.push(...monster("m-gaze",  "Haunted Outhouse",           8, 2, 1, { kind: "loseLevel", amount: 1 }, "Architectural trauma.", 2));
-  cards.push(...monster("m-bigfoot","Cave Yeti",         12, 2, 1, { kind: "loseItem", slot: "head" }, "Lose your head item.", 1));
-  cards.push(...monster("m-laser","Laser Spider",       6, 1, 1, { kind: "loseLevel", amount: 1 }, "Pew pew. Lose a level.", 2));
-  cards.push(...monster("m-clown","Clown Prince",      14, 3, 2, { kind: "loseAllItems" }, "Honked to nakedness.", 1));
-  cards.push(...monster("m-baby", "Baby Goblins",      4, 1, 1, { kind: "loseLevel", amount: 1 }, "Surprisingly fierce.", 3));
+  cards.push(...monster("m-rat", "Glødeormen den Umættelige", 20, 5, 2, { kind: "death" }, "Du dør. Grusomt.", 1));
+  cards.push(...monster("m-king", "Skatteopkræver-Lichen",   16, 4, 2, { kind: "loseAllItems" }, "Mist alle dine genstande.", 1));
+  cards.push(...monster("m-bull", "Essetyren",               18, 4, 2, { kind: "death" }, "Du bliver mast. Død.", 1));
+  cards.push(...monster("m-undead", "Knoglehingsten",        14, 3, 2, { kind: "loseLevel", amount: 2 }, "Mist 2 niveauer.", 1));
+  cards.push(...monster("m-wraith", "Gravtvillingerne",      14, 3, 2, { kind: "loseLevel", amount: 2 }, "Mist 2 niveauer.", 1));
+  cards.push(...monster("m-shrieker", "Den Hylende Skriver", 12, 3, 2, { kind: "loseItem", slot: "head" }, "Mist din hovedbeklædning.", 1));
+  cards.push(...monster("m-dragon", "Mosekrakenen",          18, 4, 2, { kind: "death" }, "Trukket ned i en våd grav.", 1));
+  cards.push(...monster("m-troll", "Stengolem",              14, 2, 2, { kind: "loseItem", slot: "armor" }, "Din rustning smuldrer.", 2));
+  cards.push(...monster("m-vamp",  "Vampyr",                 12, 2, 2, { kind: "loseLevel", amount: 1 }, "Suget tør. Mist 1 niveau.", 2));
+  cards.push(...monster("m-mummy", "Mumie",                  12, 2, 1, { kind: "loseItem", slot: "biggest" }, "Mist din største genstand.", 2));
+  cards.push(...monster("m-troll2","Sladderdæmonen",         12, 2, 1, { kind: "loseLevel", amount: 1 }, "Mist 1 niveau.", 2));
+  cards.push(...monster("m-flying","Springende Mosetudser",  10, 2, 1, { kind: "loseItem", slot: "feet" }, "Mist dit fodtøj.", 2));
+  cards.push(...monster("m-orc",   "Lommetyvsnisser",        10, 2, 1, { kind: "loseItem", slot: "any" }, "Mist én genstand.", 2));
+  cards.push(...monster("m-floating","Det Svævende Heksøje", 10, 2, 1, { kind: "loseLevel", amount: 1 }, "Mist 1 niveau.", 2));
+  cards.push(...monster("m-pit",   "Fangehulsmastiffen",      8, 1, 1, { kind: "loseItem", slot: "feet" }, "Den bider dine støvler af.", 3));
+  cards.push(...monster("m-large", "Rasende Hulehane",        2, 1, 1, { kind: "loseLevel", amount: 1 }, "Hakket. Mist 1 niveau.", 3));
+  cards.push(...monster("m-net",   "Bomtrolden",              8, 2, 1, { kind: "loseLevel", amount: 1 }, "Mist 1 niveau.", 2));
+  cards.push(...monster("m-amazon","Plyndrende Skjoldmø",     8, 2, 1, { kind: "loseHandItems" }, "Mist alt, hvad du har i hænderne.", 1));
+  cards.push(...monster("m-leper", "Møntnissen",              4, 1, 1, { kind: "loseItem", slot: "any" }, "Stjæler én genstand.", 2));
+  cards.push(...monster("m-snails","Gal Rotte",               1, 1, 1, { kind: "loseLevel", amount: 1 }, "Bidt. Mist 1 niveau.", 3));
+  cards.push(...monster("m-flat",  "Flyvende Egern",          2, 1, 1, { kind: "loseItem", slot: "head" }, "Slår din hat af.", 2));
+  cards.push(...monster("m-gaze",  "Det Hjemsøgte Lokum",     8, 2, 1, { kind: "loseLevel", amount: 1 }, "Arkitektonisk traume.", 2));
+  cards.push(...monster("m-bigfoot","Huleyetien",            12, 2, 1, { kind: "loseItem", slot: "head" }, "Mist din hovedbeklædning.", 1));
+  cards.push(...monster("m-laser","Laseredderkop",            6, 1, 1, { kind: "loseLevel", amount: 1 }, "Piu piu. Mist 1 niveau.", 2));
+  cards.push(...monster("m-clown","Klovneprinsen",           14, 3, 2, { kind: "loseAllItems" }, "Dyttet helt nøgen.", 1));
+  cards.push(...monster("m-baby", "Goblinunger",              4, 1, 1, { kind: "loseLevel", amount: 1 }, "Overraskende vilde.", 3));
 
 // --- ANTI-CLASS BOSSES ---
   cards.push(...monster(
-    "m-anti-warrior", "The Iron Juggernaut", 14, 3, 1,  //Monster level, treasures og level den giver 
+    "m-anti-warrior", "Jernkolossen", 14, 3, 1,  //Monster level, treasures og level den giver
     { kind: "loseClassAndLevels", amount: 2 },  //Mister levels
-    "It crushes your martial pride and your skull! Lose your Class card AND lose 2 Levels!", 
+    "Den knuser din krigerstolthed og dit kranie! Mist dit klassekort OG 2 niveauer!",
     2, undefined, { className: "Warrior", bonus: 5 } // Bonus imod warrior
   ));
 
   cards.push(...monster(
-    "m-anti-thief", "The All-Seeing Sphinx", 12, 3, 1, 
-    { kind: "loseClassAndHand" }, 
-    "It sees through every shadow and trick. Lose your Class card AND discard ALL cards in your hand.", 
+    "m-anti-thief", "Den Altseende Sfinks", 12, 3, 1,
+    { kind: "loseClassAndHand" },
+    "Den ser igennem alle skygger og tricks. Mist dit klassekort OG smid ALLE kort på din hånd.",
     2, undefined, { className: "Thief", bonus: 5 }
   ));
 
   cards.push(...monster(
-    "m-anti-cleric", "The Heretic Archfiend", 16, 4, 2, 
-    { kind: "loseLevelsOrDie", amount: 2, threshold: 2 }, 
-    "Feeds on righteous anger. Lose 2 Levels (or die instantly if you are Level 2 or below).", 
+    "m-anti-cleric", "Kætternes Ærkedæmon", 16, 4, 2,
+    { kind: "loseLevelsOrDie", amount: 2, threshold: 2 },
+    "Lever af retfærdig vrede. Mist 2 niveauer (eller dø med det samme, hvis du er niveau 2 eller lavere).",
     2, undefined, { className: "Cleric", bonus: 5 }
   ));
 
   cards.push(...monster(
-    "m-anti-wizard", "The Arcane Devourer", 14, 3, 1, 
-    { kind: "loseHandEquipAndLevel", amount: 1 }, 
-    "Feeds purely on magical energy. Discard your entire hand, all your equipped items, AND lose 1 Level!", 
+    "m-anti-wizard", "Den Magiske Fortærer", 14, 3, 1,
+    { kind: "loseHandEquipAndLevel", amount: 1 },
+    "Lever af ren magi. Smid hele din hånd og alle dine påtagne genstande, OG mist 1 niveau!",
     2, undefined, { className: "Wizard", bonus: 5 }, true // <--- true = IMMUNE TO CHARM!
   ));
 
   // --- ELITE MONSTERS: built to make the table work together (or against each other) ---
-  cards.push(...monster("m-wolfpack", "Alpha Wolf Pack", 10, 3, 1, { kind: "loseLevel", amount: 2 },
-    "Mauled. Lose 2 levels.", 2, "Pack hunter: +6 while you fight alone. Get a friend.")
+  cards.push(...monster("m-wolfpack", "Alfa-ulveflokken", 10, 3, 1, { kind: "loseLevel", amount: 2 },
+    "Flænset. Mist 2 niveauer.", 2, "Flokjæger: +6 når du kæmper alene. Find en ven.")
     .map(c => ({ ...c, packHunter: 6 })));
-  cards.push(...monster("m-bounty", "The Bounty Hunter", 12, 3, 2, { kind: "loseItem", slot: "biggest" },
-    "Collects your best item as payment.", 2, "Hunts the leader: +6 if the attacker has the highest level.")
+  cards.push(...monster("m-bounty", "Dusørjægeren", 12, 3, 2, { kind: "loseItem", slot: "biggest" },
+    "Tager din bedste genstand som betaling.", 2, "Jager føreren: +6 hvis angriberen har det højeste niveau.")
     .map(c => ({ ...c, huntsLeader: 6 })));
-  cards.push(...monster("m-hydra", "The Hydra of Grudges", 18, 5, 2, { kind: "everyoneLosesLevel", amount: 1 },
-    "If you fail to escape, EVERY player loses a level.", 1, "Everyone has a stake in this fight."));
-  cards.push(...monster("m-siren", "The Siren of Broken Oaths", 14, 3, 2, { kind: "loseLevel", amount: 2 },
-    "Lose 2 levels.", 1, "Siren's call: anyone who joins as helper rolls a die — on 1-3 they switch sides and fight for the monster.")
+  cards.push(...monster("m-hydra", "Nagets Hydra", 18, 5, 2, { kind: "everyoneLosesLevel", amount: 1 },
+    "Slipper du ikke væk, mister ALLE spillere et niveau.", 1, "Alle har noget på spil i denne kamp."));
+  cards.push(...monster("m-siren", "Sirenen over Brudte Eder", 14, 3, 2, { kind: "loseLevel", amount: 2 },
+    "Mist 2 niveauer.", 1, "Sirenens kald: Den, der melder sig som hjælper, slår med en terning — på 1-3 skifter de side og kæmper for monsteret.")
     .map(c => ({ ...c, sirenCall: true })));
-  cards.push(...monster("m-gob-warlord", "Goblin Warlord", 14, 4, 2, { kind: "death" },
-    "Executed by the horde. You die.", 1, "Commands the swarm: +2 for every other goblin in the fight.")
+  cards.push(...monster("m-gob-warlord", "Goblin-krigsherren", 14, 4, 2, { kind: "death" },
+    "Henrettet af horden. Du dør.", 1, "Leder sværmen: +2 for hver anden goblin i kampen.")
     .map(c => ({ ...c, swarmBonus: 2 })));
 
   // Goblin Swarm!
-  cards.push(...monster("m-gob-grunt", "Goblin Grunt", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Whacked with a stick. Lose 1 level.", 6)); 
-  cards.push(...monster("m-gob-archer", "Goblin Archer", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "An arrow to the knee. Lose your armor.", 3));
-  cards.push(...monster("m-gob-cripple", "Toe-Biter Goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "It bites your toes. Lose your footgear.", 2));
-  cards.push(...monster("m-gob-king", "Goblin King", 8, 2, 1, { kind: "death" }, "The king demands your head. You die.", 2));
+  cards.push(...monster("m-gob-grunt", "Goblinsoldat", 1, 1, 1, { kind: "loseLevel", amount: 1 }, "Tævet med en pind. Mist 1 niveau.", 6));
+  cards.push(...monster("m-gob-archer", "Goblin-bueskytte", 2, 1, 1, { kind: "loseItem", slot: "armor" }, "En pil i knæet. Mist din rustning.", 3));
+  cards.push(...monster("m-gob-cripple", "Tåbider-goblin", 1, 1, 1, { kind: "loseItem", slot: "feet" }, "Den bider dig i tæerne. Mist dit fodtøj.", 2));
+  cards.push(...monster("m-gob-king", "Goblinkongen", 8, 2, 1, { kind: "death" }, "Kongen kræver dit hoved. Du dør.", 2));
 
   // Curses (~14)
-  cards.push(...curse("c-loseItem", "Curse! Lose Your Armor", { kind: "loseItem", slot: "armor" }, "Discard your armor.", 2));
-  cards.push(...curse("c-loseHead", "Curse! Lose Your Headgear", { kind: "loseItem", slot: "head" }, "Discard your head item.", 2));
-  cards.push(...curse("c-loseFeet", "Curse! Lose Your Footgear", { kind: "loseItem", slot: "feet" }, "Discard your foot item.", 1));
-  cards.push(...curse("c-loseHand", "Curse! Lose a Small Item", { kind: "loseItem", slot: "hand" }, "Discard one hand item.", 2));
-  cards.push(...curse("c-loseBig",  "Curse! Lose Your Big Item", { kind: "loseItem", slot: "bigItem" }, "Discard your Big item.", 1));
-  cards.push(...curse("c-level1",   "Curse! Lose a Level", { kind: "loseLevel", amount: 1 }, "Demoted.", 3));
-  cards.push(...curse("c-level2",   "Curse! Goblin Tax Audit", { kind: "loseLevel", amount: 1 }, "The taxman cometh.", 2));
-  cards.push(...curse("c-loseAny",  "Curse! Greedy Mirror", { kind: "loseItem", slot: "any" }, "Lose any one item.", 1));
+  cards.push(...curse("c-loseItem", "Forbandelse! Mist din rustning", { kind: "loseItem", slot: "armor" }, "Smid din rustning.", 2));
+  cards.push(...curse("c-loseHead", "Forbandelse! Mist din hovedbeklædning", { kind: "loseItem", slot: "head" }, "Smid din hovedbeklædning.", 2));
+  cards.push(...curse("c-loseFeet", "Forbandelse! Mist dit fodtøj", { kind: "loseItem", slot: "feet" }, "Smid dit fodtøj.", 1));
+  cards.push(...curse("c-loseHand", "Forbandelse! Mist en lille genstand", { kind: "loseItem", slot: "hand" }, "Smid én genstand, du holder i hånden.", 2));
+  cards.push(...curse("c-loseBig",  "Forbandelse! Mist din store genstand", { kind: "loseItem", slot: "bigItem" }, "Smid din store genstand.", 1));
+  cards.push(...curse("c-level1",   "Forbandelse! Mist et niveau", { kind: "loseLevel", amount: 1 }, "Degraderet. Mist 1 niveau.", 3));
+  cards.push(...curse("c-level2",   "Forbandelse! Goblin-skatterevision", { kind: "loseLevel", amount: 1 }, "Skattefar banker på. Mist 1 niveau.", 2));
+  cards.push(...curse("c-loseAny",  "Forbandelse! Det Grådige Spejl", { kind: "loseItem", slot: "any" }, "Mist én genstand.", 1));
 
   // --- Modbydelige Curses ---
-  cards.push(...curse("c-amnesia", "Curse! Amnesia", { kind: "loseClass" }, "You forget who you are. Lose your Class.", 2));
-  cards.push(...curse("c-robin-hood", "Curse! Robin Hood's Revenge", { kind: "robinHood" }, "Give your most expensive equipped item to the player with the lowest level.", 2));
+  cards.push(...curse("c-amnesia", "Forbandelse! Hukommelsestab", { kind: "loseClass" }, "Du glemmer, hvem du er. Mist din klasse.", 2));
+  cards.push(...curse("c-robin-hood", "Forbandelse! Robin Hoods Hævn", { kind: "robinHood" }, "Giv din dyreste påtagne genstand til spilleren med det laveste niveau.", 2));
 
   // Classes
-  cards.push(...classCard("c-warrior", "Warrior", "You win ties in combat. You may discard up to 3 cards for +1 bonus each in combat.", 3));
-  cards.push(...classCard("c-cleric", "Cleric", "Resurrection: at the start of your turn, instead of kicking open the door, discard a card to take the top card of the Door discard pile.", 3));
-  cards.push(...classCard("c-thief", "Thief", "+1 to Run Away. You may backstab another player in combat (discard a card for them to get -2). You may try to steal small items (succeeds on 3+).", 3));
-  cards.push(...classCard("c-wizard", "Wizard", "Charm Spell: Discard your hand (min 3 cards) to defeat a monster instantly.", 3));
+  cards.push(...classCard("c-warrior", "Warrior", "Du vinder ved uafgjort i kamp. Du må smide op til 3 kort for +1 hver i kamp.", 3));
+  cards.push(...classCard("c-cleric", "Cleric", "Genopstandelse: I starten af din tur kan du, i stedet for at sparke døren ind, smide et kort og tage det øverste kort fra dørenes kassebunke.", 3));
+  cards.push(...classCard("c-thief", "Thief", "+1 på flugt. Du må dolke en anden spiller i ryggen i kamp (smid et kort, så får de −2). Du må forsøge at stjæle små genstande (lykkes på 3+).", 3));
+  cards.push(...classCard("c-wizard", "Wizard", "Fortryllelse: Smid din hånd (mindst 3 kort) for at besejre et monster med det samme.", 3));
 
   // Races
-  cards.push(...race("r-goblin", "Goblin", "Swarm Caller: once per fight, play a Goblin monster from your hand into ANY fight. Home Turf: +3 in Goblin Land."));
-  cards.push(...race("r-elf", "Elf", "+1 to Run Away. Go up a level when you help a HIGHER-level player win a fight (never to the winning level)."));
-  cards.push(...race("r-dwarf", "Dwarf", "Carry any number of Big items, and get +1 in combat per Big item worn (max +3). You may keep 6 cards at Charity instead of 5."));
-  cards.push(...race("r-halfling", "Halfling", "Once per turn, the most valuable item in a sale counts double."));
-  cards.push(...curse("c-identity", "Curse! Identity Crisis", { kind: "loseRace" }, "Lose your race (your second race first, if you have two).", 1));
+  cards.push(...race("r-goblin", "Goblin", "Sværmkalder: Én gang pr. kamp må du spille et goblin-monster fra din hånd ind i ENHVER kamp. Hjemmebane: +3 i Goblinland."));
+  cards.push(...race("r-elf", "Elf", "+1 på flugt. Gå et niveau op, når du hjælper en spiller med HØJERE niveau med at vinde en kamp (aldrig til vindertrinnet)."));
+  cards.push(...race("r-dwarf", "Dwarf", "Bær så mange store genstande, du vil, og få +1 i kamp pr. stor genstand, du har på (højst +3). Du må beholde 6 kort ved velgørenhed i stedet for 5."));
+  cards.push(...race("r-halfling", "Halfling", "Én gang pr. tur tæller den mest værdifulde genstand i et salg dobbelt."));
+  cards.push(...curse("c-identity", "Forbandelse! Identitetskrise", { kind: "loseRace" }, "Mist dit folk (dit andet folk først, hvis du har to).", 1));
 
   // --- Curses that stick (until removed by a Ring of Second Chances or a Cleric) ---
-  cards.push(...lingeringCurse("c-goblin-head", "Curse! Goblin on Your Head", { kind: "dicePenalty", amount: 1, expires: "afterCombatWin" },
-    "A goblin moves in on your head: −1 on every die roll until you win a fight.", 2));
-  cards.push(...lingeringCurse("c-butterfingers", "Curse! Butterfingers", { kind: "combatPenalty", amount: 2, expires: "afterNextCombat" },
-    "−2 in your next fight.", 2));
-  cards.push(...lingeringCurse("c-pariah", "Curse! Social Pariah", { kind: "noHelp", amount: 1, expires: "afterNextCombat" },
-    "Nobody can help you in your next fight.", 1));
-  cards.push(...lingeringCurse("c-coin-purse", "Curse! Cursed Coin Purse", { kind: "halfSellValue", amount: 1, expires: "permanent" },
-    "Your items sell for half until removed.", 1));
+  cards.push(...lingeringCurse("c-goblin-head", "Forbandelse! Goblin på hovedet", { kind: "dicePenalty", amount: 1, expires: "afterCombatWin" },
+    "En goblin flytter ind på dit hoved: −1 på alle terningslag, indtil du vinder en kamp.", 2));
+  cards.push(...lingeringCurse("c-butterfingers", "Forbandelse! Smørfingre", { kind: "combatPenalty", amount: 2, expires: "afterNextCombat" },
+    "−2 i din næste kamp.", 2));
+  cards.push(...lingeringCurse("c-pariah", "Forbandelse! Udstødt", { kind: "noHelp", amount: 1, expires: "afterNextCombat" },
+    "Ingen kan hjælpe dig i din næste kamp.", 1));
+  cards.push(...lingeringCurse("c-coin-purse", "Forbandelse! Den Forheksede Pung", { kind: "halfSellValue", amount: 1, expires: "permanent" },
+    "Dine genstande sælges for halv pris, indtil forbandelsen fjernes.", 1));
 
   // Two of a kind
-  cards.push(...dual("d-guild-hopper", "Guild Hopper", "class", "Keep this in play: you may have two classes at once. Losing a class takes the newest one first."));
-  cards.push(...dual("d-mixed-heritage", "Mixed Heritage", "race", "Keep this in play: you may have two races at once. Losing a race takes the newest one first."));
+  cards.push(...dual("d-guild-hopper", "Laugshopperen", "class", "Behold kortet i spil: Du må have to klasser på én gang. Mister du en klasse, går den nyeste først."));
+  cards.push(...dual("d-mixed-heritage", "Blandet Blod", "race", "Behold kortet i spil: Du må tilhøre to folk på én gang. Mister du et folk, går det nyeste først."));
 
   // --- COUNTERWEIGHT MONSTERS: more player power means meaner fights ---
-  cards.push(...monster("m-gob-raiders", "Goblin Raiding Party", 6, 2, 1, { kind: "loseItem", slot: "any" },
-    "They make off with one of your items.", 2, "Ambush: when kicked open, the next Door card joins the fight if it's a monster.")
+  cards.push(...monster("m-gob-raiders", "Goblin-plyndringstogtet", 6, 2, 1, { kind: "loseItem", slot: "any" },
+    "De stikker af med en af dine genstande.", 2, "Baghold: Når den sparkes ind, slutter det næste dørkort sig til kampen, hvis det er et monster.")
     .map(c => ({ ...c, ambush: true })));
-  cards.push(...monster("m-bandits", "Highway Bandits", 8, 2, 1, { kind: "loseItem", slot: "biggest" },
-    "They take your most valuable-looking item.", 1, "Ambush: when kicked open, the next Door card joins the fight if it's a monster.")
+  cards.push(...monster("m-bandits", "Landevejsrøverne", 8, 2, 1, { kind: "loseItem", slot: "biggest" },
+    "De tager den genstand, der ser mest værdifuld ud.", 1, "Baghold: Når den sparkes ind, slutter det næste dørkort sig til kampen, hvis det er et monster.")
     .map(c => ({ ...c, ambush: true })));
-  cards.push(...monster("m-skeletons", "Skeleton Legion", 6, 2, 1, { kind: "loseLevel", amount: 1 },
-    "Lose 1 level.", 2, "Horde: +3 for every other monster in the fight.")
+  cards.push(...monster("m-skeletons", "Skeletlegionen", 6, 2, 1, { kind: "loseLevel", amount: 1 },
+    "Mist 1 niveau.", 2, "Horde: +3 for hvert andet monster i kampen.")
     .map(c => ({ ...c, hordeBonus: 3 })));
-  cards.push(...monster("m-elf-eater", "The Elf-Eater", 12, 3, 1, { kind: "loseLevel", amount: 2 },
-    "Lose 2 levels.", 1, "Hates Elves: +5 if an Elf is fighting it.")
+  cards.push(...monster("m-elf-eater", "Elverslugeren", 12, 3, 1, { kind: "loseLevel", amount: 2 },
+    "Mist 2 niveauer.", 1, "Hader elvere: +5 hvis en Elver kæmper mod den.")
     .map(c => ({ ...c, antiRace: { raceName: "Elf" as const, bonus: 5 } })));
-  cards.push(...monster("m-mithril-wyrm", "Mithril Wyrm", 14, 3, 2, { kind: "loseItem", slot: "bigItem" },
-    "It hoards your Big item.", 1, "Hates Dwarves: +5 if a Dwarf is fighting it.")
+  cards.push(...monster("m-mithril-wyrm", "Mithril-lindormen", 14, 3, 2, { kind: "loseItem", slot: "bigItem" },
+    "Den lægger din store genstand i sin skattebunke.", 1, "Hader dværge: +5 hvis en Dværg kæmper mod den.")
     .map(c => ({ ...c, antiRace: { raceName: "Dwarf" as const, bonus: 5 } })));
-  cards.push(...monster("m-hound", "The Halfling Hound", 8, 2, 1, { kind: "loseItem", slot: "feet" },
-    "It runs off with your footgear.", 1, "Hates Halflings: +5 if a Halfling is fighting it.")
+  cards.push(...monster("m-hound", "Halvlingehunden", 8, 2, 1, { kind: "loseItem", slot: "feet" },
+    "Den løber med dit fodtøj.", 1, "Hader halvlinger: +5 hvis en Halvling kæmper mod den.")
     .map(c => ({ ...c, antiRace: { raceName: "Halfling" as const, bonus: 5 } })));
-  cards.push(...monster("m-gob-slayer", "The Goblin Slayer", 12, 3, 2, { kind: "loseLevel", amount: 2 },
-    "Lose 2 levels.", 1, "Hates Goblins: +6 if a Goblin is fighting it.")
+  cards.push(...monster("m-gob-slayer", "Goblindræberen", 12, 3, 2, { kind: "loseLevel", amount: 2 },
+    "Mist 2 niveauer.", 1, "Hader gobliner: +6 hvis en Goblin kæmper mod den.")
     .map(c => ({ ...c, antiRace: { raceName: "Goblin" as const, bonus: 6 } })));
 
   // Special Cards
@@ -271,9 +273,9 @@ export const buildDoorDeck = (): Card[] => {
   cards.push(...mate(2));
 
   // Portaler
-  cards.push(...portal("p-open", "Open a Portal", "Draw a Dungeon card and add it to the active Dungeons. Then kick open another door.", 6));
-  cards.push(...portal("p-close", "Close a Portal", "Discard one active Dungeon card of your choice. Then kick open another door.", 3));
-  cards.push(...portal("p-swap", "Dimensional Shift", "Discard all active Dungeon cards and draw a new one. Then kick open another door.", 3));
+  cards.push(...portal("p-open", "Åbn en Portal", "Træk et fangehulskort og læg det til de aktive fangehuller. Spark derefter en ny dør ind.", 6));
+  cards.push(...portal("p-close", "Luk en Portal", "Smid det nyeste aktive fangehul. Spark derefter en ny dør ind.", 3));
+  cards.push(...portal("p-swap", "Dimensionsskift", "Smid alle aktive fangehuller og træk et nyt. Spark derefter en ny dør ind.", 3));
   return cards;
 };
 
@@ -282,97 +284,97 @@ export const buildTreasureDeck = (): Card[] => {
   const cards: Card[] = [];
 
   // Equipment — head
-  cards.push(...equipment("e-helm", "Helm of Many Horns",        1, 600, "head", false, 2));
-  cards.push(...equipment("e-pointy", "Tall Hat of Hexing", 3, 400, "head", false, 1));
-  cards.push(...equipment("e-bandana", "Headband of Hubris", 1, 300, "head", false, 2));
-  cards.push(...equipment("e-spiky", "Spiked Skullcap",         1, 200, "head", false, 1));
+  cards.push(...equipment("e-helm", "Mangehornshjelmen",     1, 600, "head", false, 2));
+  cards.push(...equipment("e-pointy", "Den Høje Heksehat",   3, 400, "head", false, 1));
+  cards.push(...equipment("e-bandana", "Overmodets Pandebånd", 1, 300, "head", false, 2));
+  cards.push(...equipment("e-spiky", "Den Piggede Kalot",    1, 200, "head", false, 1));
 
   // Equipment — armor
-  cards.push(...equipment("e-leather", "Leather Armor",     2, 400, "armor", false, 2));
-  cards.push(...equipment("e-chain",   "Chainmail",         2, 600, "armor", false, 1));
-  cards.push(...equipment("e-platemail","Plate Armor",      4, 1100, "armor", true, 1));
-  cards.push(...equipment("e-flaming", "Ember Mail",     3, 800, "armor", false, 1));
+  cards.push(...equipment("e-leather", "Læderrustning",      2, 400, "armor", false, 2));
+  cards.push(...equipment("e-chain",   "Ringbrynje",         2, 600, "armor", false, 1));
+  cards.push(...equipment("e-platemail","Pladerustning",     4, 1100, "armor", true, 1));
+  cards.push(...equipment("e-flaming", "Glødebrynjen",       3, 800, "armor", false, 1));
 
   // Equipment — feet
-  cards.push(...equipment("e-boots",   "Door-Kicking Boots", 2, 400, "feet", false, 2));
-  cards.push(...equipment("e-stomping","Iron-Shod Stompers",    3, 700, "feet", true, 1));
+  cards.push(...equipment("e-boots",   "Dørsparkerstøvler",  2, 400, "feet", false, 2));
+  cards.push(...equipment("e-stomping","Jernbeslåede Trampere", 3, 700, "feet", true, 1));
 
   // Equipment — hands (single)
-  cards.push(...equipment("e-sword",   "Gossiping Sword", 2, 400, "hand", false, 2));
-  cards.push(...equipment("e-dagger",  "Sneaky Dagger",     1, 300, "hand", false, 3));
-  cards.push(...equipment("e-mace",    "Mace of Mild Menace", 3, 600, "hand", false, 1));
-  cards.push(...equipment("e-shield",  "Bag of Angry Bees",   2, 0, "hand", false, 1));
-  cards.push(...equipment("e-wand",    "Wand of Fizzling",   2, 300, "hand", false, 1));
+  cards.push(...equipment("e-sword",   "Sladdersværdet",     2, 400, "hand", false, 2));
+  cards.push(...equipment("e-dagger",  "Snigdolken",         1, 300, "hand", false, 3));
+  cards.push(...equipment("e-mace",    "Den Mildt Truende Stridskølle", 3, 600, "hand", false, 1));
+  cards.push(...equipment("e-shield",  "Pose med Vrede Bier", 2, 0, "hand", false, 1));
+  cards.push(...equipment("e-wand",    "Fuserstaven",        2, 300, "hand", false, 1));
 
   // Equipment — two-handed
-  cards.push(...equipment("e-bow",     "Bow of Bad Intentions",  4, 800, "twoHands", false, 1));
-  cards.push(...equipment("e-staff",   "Staff of Wildfire",   5, 800, "twoHands", true, 1));
-  cards.push(...equipment("e-broad",   "Goblin Cleaver",       3, 400, "twoHands", false, 1));
+  cards.push(...equipment("e-bow",     "Buen med Onde Hensigter", 4, 800, "twoHands", false, 1));
+  cards.push(...equipment("e-staff",   "Løbeildsstaven",     5, 800, "twoHands", true, 1));
+  cards.push(...equipment("e-broad",   "Goblin-kløveren",    3, 400, "twoHands", false, 1));
 
   // Equipment — big
-  cards.push(...equipment("e-anvil",   "Boulder on a Rope",         3, 0, "bigItem", true, 1));
-  cards.push(...equipment("e-ladder",  "Bagpipes of Persuasion",     3, 300, "bigItem", true, 1));
+  cards.push(...equipment("e-anvil",   "Kampesten i Reb",    3, 0, "bigItem", true, 1));
+  cards.push(...equipment("e-ladder",  "Overtalelsens Sækkepibe", 3, 300, "bigItem", true, 1));
 
   // --- Skøre Våben & Snyde-Items ---
-  cards.push(...equipment("e-two-hand-sword", "Two-Handed Sword... of One-Handedness", 4, 400, "hand", false, 1, "It's big, but strangely light. Only takes 1 hand!"));
-  cards.push(...equipment("e-boots-run", "Boots of Hasty Retreat", 0, 400, "feet", false, 1, "Gives +2 to all your Run Away rolls."));
-  cards.push(...equipment("e-kneepads", "Slippers of Sweet-Talking", 0, 600, "feet", false, 1, "Not usable by Warriors. Force any player to help you in combat!"));
+  cards.push(...equipment("e-two-hand-sword", "Tohåndssværdet... til Én Hånd", 4, 400, "hand", false, 1, "Det er stort, men underligt let. Fylder kun 1 hånd!"));
+  cards.push(...equipment("e-boots-run", "Støvler til Hastig Retræte", 0, 400, "feet", false, 1, "Giver +2 på alle dine flugtslag."));
+  cards.push(...equipment("e-kneepads", "Smigrende Tøfler", 0, 600, "feet", false, 1, "Kan ikke bruges af krigere. Tving en vilkårlig spiller til at hjælpe dig i kamp!"));
 
   // --- CLASS UNIQUE EQUIPMENT ---
   // Warrior
-  cards.push(...equipment("e-bloodaxe", "The Berserker's Bloodaxe", 3, 800, "twoHands", false, 2, "Your Berserk ability gives +2 per card instead of +1!", "Warrior"));
-  cards.push(...equipment("e-blood-plate", "Blood-Spattered Plate", 3, 600, "armor", false, 2, "Gives +3 extra bonus if fighting more than 1 monster.", "Warrior"));
-  
+  cards.push(...equipment("e-bloodaxe", "Berserkerens Blodøkse", 3, 800, "twoHands", false, 2, "Din Berserk-evne giver +2 pr. kort i stedet for +1!", "Warrior"));
+  cards.push(...equipment("e-blood-plate", "Blodplettet Pladerustning", 3, 600, "armor", false, 2, "Giver +3 ekstra, når du kæmper mod mere end 1 monster.", "Warrior"));
+
   // Thief
-  cards.push(...equipment("e-shadow-cloak", "Cloak of Shadows", 3, 600, "armor", false, 2, "Gives +1 to all Run Away rolls.", "Thief"));
-  cards.push(...equipment("e-lockpicks", "Master Thief's Lockpicks", 2, 500, "hand", false, 2, "Your Steal ability succeeds on a roll of 2-6.", "Thief"));
-  
+  cards.push(...equipment("e-shadow-cloak", "Skyggekappen", 3, 600, "armor", false, 2, "Giver +1 på alle flugtslag.", "Thief"));
+  cards.push(...equipment("e-lockpicks", "Mestertyvens Dirke", 2, 500, "hand", false, 2, "Dit tyveri lykkes på et slag på 2-6.", "Thief"));
+
   // Cleric
-  cards.push(...equipment("e-martyr-mace", "Mace of the Martyr", 4, 700, "hand", false, 2, "Gives +3 extra bonus when helping another player.", "Cleric"));
-  cards.push(...equipment("e-halo", "Halo of Righteousness", 3, 600, "head", false, 2, "If you would die, discard this instead. You survive with everything else.", "Cleric"));
-  
+  cards.push(...equipment("e-martyr-mace", "Martyrens Stridskølle", 4, 700, "hand", false, 2, "Giver +3 ekstra, når du hjælper en anden spiller.", "Cleric"));
+  cards.push(...equipment("e-halo", "Retfærdighedens Glorie", 3, 600, "head", false, 2, "Skulle du dø, smider du i stedet denne. Du overlever med alt andet.", "Cleric"));
+
   // Wizard
-  cards.push(...equipment("e-spell-amulet", "Amulet of Spell Reflection", 2, 500, "none", false, 2, "Immune to face-up Curses drawn from the door deck.", "Wizard"));
-  cards.push(...equipment("e-archmage-staff", "Staff of the Archmage", 4, 800, "twoHands", false, 2, "Your Charm spell only costs 2 cards instead of 3.", "Wizard"));
+  cards.push(...equipment("e-spell-amulet", "Besværgelsesspejlets Amulet", 2, 500, "none", false, 2, "Immun over for forbandelser, der trækkes med billedsiden op fra dørbunken.", "Wizard"));
+  cards.push(...equipment("e-archmage-staff", "Ærkemagerens Stav", 4, 800, "twoHands", false, 2, "Din Fortryllelse koster kun 2 kort i stedet for 3.", "Wizard"));
 
   // One-shots
-  cards.push(...oneShot("o-potion-h", "Goblin Breath Tonic", 2, 100, "monster", 2));
-  cards.push(...oneShot("o-potion-i", "Pop-Up Barricade",        3, 300, "either", 1));
-  cards.push(...oneShot("o-flaming",  "Firebomb Flask",3, 100, "monster", 2));
-  cards.push(...oneShot("o-shouting", "Bottled Battle Cry",  3, 100, "monster", 1));
-  cards.push(...oneShot("o-yuppie",   "Overpriced Spa Water",        2, 200, "monster", 1));
-  cards.push(...oneShot("o-magic",    "Spark Bolt Scroll",       5, 300, "monster", 1));
-  cards.push(...oneShot("o-loaded",   "Lucky Knucklebone",          1, 100, "ally", 2));
+  cards.push(...oneShot("o-potion-h", "Goblinånde-eliksir",  2, 100, "monster", 2));
+  cards.push(...oneShot("o-potion-i", "Pop-op-barrikade",    3, 300, "either", 1));
+  cards.push(...oneShot("o-flaming",  "Brandbombeflaske",    3, 100, "monster", 2));
+  cards.push(...oneShot("o-shouting", "Kampråb på Flaske",   3, 100, "monster", 1));
+  cards.push(...oneShot("o-yuppie",   "Overpriset Kurbadsvand", 2, 200, "monster", 1));
+  cards.push(...oneShot("o-magic",    "Gnistlyn-skriftrulle", 5, 300, "monster", 1));
+  cards.push(...oneShot("o-loaded",   "Lykkeknoglen",        1, 100, "ally", 2));
 
   // Tag-weapons: much stronger against the right kind of monster
-  cards.push(...oneShot("o-holy-water", "Holy Water", 2, 200, "ally", 2, "+5 instead of +2 when fighting an Undead monster.")
+  cards.push(...oneShot("o-holy-water", "Helligvand", 2, 200, "ally", 2, "+5 i stedet for +2, når du kæmper mod et udødt monster.")
     .map(c => ({ ...c, tagBonus: { tag: "undead" as const, bonus: 5 } })));
-  cards.push(...oneShot("o-goblin-repellent", "Goblin Repellent", 1, 100, "ally", 2, "+4 instead of +1 when fighting a Goblin.")
+  cards.push(...oneShot("o-goblin-repellent", "Goblinskræmmer", 1, 100, "ally", 2, "+4 i stedet for +1, når du kæmper mod en goblin.")
     .map(c => ({ ...c, tagBonus: { tag: "goblin" as const, bonus: 4 } })));
 
   // --- Trolling Potions ---
-  cards.push(...oneShot("o-friendship", "Truce Tea", 0, 300, "ally", 1, "Play during any combat. The combat ends immediately. No levels or treasure are awarded."));
-  cards.push(...oneShot("o-flask-glue", "Pot of Sticky Sap", 0, 100, "ally", 1, "Play when someone is trying to run away. They automatically fail their roll!"));
-  
+  cards.push(...oneShot("o-friendship", "Våbenhvile-te", 0, 300, "ally", 1, "Spil under en hvilken som helst kamp. Kampen slutter med det samme. Ingen niveauer eller skatte uddeles."));
+  cards.push(...oneShot("o-flask-glue", "Krukke med Klistret Harpiks", 0, 100, "ally", 1, "Spil, når nogen prøver at flygte. Deres slag mislykkes automatisk!"));
+
   // Enhancers (added to monster level — typically negative for player to weaken,
   //   but stored as positive bonus — opponents play to strengthen monster)
-  cards.push(...enhancer("h-ancient",  "Elder",  +5, 200, 2));
-  cards.push(...enhancer("h-enraged",  "Furious",  +5, 100, 2));
-  cards.push(...enhancer("h-humongous","Colossal",+10, 300, 1));
-  cards.push(...enhancer("h-baby",     "Runty",     -5, 100, 1));   // weakens monster (good for attacker)
-  cards.push(...enhancer("h-intelligent","Cunning", +5, 200, 1));
+  cards.push(...enhancer("h-ancient",  "Ældgammel", +5, 200, 2));
+  cards.push(...enhancer("h-enraged",  "Rasende",   +5, 100, 2));
+  cards.push(...enhancer("h-humongous","Kolossal",  +10, 300, 1));
+  cards.push(...enhancer("h-baby",     "Pjevset",   -5, 100, 1));   // weakens monster (good for attacker)
+  cards.push(...enhancer("h-intelligent","Snedig",  +5, 200, 1));
 
   // Cheat!
   cards.push(...forgedPapers(2));
 
   // Second chances and loyal (or not so loyal) companions
   cards.push(...remedy(2));
-  cards.push(...companion("t-lackey", "Goblin Lackey", { bonus: 1, runBonus: 0, sacrificable: true, upkeep: false, goldValue: 200 },
-    "+1 in combat. While running away, sacrifice the Lackey to escape automatically.", 2));
-  cards.push(...companion("t-boar", "Battle Boar", { bonus: 2, runBonus: 1, sacrificable: false, upkeep: false, goldValue: 400 },
-    "+2 in combat and +1 to Run Away.", 1));
-  cards.push(...companion("t-mercenary", "Greedy Mercenary", { bonus: 4, runBonus: 0, sacrificable: false, upkeep: true, goldValue: 0 },
-    "+4 in combat. At the end of each of your turns he takes your cheapest card as pay — with an empty hand, he leaves.", 1));
+  cards.push(...companion("t-lackey", "Goblin-lakajen", { bonus: 1, runBonus: 0, sacrificable: true, upkeep: false, goldValue: 200 },
+    "+1 i kamp. Under en flugt kan du ofre lakajen for automatisk at slippe væk.", 2));
+  cards.push(...companion("t-boar", "Kampgalten", { bonus: 2, runBonus: 1, sacrificable: false, upkeep: false, goldValue: 400 },
+    "+2 i kamp og +1 på flugt.", 1));
+  cards.push(...companion("t-mercenary", "Den Grådige Lejesoldat", { bonus: 4, runBonus: 0, sacrificable: false, upkeep: true, goldValue: 0 },
+    "+4 i kamp. Ved slutningen af hver af dine ture tager han dit billigste kort som løn — er din hånd tom, går han.", 1));
 
   // Go up a level
   cards.push(...goUp(5));
@@ -383,28 +385,28 @@ export const buildTreasureDeck = (): Card[] => {
 // ---------- DUNGEON DECK ---------- // Note: Default er at der 1 kopi af hver, men det kan ændres ved skrive ", 2" eller lignende efter beskrivelsen.
 export const buildDungeonDeck = (): Card[] => {
   const cards: Card[] = [];
-  cards.push(...dungeon("d-elven", "Dungeon of Elvish Excess", "All players get +1 to their Run Away rolls."));
-  cards.push(...dungeon("d-curses", "Dungeon of Comprehensive Curses", "Curses drawn face-up affect ALL players."));
-  cards.push(...dungeon("d-martial", "Dungeon of Martial Arts", "All monsters have +2 Level.",));
-  cards.push(...dungeon("d-wealth", "Dungeon of Unexpected Wealth", "Defeating a monster grants +1 extra Treasure.",));
-  cards.push(...dungeon("d-feeble", "Dungeon of Feeble Foes", "All monsters are -5 Level (minimum Level 1)."));
-  cards.push(...dungeon("d-misanthropy", "Dungeon of Misanthropic Misery", "No one can ask for help in combat! Everyone fights alone."));
-  cards.push(...dungeon("d-bribery", "Dungeon of Blatant Bribery", "You must offer at least 2 treasures when asking for help in combat."));
-  cards.push(...dungeon("d-poultry", "Dungeon of Profuse Poultry", "Everyone has a chicken on their head! -1 to all Run Away rolls."));
-  cards.push(...dungeon("d-lavish", "Dungeon of Lavish Loot", "Items sell for double their printed gold value!"));
-  cards.push(...dungeon("d-chaos", "Dungeon of Chaotic Combat", "Fighters may discard a card to re-roll the Run Away die once per combat."));
-  cards.push(...dungeon("d-generous", "Dungeon of Generous Goblins", "When Looting the Room (face-down), draw 2 Door cards instead of 1."));
-  cards.push(...dungeon("d-charity", "Dungeon of Compulsory Charity", "At the end of your turn, you must give to Charity if you have 4 or more cards (instead of 5)."));
-  cards.push(...dungeon("d-cowards", "Dungeon of Cowardly Combat", "Players may choose to automatically fail their combat and Run Away without asking for help."));
-  cards.push(...dungeon("d-undead", "Dungeon of the Unrelenting Undead", "Any player may play a Monster card into any combat WITHOUT needing a Uninvited Guest card."));
-  cards.push(...dungeon("d-thieves", "Dungeon of Thieving Thugs", "Thieves get +2 to their steal rolls (rolls of 2-6 succeed)."));
-  cards.push(...dungeon("d-clipping", "Dungeon of Coupon Clipping", "All items are worth 100g less when selling (a 400g item counts as 300g)."));
-  cards.push(...dungeon("d-swapping", "Dungeon of Sudden Swaps", "Before resolving combat, the attacker may randomly steal 1 card from their helper's hand."));
-  cards.push(...dungeon("d-healing", "Dungeon of Heavenly Healing", "When you resurrect a card (Cleric), draw an extra face-down Door card as a bonus."));
-  cards.push(...dungeon("d-doom", "Dungeon of Impending Doom", "If you die in this dungeon, you lose 2 Levels instead of keeping your level."));
-  cards.push(...dungeon("d-poverty", "Dungeon of Pathetic Poverty", "You cannot sell items for levels while this Dungeon is active."));
-  cards.push(...dungeon("d-goblin", "Dungeon: Goblin Land", "All monsters with the 'Goblin' tag get +3 to their combat strength!"));
-  cards.push(...dungeon("d-infinite", "Dungeon: Dimension of Hoarding", "There is no hand size limit! The Charity phase is completely skipped."));
+  cards.push(...dungeon("d-elven", "Fangehullet med Elvisk Overflod", "Alle spillere får +1 på deres flugtslag."));
+  cards.push(...dungeon("d-curses", "Fangehullet med Grundige Forbandelser", "Forbandelser, der trækkes med billedsiden op, rammer ALLE spillere."));
+  cards.push(...dungeon("d-martial", "Kampsportens Fangehul", "Alle monstre får +2 niveau.",));
+  cards.push(...dungeon("d-wealth", "Fangehullet med Uventet Rigdom", "Når du besejrer et monster, får du 1 ekstra skat.",));
+  cards.push(...dungeon("d-feeble", "Fangehullet med Svage Fjender", "Alle monstre får −5 niveau (mindst niveau 1)."));
+  cards.push(...dungeon("d-misanthropy", "Menneskehadets Fangehul", "Ingen kan bede om hjælp i kamp! Alle kæmper alene."));
+  cards.push(...dungeon("d-bribery", "Fangehullet med Åbenlys Bestikkelse", "Du skal tilbyde mindst 2 skatte, når du beder om hjælp i kamp."));
+  cards.push(...dungeon("d-poultry", "Fangehullet med Fjerkræ i Massevis", "Alle har en høne på hovedet! −1 på alle flugtslag."));
+  cards.push(...dungeon("d-lavish", "Fangehullet med Ødsel Plyndring", "Genstande sælges for det dobbelte af deres trykte guldværdi!"));
+  cards.push(...dungeon("d-chaos", "Kaoskampens Fangehul", "Kæmpere må smide et kort for at slå flugtterningen om én gang pr. kamp."));
+  cards.push(...dungeon("d-generous", "De Gavmilde Gobliners Fangehul", "Når du ransager rummet (billedsiden nedad), trækker du 2 dørkort i stedet for 1."));
+  cards.push(...dungeon("d-charity", "Den Tvungne Velgørenheds Fangehul", "Ved slutningen af din tur skal du give til velgørenhed, hvis du har 4 kort eller flere (i stedet for 5)."));
+  cards.push(...dungeon("d-cowards", "Kujonernes Fangehul", "Spillere må vælge at opgive kampen med det samme og flygte uden at bede om hjælp."));
+  cards.push(...dungeon("d-undead", "Det Ustoppelige Fangehul", "Enhver spiller må spille et monsterkort ind i enhver kamp UDEN et Ubuden Gæst-kort."));
+  cards.push(...dungeon("d-thieves", "Tyvebandernes Fangehul", "Tyve får +2 på deres tyveri-slag (slag på 2-6 lykkes)."));
+  cards.push(...dungeon("d-clipping", "Rabatklippernes Fangehul", "Alle genstande er 100g mindre værd ved salg (en genstand til 400g tæller som 300g)."));
+  cards.push(...dungeon("d-swapping", "De Pludselige Byttes Fangehul", "Før kampen afgøres, må angriberen stjæle 1 tilfældigt kort fra sin hjælpers hånd."));
+  cards.push(...dungeon("d-healing", "Den Himmelske Helbredelses Fangehul", "Når du genopliver et kort (Præst), trækker du et ekstra dørkort med billedsiden nedad som bonus."));
+  cards.push(...dungeon("d-doom", "Den Truende Undergangs Fangehul", "Dør du i dette fangehul, mister du 2 niveauer i stedet for at beholde dit niveau."));
+  cards.push(...dungeon("d-poverty", "Den Ynkelige Fattigdoms Fangehul", "Du kan ikke sælge genstande for niveauer, mens dette fangehul er aktivt."));
+  cards.push(...dungeon("d-goblin", "Fangehul: Goblinland", "Alle monstre med mærket 'Goblin' får +3 til deres kampstyrke!"));
+  cards.push(...dungeon("d-infinite", "Fangehul: Hamstringens Dimension", "Der er ingen grænse for, hvor mange kort du må have på hånden! Velgørenhedsfasen springes helt over."));
   return cards;
 };
 

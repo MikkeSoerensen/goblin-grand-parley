@@ -100,7 +100,7 @@ describe("B8 winning level", () => {
     expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 20 } }).error).toBeNull();
     expect(buildView(l.room, l.ids[1]).settings.winLevel).toBe(20);
     handleAction(l.room, l.ids[0], { type: "startGame" });
-    expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 10 } }).error).toMatch(/locked/);
+    expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 10 } }).error).toMatch(/låst/);
   });
 
   it("caps selling and Level Up! one below the goal, and only combat wins", () => {
@@ -130,7 +130,7 @@ describe("B8 winning level", () => {
   it("rejects invalid settings at the protocol and engine level", () => {
     const l = lobby(2);
     // @ts-expect-error — deliberately invalid
-    expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 12 } }).error).toMatch(/Invalid/);
+    expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 12 } }).error).toMatch(/Ugyldig/);
   });
 });
 

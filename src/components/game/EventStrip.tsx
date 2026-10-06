@@ -41,7 +41,7 @@ export function EventStrip() {
     <div
       role="log"
       aria-live="polite"
-      aria-label="Table events"
+      aria-label="Begivenheder ved bordet"
       className="pointer-events-none fixed z-[55] top-2 inset-x-2 md:inset-x-auto md:right-4 md:top-4 md:w-96 flex flex-col gap-1.5"
     >
       {visible.map(h => (

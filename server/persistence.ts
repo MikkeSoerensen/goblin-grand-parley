@@ -4,9 +4,9 @@
 import { promises as fs, renameSync, writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 
-import { buildAllDecks, MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
+import { buildAllDecks, CURSE_PREFIX, MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
 import { DEFAULT_SETTINGS, type Card } from "../shared/types.js";
-import { emptyStats, type Room } from "./engine.js";
+import { emptyStats, TWIN_PREFIX, type Room } from "./engine.js";
 
 const SNAPSHOT_VERSION = 1;
 const ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000; // rooms untouched for a week are dropped
@@ -54,7 +54,12 @@ const renameCards = (node: unknown) => {
   const o = node as Record<string, unknown>;
   if (typeof o.cardId === "string" && typeof o.name === "string" && typeof o.type === "string") {
     const name = catalogName(o.cardId);
-    if (name) o.name = /^(Mate|Evil Twin) of /.test(o.name) ? `Evil Twin of ${name}` : name;
+    if (name) o.name = /^(Mate of |Evil Twin of |Ond Tvilling af )/.test(o.name) ? `${TWIN_PREFIX}${name}` : name;
+  }
+  // A lasting curse carries the curse's name (without the "Forbandelse! " prefix).
+  if (typeof o.sourceCardId === "string" && typeof o.name === "string" && typeof o.kind === "string") {
+    const name = catalogName(o.sourceCardId);
+    if (name) o.name = name.replace(CURSE_PREFIX, "");
   }
   Object.values(o).forEach(renameCards);
 };
@@ -91,10 +96,10 @@ const migrateRoom = (r: Room) => {
 // Restored players start offline; they come back via their session token.
 export const deserializeRooms = (json: string, now = Date.now()): Map<string, Room> => {
   const data: unknown = JSON.parse(json);
-  if (typeof data !== "object" || data === null) throw new Error("Snapshot is not an object.");
+  if (typeof data !== "object" || data === null) throw new Error("Øjebliksbilledet er ikke et objekt.");
   const snap = data as Partial<Snapshot>;
-  if (snap.version !== SNAPSHOT_VERSION) throw new Error(`Unsupported snapshot version ${String(snap.version)}.`);
-  if (!Array.isArray(snap.rooms)) throw new Error("Snapshot has no rooms array.");
+  if (snap.version !== SNAPSHOT_VERSION) throw new Error(`Ukendt version af øjebliksbilledet: ${String(snap.version)}.`);
+  if (!Array.isArray(snap.rooms)) throw new Error("Øjebliksbilledet har ingen liste over rum.");
 
   const rooms = new Map<string, Room>();
   for (const r of snap.rooms) {

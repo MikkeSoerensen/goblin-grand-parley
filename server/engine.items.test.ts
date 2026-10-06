@@ -39,7 +39,7 @@ describe("class-restricted equipment", () => {
     const t = startedTable(2);
     const axe = equipment(3, 800, "twoHands", { cardId: "e-bloodaxe", classReq: "Warrior" });
     t.player(0).hand.push(axe);
-    expect(t.act(0, { type: "equip", cardId: axe.id })).toMatch(/Only a Warrior/);
+    expect(t.act(0, { type: "equip", cardId: axe.id })).toMatch(/Kun en Kriger/);
     t.player(0).playerClass = cls("Warrior");
     expect(t.act(0, { type: "equip", cardId: axe.id })).toBeNull();
   });
@@ -136,7 +136,7 @@ describe("item powers", () => {
     p.equipment.hands.push(equipment(4, 800, "twoHands", { cardId: "e-archmage-staff" }));
     const devourer = fight(t, 14, { immuneToCharm: true });
     p.hand.push(oneShot(1), oneShot(1));
-    expect(t.act(0, { type: "useClassAbility", ability: "charm", cardIds: [], monsterId: devourer.id })).toMatch(/IMMUNE/);
+    expect(t.act(0, { type: "useClassAbility", ability: "charm", cardIds: [], monsterId: devourer.id })).toMatch(/IMMUN/);
     const goblin = monster(1);
     t.room.combat!.monsters.push(goblin);
     expect(t.act(0, { type: "useClassAbility", ability: "charm", cardIds: [], monsterId: goblin.id })).toBeNull();
@@ -210,7 +210,7 @@ describe("trolling potions", () => {
     fight(t, 20);
     const glue = potion("o-flask-glue");
     t.player(1).hand.push(glue);
-    expect(t.act(1, { type: "playCard", cardId: glue.id, targetId: t.ids[1] })).toMatch(/fighting/);
+    expect(t.act(1, { type: "playCard", cardId: glue.id, targetId: t.ids[1] })).toMatch(/kæmper/);
     expect(t.act(1, { type: "playCard", cardId: glue.id, targetId: t.ids[0] })).toBeNull();
     passAll(t);
     t.act(0, { type: "resolveCombat" });
@@ -257,10 +257,10 @@ describe("newer dungeons and curses", () => {
     fight(t, 1);
     withHelper(t);
     t.player(1).hand.push(oneShot(1), oneShot(2));
-    expect(t.act(1, { type: "suddenSwap" })).toMatch(/Only the attacker/);
+    expect(t.act(1, { type: "suddenSwap" })).toMatch(/Kun angriberen/);
     expect(t.act(0, { type: "suddenSwap" })).toBeNull();
     expect(t.player(0).hand).toHaveLength(1);
-    expect(t.act(0, { type: "suddenSwap" })).toMatch(/already/);
+    expect(t.act(0, { type: "suddenSwap" })).toMatch(/allerede/);
   });
 
   it("Robin Hood gives the most valuable equipped item to the lowest level opponent", () => {

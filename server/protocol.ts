@@ -12,12 +12,12 @@ const schema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("join"),
     name,
-    roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Room code must be 1-12 letters or digits."),
+    roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Rumkoden skal være 1-12 bogstaver eller tal."),
     token: z.string().min(1).max(128).optional(),
   }),
   z.object({
     type: z.literal("watch"),
-    roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Room code must be 1-12 letters or digits."),
+    roomCode: z.string().trim().regex(/^[A-Za-z0-9]{1,12}$/, "Rumkoden skal være 1-12 bogstaver eller tal."),
   }),
   z.object({ type: z.literal("startGame") }),
   z.object({ type: z.literal("kickDoor") }),
@@ -90,5 +90,5 @@ export const parseClientMessage = (raw: unknown): ParseResult => {
   const r = schema.safeParse(raw);
   if (r.success) return { ok: true, msg: r.data };
   const issue = r.error.issues[0];
-  return { ok: false, error: issue ? `Invalid message: ${issue.message}` : "Invalid message." };
+  return { ok: false, error: issue ? `Ugyldig besked: ${issue.message}` : "Ugyldig besked." };
 };

@@ -1,5 +1,5 @@
 import { Card, EquipmentCard, MonsterCard, ClassCard, ClassName } from "../../../shared/types";
-import { hasClass, hasTag } from "../../../shared/rules";
+import { CLASS_LABEL, RACE_LABEL, hasClass, hasTag } from "../../../shared/rules";
 import { cn } from "@/lib/utils";
 import { useGame } from "@/lib/store";
 import { useInspect } from "@/lib/inspect";
@@ -26,15 +26,25 @@ const typeStyles: Record<string, string> = {
 
 // Short keyword stamps so elite / counterweight monsters read at a glance.
 const monsterKeywords = (m: MonsterCard): string[] => [
-  m.packHunter !== undefined ? `🐺 Pack +${m.packHunter}` : "",
-  m.huntsLeader !== undefined ? `🎯 Leader +${m.huntsLeader}` : "",
-  m.sirenCall ? "🎶 Siren" : "",
-  m.swarmBonus !== undefined ? `📯 Swarm +${m.swarmBonus}` : "",
+  m.packHunter !== undefined ? `🐺 Flok +${m.packHunter}` : "",
+  m.huntsLeader !== undefined ? `🎯 Fører +${m.huntsLeader}` : "",
+  m.sirenCall ? "🎶 Sirene" : "",
+  m.swarmBonus !== undefined ? `📯 Sværm +${m.swarmBonus}` : "",
   m.hordeBonus !== undefined ? `💀 Horde +${m.hordeBonus}` : "",
-  m.ambush ? "⚔️ Ambush" : "",
-  m.antiRace ? `🚫 ${m.antiRace.raceName} +${m.antiRace.bonus}` : "",
-  m.antiClass ? `🚫 ${m.antiClass.className} +${m.antiClass.bonus}` : "",
+  m.ambush ? "⚔️ Baghold" : "",
+  m.antiRace ? `🚫 ${RACE_LABEL[m.antiRace.raceName]} +${m.antiRace.bonus}` : "",
+  m.antiClass ? `🚫 ${CLASS_LABEL[m.antiClass.className as ClassName]} +${m.antiClass.bonus}` : "",
 ].filter(Boolean);
+
+const SLOT_SHORT: Record<string, string> = {
+  head: "hoved", armor: "rustning", feet: "fødder", hand: "hånd", twoHands: "2 hænder", bigItem: "stor",
+};
+
+// Danish compounds are long single words: shrink the title a little rather than break them mid-word.
+const nameFit = (name: string) => {
+  const longest = Math.max(...name.split(/[\s-]+/).map(w => w.length));
+  return longest > 14 ? "text-[0.72em]" : longest > 10 ? "text-[0.85em]" : "";
+};
 
 const slotIcon: Record<string, string> = {
   head: "🪖", armor: "🛡️", feet: "🥾", hand: "🗡️", twoHands: "⚔️", bigItem: "📦",
@@ -76,7 +86,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
     <button
       type="button"
       onClick={handleClick}
-      aria-label={!onClick && inspectable ? `${card.name} — show details` : undefined}
+      aria-label={!onClick && inspectable ? `${card.name} — vis detaljer` : undefined}
       className={cn(
         "card-base flex flex-col items-stretch text-left p-2 border-2 border-card/40",
         typeStyles[card.type] ?? "bg-card text-card-foreground",
@@ -87,7 +97,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
       )}
     >
       <div className="flex justify-between items-start gap-1">
-        <span className="font-display font-bold leading-tight line-clamp-2">{card.name}</span>
+        <span lang="da" className={cn("font-display font-bold leading-tight line-clamp-3 hyphens-auto [overflow-wrap:anywhere]", nameFit(card.name))}>{card.name}</span>
       </div>
       <div className="flex-1 flex items-center justify-center text-3xl opacity-80">
         {card.type === "monster" && "👹"}
@@ -150,8 +160,8 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
 
           return (
             <>
-              <div className="font-bold">Lvl {m.level}<span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : ""}>{diffText}</span></div>
-              <div>+{m.levelsAwarded} lvl · {m.treasures}<span className="text-yellow-400">{tDiffText}</span> tr</div>
+              <div className="font-bold">Niv. {m.level}<span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : ""}>{diffText}</span></div>
+              <div>+{m.levelsAwarded} niv. · {m.treasures}<span className="text-yellow-400">{tDiffText}</span> skat</div>
               <div className="opacity-75 line-clamp-2 italic">{m.badStuffText}</div>
             </>
           );
@@ -167,7 +177,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
           if (activeDungeons?.some(d => d.cardId === "d-poverty")) {
             price = 0;
             priceColor = "text-red-500 font-bold";
-            label = "CANNOT SELL";
+            label = "KAN IKKE SÆLGES";
           } else if (activeDungeons?.some(d => d.cardId === "d-lavish")) {
             price = eq.goldValue * 2;
             priceColor = "text-green-400 font-bold";
@@ -181,14 +191,14 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
           return (
             <>
               <div className="font-bold">
-                {eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot !== "none" ? eq.slot : ""}{eq.isBig ? " · BIG" : ""}
+                {eq.bonus > 0 ? "+" : ""}{eq.bonus} {eq.slot !== "none" ? SLOT_SHORT[eq.slot] : ""}{eq.isBig ? " · STOR" : ""}
               </div>
               <div className={priceColor}>{label}</div>
               
               {/* NYT: Viser Class Requirement og effekten (flavor) */}
               {eq.classReq && (
                 <div className="text-[10px] font-bold text-orange-300 mt-1">
-                  Requires {eq.classReq}
+                  Kræver {CLASS_LABEL[eq.classReq]}
                 </div>
               )}
               {eq.flavor && (
@@ -202,15 +212,15 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         {card.type === "oneshot" && (
           <div className="font-bold">
             +{card.bonus} · {card.goldValue}g
-            {card.tagBonus && <div className="text-[10px] text-green-300">+{card.tagBonus.bonus} vs {card.tagBonus.tag}</div>}
+            {card.tagBonus && <div className="text-[10px] text-green-300">+{card.tagBonus.bonus} mod {card.tagBonus.tag === "undead" ? "udøde" : card.tagBonus.tag === "goblin" ? "gobliner" : card.tagBonus.tag}</div>}
           </div>
         )}
-        {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} mon</div>}
+        {card.type === "enhancer" && <div className="font-bold">{card.bonus > 0 ? "+" : ""}{card.bonus} monster</div>}
         {card.type === "curse" && <div className="opacity-90 italic line-clamp-3">{card.effectText}</div>}
         
         {card.type === "companion" && (
           <>
-            <div className="font-bold">+{card.bonus}{card.runBonus ? ` · run +${card.runBonus}` : ""}{card.goldValue ? ` · ${card.goldValue}g` : ""}</div>
+            <div className="font-bold">+{card.bonus}{card.runBonus ? ` · flugt +${card.runBonus}` : ""}{card.goldValue ? ` · ${card.goldValue}g` : ""}</div>
             <div className="opacity-90 italic line-clamp-3 text-[9px] leading-tight">{card.effectText}</div>
           </>
         )}
@@ -222,7 +232,7 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
         )}
         {(card.type === "race" || card.type === "dual" || card.type === "forged-papers") && (
           <>
-            <div className="font-bold">{card.type === "race" ? "Race" : card.type === "dual" ? (card.dualKind === "class" ? "Two classes" : "Two races") : "Cheat!"}</div>
+            <div className="font-bold">{card.type === "race" ? "Folk" : card.type === "dual" ? (card.dualKind === "class" ? "To klasser" : "To folk") : "Snyd!"}</div>
             <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{card.effectText}</div>
           </>
         )}
@@ -232,12 +242,12 @@ export function GameCard({ card, size = "md", faceDown, selected, onClick, class
           </div>
         )}
         {card.type === "equipment" && card.forgedWith && (
-          <div className="text-[9px] font-bold text-amber-200">📜 Forged papers</div>
+          <div className="text-[9px] font-bold text-amber-200">📜 Forfalskede papirer</div>
         )}
 
         {card.type === "class" && (
           <>
-            <div className="font-bold">Class</div>
+            <div className="font-bold">Klasse</div>
             <div className="opacity-90 italic line-clamp-4 text-[9px] leading-tight">{(card as ClassCard).effectText}</div>
           </>
         )}

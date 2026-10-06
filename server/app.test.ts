@@ -90,7 +90,7 @@ describe("LAN server", () => {
 
     const thief = await client(s.port);
     thief.send({ type: "join", name: "ann", roomCode: "LAN" });
-    expect((await thief.next("error")).message).toMatch(/still connected/);
+    expect((await thief.next("error")).message).toMatch(/stadig forbundet/);
 
     a.socket.disconnect();
     const back = await client(s.port);
@@ -104,9 +104,9 @@ describe("LAN server", () => {
     const j = await join(tab1, "Ann");
     const tab2 = await client(s.port);
     await join(tab2, "Ann", "LAN", j.token);
-    expect((await tab1.next("error")).message).toMatch(/another tab/);
+    expect((await tab1.next("error")).message).toMatch(/anden fane/);
     tab1.send({ type: "startGame" });
-    expect((await tab1.next("error")).message).toMatch(/Join a room first/);
+    expect((await tab1.next("error")).message).toMatch(/Gå ind i et rum først/);
   });
 
   it("survives a server restart: same room, same hand, same seat", async () => {
@@ -134,11 +134,11 @@ describe("LAN server", () => {
     const s = await start(null);
     const c = await client(s.port);
     c.socket.emit("msg", { type: "join", name: "Ann", roomCode: "../../etc" });
-    expect((await c.next("error")).message).toMatch(/Invalid message/);
+    expect((await c.next("error")).message).toMatch(/Ugyldig besked/);
 
     await join(c, "Ann");
     for (let i = 0; i < 60; i++) c.send({ type: "pass" });
-    await c.next("error", m => /Slow down/.test(m.message));
+    await c.next("error", m => /Ro på/.test(m.message));
   });
 
   it("the server's countdown auto-passes a silent opponent and tells everyone", async () => {
@@ -165,7 +165,7 @@ describe("LAN server", () => {
     b.send({ type: "kickDoor" }); // any message re-arms the server timer (this one is just rejected)
     const after = await b.next("state", m => m.view.status === "inCombat");
     expect(after.view.combat?.passes[after.view.self!.id]).toBe(true);
-    expect(after.view.log.some(l => l.includes("Time's up"))).toBe(true);
+    expect(after.view.log.some(l => l.includes("Tiden er gået"))).toBe(true);
   });
 
   it("TV mode: a watcher sees the public table, no hands, no vote, no actions", async () => {
@@ -188,7 +188,7 @@ describe("LAN server", () => {
     expect(tvView.players).toHaveLength(2); // the TV is not a player
 
     tv.send({ type: "kickDoor" });
-    expect((await tv.next("error")).message).toMatch(/Join a room first/);
+    expect((await tv.next("error")).message).toMatch(/Gå ind i et rum først/);
   });
 
   it("offers free seats when joining a running game, and lets a player leave for good", async () => {

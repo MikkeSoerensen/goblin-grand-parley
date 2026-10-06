@@ -69,7 +69,7 @@ describe("monster tags", () => {
     const notGoblin = monster(1, undefined, { name: "Goblin-shaped Rock", tags: [] });
     const goblin = monster(1, undefined, { tags: ["goblin"] });
     t.player(1).hand.push(notGoblin, goblin);
-    expect(t.act(1, { type: "playInCombat", cardId: notGoblin.id })).toMatch(/cannot be played/);
+    expect(t.act(1, { type: "playInCombat", cardId: notGoblin.id })).toMatch(/kan ikke spilles/);
     expect(t.act(1, { type: "playInCombat", cardId: goblin.id })).toBeNull();
   });
 });
@@ -114,7 +114,7 @@ describe("lasting effects", () => {
     addEffect(t.room, t.player(0), effect("noHelp", "afterNextCombat"));
     t.player(0).level = 5;
     fight(t, 1);
-    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 0 })).toMatch(/Social Pariah/);
+    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 0 })).toMatch(/Udstødt/);
     passAll(t);
     t.act(0, { type: "resolveCombat" });
     expect(t.player(0).effects).toHaveLength(0);

@@ -113,8 +113,8 @@ describe("exploits", () => {
   it("rejects asking yourself or a non-existent player for help", () => {
     const t = startedTable(2);
     fight(t, 3);
-    expect(t.act(0, { type: "askForHelp", helperId: t.ids[0], treasures: 1 })).toMatch(/Invalid helper/);
-    expect(t.act(0, { type: "askForHelp", helperId: "nobody", treasures: 1 })).toMatch(/Invalid helper/);
+    expect(t.act(0, { type: "askForHelp", helperId: t.ids[0], treasures: 1 })).toMatch(/Ugyldig hjælper/);
+    expect(t.act(0, { type: "askForHelp", helperId: "nobody", treasures: 1 })).toMatch(/Ugyldig hjælper/);
   });
 
   it("does not put an Evil Twin clone into the discard pile", () => {
@@ -151,7 +151,7 @@ describe("exploits", () => {
     p.equipment.feet = boots;
     const kneepads = equipment(0, 0, "feet", { cardId: "e-kneepads" });
     p.hand.push(kneepads);
-    expect(t.act(0, { type: "equip", cardId: kneepads.id, forceSwap: true })).toMatch(/Warriors/);
+    expect(t.act(0, { type: "equip", cardId: kneepads.id, forceSwap: true })).toMatch(/Krigere/);
     expect(p.equipment.feet).toBe(boots);
     expect(p.backpack).toHaveLength(0);
   });
@@ -189,10 +189,10 @@ describe("combat flow", () => {
     expect(t.room.status).toBe("runAwayRoll");
     const potion = oneShot(30);
     t.player(0).hand.push(potion);
-    expect(t.act(0, { type: "playInCombat", cardId: potion.id, side: "attacker" })).toMatch(/decided/);
-    expect(t.act(0, { type: "resolveCombat" })).toMatch(/decided/);
+    expect(t.act(0, { type: "playInCombat", cardId: potion.id, side: "attacker" })).toMatch(/afgjort/);
+    expect(t.act(0, { type: "resolveCombat" })).toMatch(/afgjort/);
     expect(t.act(0, { type: "endTurn" })).not.toBeNull();
-    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 1 })).toMatch(/decided/);
+    expect(t.act(0, { type: "askForHelp", helperId: t.ids[1], treasures: 1 })).toMatch(/afgjort/);
   });
 
   it("allows each fighter exactly one run-away roll", () => {
@@ -205,7 +205,7 @@ describe("combat flow", () => {
     expect(t.room.status).toBe("runAwayRoll");
     fixRandom(ROLL_6);
     expect(t.act(0, { type: "runAway" })).toBeNull();
-    expect(t.act(0, { type: "runAway" })).toMatch(/already/);
+    expect(t.act(0, { type: "runAway" })).toMatch(/allerede/);
     expect(t.act(1, { type: "runAway" })).toBeNull();
     expect(t.room.combat).toBeNull();
     expect(t.room.status).toBe("normalTurn");
@@ -275,7 +275,7 @@ describe("combat flow", () => {
     t.act(0, { type: "resolveCombat" });
     expect(t.room.status).toBe("gameOver");
     expect(t.room.winnerId).toBe(t.ids[0]);
-    expect(t.act(1, { type: "kickDoor" })).toMatch(/over/);
+    expect(t.act(1, { type: "kickDoor" })).toMatch(/slut/);
   });
 });
 

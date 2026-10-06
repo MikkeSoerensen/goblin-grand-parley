@@ -27,7 +27,7 @@ export function JoinInfo({ qrSize = 128, stacked = false }: { qrSize?: number; s
   if (urls.length === 0) {
     return (
       <p className="text-xs opacity-70 font-ui">
-        Friends open this game's address on their own device — the server window lists it under <b>LAN</b>.
+        Vennerne åbner spillets adresse på deres egen enhed — serverens vindue viser den under <b>LAN</b>.
       </p>
     );
   }
@@ -35,10 +35,10 @@ export function JoinInfo({ qrSize = 128, stacked = false }: { qrSize?: number; s
   return (
     <div className={`flex flex-col ${stacked ? "" : "sm:flex-row"} items-center gap-4 bg-black/30 rounded-lg p-3`}>
       <div className="bg-white p-2 rounded shrink-0">
-        <QRCodeSVG value={urls[0]} size={qrSize} aria-label={`QR code for ${urls[0]}`}/>
+        <QRCodeSVG value={urls[0]} size={qrSize} aria-label={`QR-kode til ${urls[0]}`}/>
       </div>
       <div className={`${stacked ? "text-center" : "text-left"} min-w-0`}>
-        <div className="text-xs opacity-70 font-ui mb-1">Scan, or open on a device on the same Wi-Fi:</div>
+        <div className="text-xs opacity-70 font-ui mb-1">Scan koden, eller åbn adressen på en enhed på samme Wi-Fi:</div>
         {urls.map(u => (
           <div key={u} className="font-mono text-sm break-all select-all">{u}</div>
         ))}
