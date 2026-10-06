@@ -30,13 +30,32 @@ export interface GameServer {
   close(): Promise<void>;
 }
 
-export const lanAddresses = (): string[] => {
-  const ips: string[] = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const i of list ?? []) if (i.family === "IPv4" && !i.internal) ips.push(i.address);
+// Adapters friends on the Wi-Fi can't reach: VPN tunnels and virtual switches (WSL, Docker, VMs).
+const UNREACHABLE_ADAPTER = /vpn|proton|wireguard|wintun|nordlynx|tailscale|zerotier|hamachi|\btun|\btap|\bwg\d|utun|ppp|vethernet|docker|virtualbox|vbox|vmware|hyper-v/i;
+const isPrivateLan = (ip: string) => /^192\.168\./.test(ip) || /^10\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+const isCarrierNat = (ip: string) => /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip); // Tailscale & co.
+
+export interface NetworkReport {
+  lan: string[];                                // best first: what goes in the QR code
+  skipped: { adapter: string; ip: string }[];  // VPN / virtual adapters, not reachable for friends
+}
+
+export const networkReport = (ifaces: ReturnType<typeof networkInterfaces> = networkInterfaces()): NetworkReport => {
+  const found: { ip: string; rank: number }[] = [];
+  const skipped: NetworkReport["skipped"] = [];
+  for (const [adapter, list] of Object.entries(ifaces)) {
+    for (const i of list ?? []) {
+      if (i.family !== "IPv4" || i.internal || i.address.startsWith("169.254.")) continue;
+      if (UNREACHABLE_ADAPTER.test(adapter) || isCarrierNat(i.address)) { skipped.push({ adapter, ip: i.address }); continue; }
+      // A real Ethernet / Wi-Fi card on a home network beats anything else.
+      const rank = isPrivateLan(i.address) ? (/ethernet|wi-?fi|wlan|^eth|^en\d/i.test(adapter) ? 0 : 1) : 2;
+      found.push({ ip: i.address, rank });
+    }
   }
-  return ips;
+  return { lan: found.sort((a, b) => a.rank - b.rank).map(f => f.ip), skipped };
 };
+
+export const lanAddresses = (): string[] => networkReport().lan;
 
 interface Binding { roomCode: string; playerId: string }
 

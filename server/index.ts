@@ -8,7 +8,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { lanAddresses, startGameServer } from "./app.js";
+import { networkReport, startGameServer } from "./app.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
@@ -28,7 +28,17 @@ try {
 
   console.log(`\n👺  Goblin Grand Parley server listening on port ${server.port}`);
   console.log(`    Local:  http://localhost:${server.port}`);
-  if (host === "0.0.0.0" || host === "::") for (const ip of lanAddresses()) console.log(`    LAN:    http://${ip}:${server.port}   ← share with friends on same Wi-Fi`);
+  if (host === "0.0.0.0" || host === "::") {
+    const net = networkReport();
+    for (const ip of net.lan) console.log(`    LAN:    http://${ip}:${server.port}   ← share with friends on same Wi-Fi`);
+    if (net.skipped.length) {
+      console.log(`
+    ⚠️  VPN / virtual network found: ${net.skipped.map(s => `${s.adapter} (${s.ip})`).join(", ")}`);
+      console.log("        Phones on your Wi-Fi usually can't connect while a VPN is on.");
+      console.log("        Disconnect it, or turn on its \"Allow LAN connections\" setting.");
+    }
+    if (net.lan.length === 0) console.log("    ⚠️  No Wi-Fi/Ethernet address found — is this computer on the network?");
+  }
   console.log(`    Saved games: ${dataFile} (${server.rooms.size} room(s) restored)\n`);
 
   let stopping = false;

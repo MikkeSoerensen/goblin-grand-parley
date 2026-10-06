@@ -225,3 +225,20 @@ describe("LAN server", () => {
     expect(proxied.addresses).toEqual([]);
   });
 });
+
+describe("network addresses for the QR code", () => {
+  const nic = (address: string) => ({ address, family: "IPv4" as const, internal: false, netmask: "255.255.255.0", mac: "00:00:00:00:00:00", cidr: null });
+  it("skips VPN and virtual adapters and puts the real LAN card first", async () => {
+    const { networkReport } = await import("./app.js");
+    const report = networkReport({
+      "ProtonVPN": [nic("10.2.0.2")],
+      "vEthernet (WSL)": [nic("172.27.16.1")],
+      "Tailscale": [nic("100.101.102.103")],
+      "Some Adapter": [nic("192.168.1.50")],
+      "Ethernet": [nic("10.0.0.5")],
+      "Loopback": [{ ...nic("127.0.0.1"), internal: true }],
+    });
+    expect(report.lan).toEqual(["10.0.0.5", "192.168.1.50"]);
+    expect(report.skipped.map(s => s.adapter)).toEqual(["ProtonVPN", "vEthernet (WSL)", "Tailscale"]);
+  });
+});
