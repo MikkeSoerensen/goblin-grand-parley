@@ -111,6 +111,7 @@ export function TvView() {
             <p className="text-lg font-ui opacity-70">
               {view.settings.teamMode ? "Holdspil · " : ""}Spil til niveau {view.settings.winLevel} · trussel {THREAT_LABEL[view.settings.threat]} · pas-nedtælling {view.settings.interruptSeconds ? `${view.settings.interruptSeconds} sek.` : "fra"}
             </p>
+            <Button variant="ghost" onClick={leave}>⟵ Stop med at vise dette rum</Button>
           </div>
         </div>
       </main>
