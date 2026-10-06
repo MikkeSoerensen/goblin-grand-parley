@@ -35,7 +35,7 @@ export function CombatPanel() {
   const hasCowards = view.activeDungeons.some(d => d.cardId === "d-cowards");
   const hasChaos = view.activeDungeons.some(d => d.cardId === "d-chaos");
   const hasSwapping = view.activeDungeons.some(d => d.cardId === "d-swapping");
-  const hasKneepads = self.equipment.feet?.cardId === "e-kneepads";
+  const hasSlippers = self.equipment.feet?.cardId === "e-kneepads";
   const attacker = view.players.find(p => p.id === c.attackerId)!;
   const helper = c.helperId ? view.players.find(p => p.id === c.helperId) : null;
 
@@ -169,8 +169,8 @@ export function CombatPanel() {
                   + items
                 </Button>
 
-                {/* NY KNAP: Kneepads of Allure */}
-                {hasKneepads && (
+                {/* NY KNAP: Slippers of Sweet-Talking */}
+                {hasSlippers && (
                   <Button 
                     size="sm" 
                     variant="outline" 

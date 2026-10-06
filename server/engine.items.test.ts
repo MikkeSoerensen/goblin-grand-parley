@@ -205,7 +205,7 @@ describe("anti-class bosses", () => {
 });
 
 describe("trolling potions", () => {
-  it("Flask of Glue makes a fighter fail Run Away even on a 6", () => {
+  it("Pot of Sticky Sap makes a fighter fail Run Away even on a 6", () => {
     const t = startedTable(2);
     fight(t, 20);
     const glue = potion("o-flask-glue");
@@ -220,7 +220,7 @@ describe("trolling potions", () => {
     expect(t.player(0).level).toBe(before - 1);
   });
 
-  it("Friendship Potion ends the fight with no rewards", () => {
+  it("Truce Tea ends the fight with no rewards", () => {
     const t = startedTable(2);
     const m = fight(t, 20);
     const friends = potion("o-friendship");

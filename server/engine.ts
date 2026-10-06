@@ -528,7 +528,7 @@ const handsUsed = (p: PrivatePlayer): number =>
 // Why this player may not wear this item (ignoring slots), or null. Forged papers waive it.
 const requirementProblem = (p: PrivatePlayer, card: EquipmentCard): string | null => {
   if (card.forgedWith) return null;
-  if (card.cardId === "e-kneepads" && hasClass(p, "Warrior")) return "Warriors are too proud to wear the Kneepads of Allure!";
+  if (card.cardId === "e-kneepads" && hasClass(p, "Warrior")) return "Warriors are too proud to wear the Slippers of Sweet-Talking!";
   if (card.classReq && !hasClass(p, card.classReq)) return `Only a ${card.classReq} can equip this item!`;
   return null;
 };
@@ -939,7 +939,7 @@ const sirenCheck = (room: Room) => {
 // Once Run Away is rolled (or the attacker gave up) the fight is decided.
 const combatDecided = (room: Room) => room.status === "runAwayRoll";
 
-// Mate-kloner findes kun under kampen; de må aldrig ende i bunken som ekstra kort.
+// Evil Twin-kloner findes kun under kampen; de må aldrig ende i bunken som ekstra kort.
 const MATE_CLONE_MARK = "-mate-";
 const discardMonster = (room: Room, m: MonsterCard) => {
   if (!m.id.includes(MATE_CLONE_MARK)) room.discards.door.push(m);
@@ -1137,7 +1137,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
         room.discards.door.push(card);
         room.currentPhase = 2;
       } else {
-        // Hvis det IKKE er monster, portal eller curse (f.eks. Wandering Monster, Mate, Class)
+        // Hvis det IKKE er monster, portal eller curse (f.eks. Uninvited Guest, Evil Twin, Class)
         // lægges det direkte i spillerens hånd, og turen går til Phase 2 (Look for trouble/Loot).
         player.hand.push(card);
         log(room, `🃏 ${player.name} puts ${card.name} in their hand.`);
@@ -1439,7 +1439,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       }
 
       if (card.cardId === "o-flask-glue") {
-        if (!room.combat) return "Flask of Glue can only be played during a combat!";
+        if (!room.combat) return "Pot of Sticky Sap can only be played during a combat!";
         const combat = room.combat;
         if (!msg.targetId) return "You must specify who to glue!";
         const target = room.players.find(p => p.id === msg.targetId);
@@ -1449,7 +1449,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         combat.gluedPlayers = combat.gluedPlayers ?? [];
         if (!combat.gluedPlayers.includes(target.id)) combat.gluedPlayers.push(target.id);
-        shout(room, `🧴 ${player.name} throws a Flask of Glue at ${target.name}! If they have to run away, they will automatically fail!`);
+        shout(room, `🧴 ${player.name} throws a Pot of Sticky Sap at ${target.name}! If they have to run away, they will automatically fail!`);
 
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
@@ -1489,7 +1489,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         combat.monsters.push(newMonster);
         markSaboteur(room, player.id);
-        combat.log.push(`🐉 ${player.name} plays Wandering Monster! ${newMonster.name} (Lvl ${newMonster.level}) joins the fight!`);
+        combat.log.push(`🐉 ${player.name} plays Uninvited Guest! ${newMonster.name} (Lvl ${newMonster.level}) joins the fight!`);
         room.discards.door.push(card);
 
         reopenInterrupts(room);
@@ -1501,7 +1501,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (card.cardId === "o-friendship") {
         player.hand.splice(idx, 1);
         room.discards.treasure.push(card);
-        shout(room, `💖 ${player.name} plays Friendship Potion! The combat ends instantly. No levels or treasures!`);
+        shout(room, `💖 ${player.name} plays Truce Tea! The combat ends instantly. No levels or treasures!`);
         endCombat(room);
         room.negotiations = [];
         room.status = "normalTurn";
@@ -1516,12 +1516,12 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
 
         // Vi kloner det første monster i kampen
         const targetMonster = combat.monsters[0];
-        const clonedMonster: MonsterCard = { ...targetMonster, id: `${targetMonster.id}${MATE_CLONE_MARK}${newId()}`, name: `Mate of ${targetMonster.name}` };
+        const clonedMonster: MonsterCard = { ...targetMonster, id: `${targetMonster.id}${MATE_CLONE_MARK}${newId()}`, name: `Evil Twin of ${targetMonster.name}` };
 
         player.hand.splice(idx, 1);
         combat.monsters.push(clonedMonster);
         markSaboteur(room, player.id);
-        combat.log.push(`💞 ${player.name} plays Mate! A second ${targetMonster.name} appears!`);
+        combat.log.push(`💞 ${player.name} plays Evil Twin! A second ${targetMonster.name} appears!`);
         room.discards.door.push(card);
 
         reopenInterrupts(room);
@@ -1797,7 +1797,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (combatDecided(room)) return "The fight is decided — time to run!";
       if (hasEffect(player, "noHelp")) return "Nobody is willing to help you right now (Social Pariah).";
       if (room.combat.helperId) return "Already have a helper.";
-      if (player.equipment.feet?.cardId !== "e-kneepads") return "You do not have the Kneepads of Allure equipped.";
+      if (player.equipment.feet?.cardId !== "e-kneepads") return "You do not have the Slippers of Sweet-Talking equipped.";
 
       const target = room.players.find(p => p.id === msg.targetId);
       if (!target || target.isDead || target.id === playerId) return "Invalid target.";
@@ -1809,7 +1809,7 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       room.negotiations = [];
       reopenInterrupts(room);
 
-      shout(room, `💖 ${player.name} uses the Kneepads of Allure to FORCE ${target.name} to help them!`);
+      shout(room, `💖 ${player.name} uses the Slippers of Sweet-Talking to FORCE ${target.name} to help them!`);
       sirenCheck(room);
       return null;
     }
@@ -1949,10 +1949,10 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (hasClass(player, "Thief")) roll += 1; // Thieves know every back door
       if (player.companion?.runBonus) roll += player.companion.runBonus;
 
-      // Boots of Running Really Fast giver +2!
+      // Boots of Hasty Retreat giver +2!
       if (player.equipment.feet?.cardId === "e-boots-run") {
         roll += 2;
-        log(room, `👟 ${player.name}'s Boots of Running Really Fast gives them +2 to escape!`);
+        log(room, `👟 ${player.name}'s Boots of Hasty Retreat gives them +2 to escape!`);
       }
 
       // DUNGEON: d-chaos (Discard et kort for at slå to terninger og tage den højeste)

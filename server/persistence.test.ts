@@ -29,6 +29,21 @@ describe("snapshot round-trip", () => {
     expect(restored.players.every(p => !p.connected)).toBe(true);
   });
 
+  it("gives cards in saved games their current names, wherever they are", () => {
+    const t = startedTable(2);
+    const json = serializeRooms(t.rooms);
+    const old = JSON.parse(json);
+    const p = old.rooms[0].players[0];
+    p.hand.push({ id: "x1", cardId: "m-rat", name: "Old Dragon Name", type: "monster", deck: "door" });
+    p.equipment.head = { id: "x2", cardId: "e-helm", name: "Old Helmet Name", type: "equipment", deck: "treasure" };
+    old.rooms[0].table.push({ id: "x3-mate-1", cardId: "m-rat", name: "Mate of Old Dragon Name", type: "monster", deck: "door" });
+
+    const r = deserializeRooms(JSON.stringify(old)).get("TEST")!;
+    expect(r.players[0].hand.at(-1)?.name).toBe("Cinderwyrm the Unfed");
+    expect(r.players[0].equipment.head?.name).toBe("Helm of Many Horns");
+    expect(r.table.at(-1)?.name).toBe("Evil Twin of Cinderwyrm the Unfed");
+  });
+
   it("drops rooms nobody has touched for a week", () => {
     const t = startedTable(2);
     const now = Date.now();

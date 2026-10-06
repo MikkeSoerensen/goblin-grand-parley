@@ -16,7 +16,7 @@ Alle åbne spørgsmål er afklaret (oktober 2026).
 I dag afgøres "Goblin" ved at tjekke, om navnet indeholder ordet goblin. Det erstattes af rigtige tags på monsterkortet.
 
 - Tags: `goblin`, `undead`, `magical`, `beast`.
-- Eksisterende kort tagges (fx Goblin Grunt → `goblin`; Vampire, Mummy, Undead Horse, Wight Brothers → `undead`; Arcane Devourer, Floating Nose, Laser Spider → `magical`; Pit Bull, Flying Frogs, Large Angry Chicken → `beast`).
+- Eksisterende kort tagges (fx Goblin Grunt → `goblin`; Vampire, Mummy, Bone Stallion, The Grave Twins → `undead`; Arcane Devourer, Hovering Hex-Eye, Laser Spider → `magical`; Dungeon Mastiff, Leaping Bog Toads, Furious Cave Rooster → `beast`).
 - Goblin-sværmen, Goblin Land og den nye Goblin-race (B1) bruger tagget i stedet for navnet.
 
 ### 0.2 Status-effekter på spillere
@@ -45,7 +45,7 @@ Spilles fra hånden ligesom en class. Man har én race; spiller man en ny, kasse
 
 | Race | Evne | Kopier |
 |---|---|---|
-| **Goblin** | *Swarm Caller:* Én gang pr. kamp må du spille et `goblin`-monster fra hånden ind i *en hvilken som helst* kamp, uden Wandering Monster og uden at der allerede er en goblin i kampen. *Home Turf:* I Goblin Land får du selv +3 i kamp (monstrene får stadig deres +3). | 2 |
+| **Goblin** | *Swarm Caller:* Én gang pr. kamp må du spille et `goblin`-monster fra hånden ind i *en hvilken som helst* kamp, uden Uninvited Guest og uden at der allerede er en goblin i kampen. *Home Turf:* I Goblin Land får du selv +3 i kamp (monstrene får stadig deres +3). | 2 |
 | **Elf** | +1 på Run Away. Når du hjælper en spiller med **højere level end dig selv** med at vinde, går du op ét level (aldrig til vinderlevel). | 2 |
 | **Dwarf** | Du må bære ubegrænset mange Big items. Din grænse for håndkort ved Charity er 6 i stedet for 5. | 2 |
 | **Halfling** | Én gang pr. tur må du sælge ét item til dobbelt værdi. Salg kræver stadig 1000g pr. level. | 2 |
@@ -95,7 +95,7 @@ Tre dele:
 
 **1. Handel mellem spillere**
 - Uden for kamp må alle foreslå en handel til en anden spiller: "mine items X, Y mod dine items Z".
-- ✅ **Kun kort med en guldværdi**, altså kort der kan sælges og dermed bidrage til et level: udstyr (påtaget eller i rygsækken) og treasure-kort med guldværdi på hånden (one-shots, enhancers). Kort til 0g (fx Pretty Balloons, Huge Rock, Go Up a Level) og door-kort kan ikke handles.
+- ✅ **Kun kort med en guldværdi**, altså kort der kan sælges og dermed bidrage til et level: udstyr (påtaget eller i rygsækken) og treasure-kort med guldværdi på hånden (one-shots, enhancers). Kort til 0g (fx Bag of Angry Bees, Boulder on a Rope, Level Up!) og door-kort kan ikke handles.
 - Modtageren accepterer eller afviser. Alt flyttes på én gang, så ingen kan snyde halvvejs.
 - Byttet udstyr lander i rygsækken; man tager det på selv bagefter.
 
@@ -107,7 +107,7 @@ Tre dele:
 **3. Betal dig forbi monstret ("Toll")**
 - Angriberen må, inden kampen afgøres, kassere items for mindst toldprisen. Så slutter kampen: ingen levels, ingen skatte, ingen Bad Stuff.
 - Tæller som en kamp (man kan ikke Loot the Room bagefter).
-- ✅ Prisen regnes på kampens **samlede** monster-level, så Wandering Monster, Goblin-sværm og Mate gør det dyrere.
+- ✅ Prisen regnes på kampens **samlede** monster-level, så Uninvited Guest, Goblin-sværm og Evil Twin gør det dyrere.
 - ✅ Over level 16 i alt kan man ikke købe sig fri. Bosser (anti-class) kan aldrig købes fri.
 - ✅ Prisen stiger trinvist: under level 7 er den fast, fra level 7-10 koster hvert level 300g, og over 10 koster hvert level 600g.
 - ✅ Trinvis "trappe" (som en skattetrappe): hvert trin lægges oven i det forrige, så prisen aldrig springer:
@@ -140,7 +140,7 @@ Tre dele:
 
 ## B5. Forged Guild Papers (Cheat)
 
-- **Forged Guild Papers** (treasure, 2 kopier). Spilles sammen med et item, når du tager det på: kravet ignoreres (class, race eller "ikke Warrior" på Kneepads).
+- **Forged Guild Papers** (treasure, 2 kopier). Spilles sammen med et item, når du tager det på: kravet ignoreres (class, race eller "ikke Warrior" på Slippers).
 - Papirerne sidder fast på itemet. Forsvinder itemet, kasseres papirerne også.
 - Mister du din class, glider et item med papirer **ikke** ned i rygsækken.
 
@@ -149,7 +149,7 @@ Tre dele:
 Ud over fundamentet (0.1):
 
 - **Ignorerer de svage:** Udvalgte store monstre forfølger ikke spillere med lavt level. Ved Run Away slipper man automatisk væk, hvis ens level er ≤ grænsen.
-  - Plutonium Dragon: ≤ 5. Bullrog: ≤ 4. Squidzilla: ≤ 4.
+  - Cinderwyrm the Unfed: ≤ 5. Furnace Bull: ≤ 4. The Bog Kraken: ≤ 4.
 - Nye one-shots, der bruger tags:
   - **Holy Water** (2 kopier): +5 mod `undead`, ellers +2.
   - **Goblin Repellent** (2 kopier): +4 mod `goblin`, ellers +1.
@@ -165,7 +165,7 @@ Ud over fundamentet (0.1):
 ## B8. Epic-variant
 
 - ✅ I ventelokalet vælges målet: **level 10** (standard), **15** eller **20**. Valget kan ændres, indtil spillet startes, og alle kan se det.
-- Alle grænser følger med: salg og "Go Up a Level" kan højst bringe dig til ét under målet, og målet kan kun nås ved at vinde en kamp.
+- Alle grænser følger med: salg og "Level Up!" kan højst bringe dig til ét under målet, og målet kan kun nås ved at vinde en kamp.
 - Elf-racens "level ved hjælp" kan heller ikke give sejren.
 
 ---
@@ -202,7 +202,7 @@ Ud over fundamentet (0.1):
 
 | Fejl | Rettelse |
 |---|---|
-| To "Boots of Running Really Fast"; `e-running` har ingen effekt | Fjern `e-running`, eller giv den samme effekt |
+| To "Boots of Hasty Retreat"; `e-running` har ingen effekt | Fjern `e-running`, eller giv den samme effekt |
 | Amazon: tekst "Lose all hand items", effekt fjerner *alt* udstyr | Ret effekten til kun at ramme hånd-slots |
 | Halo: "survive with 1 HP" | Ret teksten (spillet har ikke HP) |
 | Cleric: class-teksten beskriver en anden evne | Ret teksten til den evne, der faktisk findes |

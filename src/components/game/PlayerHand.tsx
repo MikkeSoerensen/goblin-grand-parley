@@ -360,7 +360,7 @@ export function PlayerHand() {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
             }}>
-              💞 Play Mate
+              💞 Play Evil Twin
             </Button>
           )}
 
@@ -369,7 +369,7 @@ export function PlayerHand() {
               send({ type: "playInCombat", cardId: card.id });
               setSelected(null);
             }}>
-              💖 Play Friendship Potion (End Combat)
+              💖 Play Truce Tea (End Combat)
             </Button>
           )}
 

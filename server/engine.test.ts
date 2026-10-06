@@ -12,7 +12,7 @@ afterEach(() => setRandomSource(Math.random));
 const warrior = (): ClassCard => ({
   id: "cls-w", cardId: "cl-warrior", name: "Warrior", type: "class", deck: "door", className: "Warrior", effectText: "",
 });
-const mateCard = (): MateCard => ({ id: "mate-1", cardId: "c-mate", name: "Mate", type: "mate", deck: "door" });
+const mateCard = (): MateCard => ({ id: "mate-1", cardId: "c-mate", name: "Evil Twin", type: "mate", deck: "door" });
 const dungeon = (cardId: string): DungeonCard => ({ id: `dg-${cardId}`, cardId, name: cardId, type: "dungeon", deck: "dungeon", effectText: "" });
 
 /** Player 0 looks for trouble with a monster of the given level. */
@@ -117,7 +117,7 @@ describe("exploits", () => {
     expect(t.act(0, { type: "askForHelp", helperId: "nobody", treasures: 1 })).toMatch(/Invalid helper/);
   });
 
-  it("does not put a Mate clone into the discard pile", () => {
+  it("does not put an Evil Twin clone into the discard pile", () => {
     const t = startedTable(2);
     const m = fight(t, 1);
     t.player(1).hand.push(mateCard());
@@ -268,7 +268,7 @@ describe("combat flow", () => {
   it("only reaches level 10 through combat", () => {
     const t = startedTable(2);
     t.player(0).level = 9;
-    t.player(0).hand.push({ id: "up", cardId: "go-up", name: "Go Up a Level", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
+    t.player(0).hand.push({ id: "up", cardId: "go-up", name: "Level Up!", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
     expect(t.act(0, { type: "playCard", cardId: "up" })).not.toBeNull();
     fight(t, 1);
     passAll(t);

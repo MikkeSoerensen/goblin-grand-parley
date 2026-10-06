@@ -103,16 +103,16 @@ describe("B8 winning level", () => {
     expect(handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 10 } }).error).toMatch(/locked/);
   });
 
-  it("caps selling and Go Up a Level one below the goal, and only combat wins", () => {
+  it("caps selling and Level Up! one below the goal, and only combat wins", () => {
     const l = lobby(2);
     handleAction(l.room, l.ids[0], { type: "updateSettings", settings: { winLevel: 15 } });
     handleAction(l.room, l.ids[0], { type: "startGame" });
     const p = l.room.players[0];
     p.level = 13;
-    p.hand.push({ id: "up1", cardId: "go-up", name: "Go Up a Level", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
+    p.hand.push({ id: "up1", cardId: "go-up", name: "Level Up!", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
     expect(handleAction(l.room, p.id, { type: "playCard", cardId: "up1" }).error).toBeNull();
     expect(p.level).toBe(14);
-    p.hand.push({ id: "up2", cardId: "go-up", name: "Go Up a Level", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
+    p.hand.push({ id: "up2", cardId: "go-up", name: "Level Up!", type: "go-up-a-level", deck: "treasure", goldValue: 0 });
     expect(handleAction(l.room, p.id, { type: "playCard", cardId: "up2" }).error).toMatch(/15/);
 
     // Level 10 is no longer a win

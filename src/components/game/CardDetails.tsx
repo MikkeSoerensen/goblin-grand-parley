@@ -8,8 +8,8 @@ import type { Card, ClassName, ClientView, MonsterTag } from "../../../shared/ty
 
 const TYPE_LABEL: Record<Card["type"], string> = {
   monster: "Monster", equipment: "Equipment", curse: "Curse", oneshot: "One-shot", enhancer: "Monster enhancer",
-  class: "Class", "go-up-a-level": "Go Up a Level", portal: "Portal", dungeon: "Dungeon",
-  "wandering-monster": "Wandering Monster", mate: "Mate",
+  class: "Class", "go-up-a-level": "Level Up!", portal: "Portal", dungeon: "Dungeon",
+  "wandering-monster": "Uninvited Guest", mate: "Evil Twin",
   race: "Race", dual: "Two of a kind", "forged-papers": "Cheat!", remedy: "Remedy", companion: "Companion",
 };
 

@@ -4,7 +4,7 @@
 import { promises as fs, renameSync, writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 
-import { MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
+import { buildAllDecks, MONSTER_IGNORES, MONSTER_TAGS } from "../shared/deck.js";
 import { DEFAULT_SETTINGS, type Card } from "../shared/types.js";
 import { emptyStats, type Room } from "./engine.js";
 
@@ -37,6 +37,28 @@ const allCards = (r: Room): Card[] => [
   ...r.players.flatMap(p => [...p.hand, ...p.backpack]),
 ];
 
+// Current card name per catalog id, so saved games pick up renamed cards.
+let cardNames: Map<string, string> | null = null;
+const catalogName = (cardId: string) => {
+  if (!cardNames) {
+    const decks = buildAllDecks();
+    cardNames = new Map([...decks.door, ...decks.treasure, ...decks.dungeon].map(c => [c.cardId, c.name]));
+  }
+  return cardNames.get(cardId);
+};
+
+// Walks the whole room (hands, equipment, combat, discards …) since cards sit in many places.
+const renameCards = (node: unknown) => {
+  if (Array.isArray(node)) { node.forEach(renameCards); return; }
+  if (typeof node !== "object" || node === null) return;
+  const o = node as Record<string, unknown>;
+  if (typeof o.cardId === "string" && typeof o.name === "string" && typeof o.type === "string") {
+    const name = catalogName(o.cardId);
+    if (name) o.name = /^(Mate|Evil Twin) of /.test(o.name) ? `Evil Twin of ${name}` : name;
+  }
+  Object.values(o).forEach(renameCards);
+};
+
 // Brings snapshots written by older versions up to the current shape.
 const migrateRoom = (r: Room) => {
   r.statusBeforeLooting = r.statusBeforeLooting ?? null;
@@ -58,6 +80,7 @@ const migrateRoom = (r: Room) => {
     p.dualRace = p.dualRace ?? null;
     p.companion = p.companion ?? null;         // before companions existed
   }
+  renameCards(r);
   for (const c of allCards(r)) {
     if (c.type !== "monster") continue;
     if (!Array.isArray(c.tags)) c.tags = [...(MONSTER_TAGS[c.cardId] ?? [])];

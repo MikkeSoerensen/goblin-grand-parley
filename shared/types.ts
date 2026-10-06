@@ -333,7 +333,7 @@ export interface CombatState {
   backstabbedBy?: Record<string, string[]>;
   warriorDiscardCount?: Record<string, number>;
   ranAway?: string[];               // fighters who have already rolled to run away
-  gluedPlayers?: string[];          // Flask of Glue: these fighters automatically fail Run Away
+  gluedPlayers?: string[];          // Pot of Sticky Sap: these fighters automatically fail Run Away
   swapUsed?: boolean;               // Dungeon of Sudden Swaps: attacker already stole from the helper
   interruptDeadline?: number | null; // epoch ms when everyone still to pass is passed automatically
   turncoatId?: string | null;        // Siren: a helper who switched sides; their power counts for the monster
@@ -414,7 +414,7 @@ export type ClientToServer =
   | { type: "charityGive"; cardIds: string[]; toId: string }
   | { type: "rename"; name: string }
   | { type: "flee" }
-  | { type: "playCard"; cardId: string; targetId?: string } // targetId: Flask of Glue
+  | { type: "playCard"; cardId: string; targetId?: string } // targetId: Pot of Sticky Sap
   | { type: "equip"; cardId: string; forceSwap?: boolean; forgedPapersId?: string }
   | { type: "castCurse"; cardId: string; targetId: string }
   | { type: "useClassAbility"; ability: "berserk" | "backstab" | "steal" | "charm" | "resurrect" | "cleanse"; cardIds: string[]; targetId?: string; monsterId?: string; targetCardId?: string; effectId?: string }
