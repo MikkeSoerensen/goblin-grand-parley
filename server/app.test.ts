@@ -90,7 +90,7 @@ describe("LAN server", () => {
 
     const thief = await client(s.port);
     thief.send({ type: "join", name: "ann", roomCode: "LAN" });
-    expect((await thief.next("error")).message).toMatch(/taken/);
+    expect((await thief.next("error")).message).toMatch(/still connected/);
 
     a.socket.disconnect();
     const back = await client(s.port);
@@ -189,6 +189,29 @@ describe("LAN server", () => {
 
     tv.send({ type: "kickDoor" });
     expect((await tv.next("error")).message).toMatch(/Join a room first/);
+  });
+
+  it("offers free seats when joining a running game, and lets a player leave for good", async () => {
+    const s = await start(null);
+    const a = await client(s.port);
+    const b = await client(s.port);
+    const c = await client(s.port);
+    await join(a, "Ann");
+    await join(b, "Bo");
+    await join(c, "Cy");
+    a.send({ type: "startGame" });
+    await a.next("state", m => m.view.status === "normalTurn");
+
+    c.socket.disconnect(); // Cy's phone closes
+    const late = await client(s.port);
+    late.send({ type: "join", name: "Typo", roomCode: "LAN" });
+    expect((await late.next("seats")).names).toEqual(["Cy"]);
+    expect((await join(late, "Cy")).roomCode).toBe("LAN");
+
+    b.send({ type: "leaveGame" });
+    await b.next("left");
+    const view = (await a.next("state", m => m.view.status !== "lobby" && !m.view.players.some(p => p.name === "Bo"))).view;
+    expect(view.players.map(p => p.name)).toEqual(["Ann", "Cy"]);
   });
 
   it("serves health and LAN address endpoints", async () => {

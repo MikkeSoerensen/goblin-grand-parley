@@ -8,6 +8,7 @@ import { Dice5 } from "lucide-react";
 export function Lobby() {
   const join = useGame(s => s.join);
   const watch = useGame(s => s.watch);
+  const seatOffer = useGame(s => s.seatOffer);
   const [name, setName] = useState(() => loadSession()?.name ?? "");
   const [room, setRoom] = useState(() => loadSession()?.roomCode ?? "");
 
@@ -46,6 +47,18 @@ export function Lobby() {
             </div>
             <p className="text-xs opacity-60 mt-1">Everyone on the same Wi-Fi enters the same code.</p>
           </div>
+          {seatOffer && (
+            <div className="rounded-lg border-2 border-primary/60 bg-primary/10 p-3 space-y-2" role="status">
+              <p className="text-sm font-ui">Room <b>{seatOffer.roomCode}</b> is already playing. Take over a free seat:</p>
+              <div className="flex flex-wrap gap-2">
+                {seatOffer.names.map(n => (
+                  <Button key={n} type="button" size="sm" onClick={() => { setName(n); join(n, seatOffer.roomCode); }}>
+                    Play as {n}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <Button type="submit" className="w-full mt-2" size="lg" disabled={!name.trim() || !room.trim()}>
             Enter the Dungeon
           </Button>

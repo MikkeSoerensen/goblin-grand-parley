@@ -12,6 +12,7 @@ import { CardDetails } from "@/components/game/CardDetails";
 import { ParleyPanel } from "@/components/game/ParleyPanel";
 import { EventStrip } from "@/components/game/EventStrip";
 import { TvView } from "@/components/game/TvView";
+import { GameMenu } from "@/components/game/GameMenu";
 import { INTERRUPT_CHOICES, THREAT_CHOICES, WIN_LEVELS } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 type MobileTab = "table" | "hand" | "players" | "combat";
 
 export default function Index() {
-  const { view, playerId, roomCode, watching, connected, init, error, clearError, lastRoll, leave } = useGame();
+  const { view, playerId, roomCode, watching, connected, init, error, clearError, lastRoll, leaveGame, restartGame } = useGame();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<MobileTab>("table");
   const prevCombatRef = useRef<boolean>(false);
@@ -126,7 +127,14 @@ export default function Index() {
             {view.players.map(p => (
               <li key={p.id} className="bg-muted/40 rounded px-3 py-2 font-display flex justify-between">
                 <span>{p.name} {view.self?.id === p.id && "(you)"}</span>
-                <span className="text-xs opacity-60 font-ui" aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-xs opacity-60 font-ui" aria-label={p.connected ? "online" : "offline"}>{p.connected ? "🟢" : "⚪"}</span>
+                  {!p.connected && (
+                    <button type="button" className="text-xs font-ui opacity-70 hover:opacity-100 hover:text-destructive"
+                      aria-label={`Remove ${p.name} (offline)`} title="Remove this offline seat"
+                      onClick={() => send({ type: "removePlayer", playerId: p.id })}>✕</button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -134,7 +142,7 @@ export default function Index() {
             <Button size="lg" disabled={view.players.length < 2} onClick={() => send({ type: "startGame" })}>
               {view.players.length < 2 ? "Need ≥ 2 players" : "Start Game"}
             </Button>
-            <Button size="lg" variant="ghost" onClick={leave}>Leave room</Button>
+            <Button size="lg" variant="ghost" onClick={leaveGame}>Leave room</Button>
           </div>
         </div>
       </main>
@@ -148,7 +156,10 @@ export default function Index() {
         <div className="felt-table p-8 sm:p-10 text-center max-w-lg">
           <h1 className="font-display text-4xl sm:text-5xl brass-text mb-2">🏆 Victory!</h1>
           <p className="text-xl sm:text-2xl font-display mb-6">{winner?.name} reached Level {view.settings.winLevel}!</p>
-          <Button onClick={leave}>New Game</Button>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button onClick={restartGame}>🔄 Play again (same table)</Button>
+            <Button variant="ghost" onClick={leaveGame}>Leave</Button>
+          </div>
         </div>
       </main>
     );
@@ -162,6 +173,7 @@ export default function Index() {
         <div className="flex flex-row gap-4 flex-1 min-h-0">
           <TableArea />
           <div className="flex flex-col gap-4 w-72 shrink-0">
+            <GameMenu />
             <Scoreboard />
             <ParleyPanel />
           </div>
@@ -212,6 +224,7 @@ export default function Index() {
           <div className="h-full overflow-y-auto p-2 space-y-2">
             <ParleyPanel />
             <Scoreboard />
+            <GameMenu />
           </div>
         )}
         {tab === "combat" && (

@@ -311,6 +311,8 @@ const progressAction = (room: Room, rnd: () => number): { playerId: string; msg:
       const toId = ch.candidates[Math.floor(rnd() * ch.candidates.length)];
       return { playerId: giver.id, msg: { type: "charityGive", cardIds: giver.hand.slice(0, ch.cardCount).map(c => c.id), toId } };
     }
+    case "lobby":
+      return room.players.length >= 2 ? { playerId: room.players[0].id, msg: { type: "startGame" } } : null;
     case "normalTurn":
       if (room.currentPhase === 1 && room.decks.door.length + room.discards.door.length > 0) return { playerId: active.id, msg: { type: "kickDoor" } };
       if ((room.currentPhase === 2 || room.currentPhase === 3) && !room.combatFought) return { playerId: active.id, msg: { type: "lootRoom" } };
@@ -406,6 +408,18 @@ describe("fuzz: conservation, consistency and liveness", () => {
           const { playerId, msg } = chaosAction(room, rnd);
           handleAction(room, playerId, msg);
           assertInvariants(room, universe, `chaos ${msg.type} (step ${step})`);
+        }
+        // Rarely: someone quits for good, or the whole table starts over.
+        if (rnd() < 0.004 && room.players.length > 3) {
+          const quitter = room.players[Math.floor(rnd() * room.players.length)];
+          expect(handleAction(room, quitter.id, { type: "leaveGame" }).error).toBeNull();
+          assertInvariants(room, universe, `leaveGame (step ${step})`);
+        }
+        if (rnd() < 0.002 && room.status !== "lobby") {
+          expect(handleAction(room, room.players[0].id, { type: "restartGame" }).error).toBeNull();
+          expect(handleAction(room, room.players[0].id, { type: "startGame" }).error).toBeNull();
+          universe.splice(0, universe.length, ...[...allCardIds(room)].sort()); // a brand-new deck
+          assertInvariants(room, universe, `restartGame (step ${step})`);
         }
         const prog = progressAction(room, rnd);
         if (!prog) continue;

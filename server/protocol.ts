@@ -64,6 +64,9 @@ const schema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("sacrificeCompanion") }),
   z.object({ type: z.literal("forceHelp"), targetId: id }),
   z.object({ type: z.literal("suddenSwap") }),
+  z.object({ type: z.literal("leaveGame") }),
+  z.object({ type: z.literal("restartGame") }),
+  z.object({ type: z.literal("removePlayer"), playerId: id }),
   z.object({
     type: z.literal("updateSettings"),
     settings: z.object({

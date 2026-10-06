@@ -11,10 +11,14 @@ interface GameStore {
   connected: boolean;
   error: string | null;
   lastRoll: { playerId: string; result: number; reason: string } | null;
+  // A running game refused a new name: these offline seats can be taken over instead.
+  seatOffer: { roomCode: string; names: string[] } | null;
   init: () => void;
   join: (name: string, roomCode: string) => void;
   watch: (roomCode: string) => void;
   leave: () => void;
+  leaveGame: () => void;   // give up the seat for good (the server answers "left")
+  restartGame: () => void;
   clearError: () => void;
 }
 
@@ -28,6 +32,7 @@ export const useGame = create<GameStore>((set) => ({
   connected: false,
   error: null,
   lastRoll: null,
+  seatOffer: null,
   init: () => {
     if (initialized) return;
     initialized = true;
@@ -46,7 +51,11 @@ export const useGame = create<GameStore>((set) => ({
     if (socket.connected) rejoin();
 
     onMsg((m: ServerToClient) => {
-      if (m.type === "watching") {
+      if (m.type === "seats") {
+        set({ seatOffer: m.names.length ? { roomCode: m.roomCode, names: m.names } : null });
+      } else if (m.type === "left") {
+        useGame.getState().leave();
+      } else if (m.type === "watching") {
         saveSession({ name: "", roomCode: m.roomCode, watching: true });
         set({ watching: true, roomCode: m.roomCode });
       } else if (m.type === "joined") {
@@ -63,6 +72,7 @@ export const useGame = create<GameStore>((set) => ({
     // Reuse our token if we are going back to the same room under the same name.
     const token = prev && prev.roomCode === roomCode && prev.name.toLowerCase() === name.toLowerCase() ? prev.token : undefined;
     saveSession({ name, roomCode, token });
+    set({ seatOffer: null });
     send({ type: "join", name, roomCode, token });
   },
   watch: roomCode => {
@@ -74,6 +84,8 @@ export const useGame = create<GameStore>((set) => ({
     // A fresh page load is the simplest way to drop every bit of room state.
     location.reload();
   },
+  leaveGame: () => send({ type: "leaveGame" }),
+  restartGame: () => send({ type: "restartGame" }),
   clearError: () => set({ error: null }),
 }));
 

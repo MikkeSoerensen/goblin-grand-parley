@@ -390,7 +390,7 @@ export const watchRoom = (rooms: Map<string, Room>, roomCode: string): Room => {
 export interface JoinRequest { name: string; roomCode: string; token?: string }
 export type JoinResult =
   | { ok: true; room: Room; playerId: string; token: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; freeSeats?: string[] }; // freeSeats: offline players you could take over
 
 // Identity is the session token, not the name. A name can only be reclaimed
 // without a token when its owner is offline (e.g. lost browser storage).
@@ -414,7 +414,13 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
 
   const byName = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (byName) {
-    if (byName.connected) return { ok: false, error: `The name "${byName.name}" is already taken in this room.` };
+    if (byName.connected) {
+      return {
+        ok: false,
+        error: `${byName.name} is still connected. If that was you on another device, wait a few seconds and try again.`,
+        freeSeats: room.players.filter(p => !p.connected).map(p => p.name),
+      };
+    }
     const token = newToken();
     room.sessions[byName.id] = token;
     byName.connected = true;
@@ -425,7 +431,14 @@ export const joinRoom = (rooms: Map<string, Room>, req: JoinRequest): JoinResult
   }
 
   if (room.status !== "lobby") {
-    return { ok: false, error: "Game already in progress; use your existing player name to reconnect." };
+    const freeSeats = room.players.filter(p => !p.connected).map(p => p.name);
+    return {
+      ok: false,
+      error: freeSeats.length
+        ? "This game has already started — take over one of the free seats."
+        : "This game has already started and every seat is taken.",
+      freeSeats,
+    };
   }
 
   const player: PrivatePlayer = {
@@ -990,6 +1003,17 @@ export const handleAction = (room: Room, playerId: string, msg: GameAction): { e
 const handle = (room: Room, playerId: string, msg: GameAction): string | null => {
   const player = room.players.find(p => p.id === playerId);
   if (!player) return "Unknown player.";
+
+  // Leaving and restarting work in every state, including after the game is over.
+  if (msg.type === "leaveGame") {
+    removePlayer(room, playerId);
+    return null;
+  }
+  if (msg.type === "restartGame") {
+    if (room.status === "lobby") return "The game hasn't started yet.";
+    restartGame(room, `${player.name} started a new game — back to the waiting room.`);
+    return null;
+  }
   if (room.status === "gameOver") return "The game is over.";
 
   switch (msg.type) {
@@ -998,6 +1022,15 @@ const handle = (room: Room, playerId: string, msg: GameAction): string | null =>
       if (!name) return "Name cannot be empty.";
       if (room.players.some(p => p.id !== playerId && p.name.toLowerCase() === name.toLowerCase())) return "Name already taken.";
       player.name = name;
+      return null;
+    }
+
+    case "removePlayer": {
+      if (room.status !== "lobby") return "Players can only be removed in the waiting room — use Leave game instead.";
+      const target = room.players.find(p => p.id === msg.playerId);
+      if (!target || target.id === playerId) return "Pick another player.";
+      if (target.connected) return `${target.name} is connected — only offline seats can be removed.`;
+      removePlayer(room, target.id);
       return null;
     }
 
@@ -2171,6 +2204,123 @@ const finishLooting = (room: Room, deadId: string) => {
       ? "normalTurn"
       : prior;
   }
+};
+
+// Everything a player holds goes to the discard piles.
+const discardBelongings = (room: Room, p: PrivatePlayer) => {
+  const held: Card[] = [
+    ...p.hand, ...p.backpack, ...allEquipped(p),
+    ...[p.playerClass, p.extraClass, p.race, p.extraRace, p.dualClass, p.dualRace, p.companion].filter((c): c is NonNullable<typeof c> => !!c),
+  ];
+  for (const c of held) discardCard(room, c);
+  p.hand = []; p.backpack = [];
+  p.equipment = { head: null, armor: null, feet: null, hands: [], bigItem: null, none: [] };
+  p.playerClass = p.extraClass = null;
+  p.race = p.extraRace = null;
+  p.dualClass = p.dualRace = null;
+  p.companion = null;
+};
+
+/** Removes a seat for good. Safe in any state: fights, looting, charity and deals are untangled. */
+export const removePlayer = (room: Room, playerId: string) => {
+  const idx = room.players.findIndex(p => p.id === playerId);
+  if (idx < 0) return;
+  const p = room.players[idx];
+  const wasActive = idx === room.activePlayerIndex && room.status !== "lobby";
+
+  if (room.status !== "lobby") {
+    discardBelongings(room, p);
+    room.negotiations = room.negotiations.filter(o => o.fromId !== playerId && o.toId !== playerId);
+    room.trades = room.trades.filter(t => t.fromId !== playerId && t.toId !== playerId);
+
+    const c = room.combat;
+    if (c) {
+      delete c.passes[playerId];
+      c.saboteurs = c.saboteurs?.filter(id => id !== playerId);
+      c.swarmCalled = c.swarmCalled?.filter(id => id !== playerId);
+      if (c.turncoatId === playerId) c.turncoatId = null;
+      if (c.attackerId === playerId) {
+        endCombat(room); // the fight goes with them
+        if (room.status !== "looting") room.status = "normalTurn";
+      } else if (c.helperId === playerId) {
+        c.helperId = null;
+        c.contract = null;
+        c.ranAway = c.ranAway?.filter(id => id !== playerId);
+        if (room.status === "runAwayRoll") finishRunAwayIfDone(room);
+      }
+    }
+
+    if (room.looting) {
+      if (room.looting.deadId === playerId) {
+        for (const card of room.looting.pile) discardCard(room, card);
+        room.looting = null;
+        room.status = room.combat ? (room.statusBeforeLooting ?? "normalTurn") : "normalTurn";
+        room.statusBeforeLooting = null;
+      } else {
+        room.looting.orderQueue = room.looting.orderQueue.filter(id => id !== playerId);
+        if (room.looting.orderQueue.length === 0) {
+          for (const card of room.looting.pile) discardCard(room, card);
+          finishLooting(room, room.looting.deadId);
+        }
+      }
+    }
+
+    if (room.charity) {
+      room.charity.candidates = room.charity.candidates.filter(id => id !== playerId);
+      if (room.charity.fromId === playerId || room.charity.candidates.length === 0) {
+        room.charity = null;
+        if (room.status === "charitySelection") room.status = "normalTurn";
+      }
+    }
+  }
+
+  room.players.splice(idx, 1);
+  delete room.sessions[playerId];
+  delete room.halflingSaleTurn[playerId];
+  if (idx < room.activePlayerIndex) room.activePlayerIndex--;
+
+  if (room.status === "lobby") {
+    log(room, `${p.name} left the waiting room.`);
+    return;
+  }
+  shout(room, `🚪 ${p.name} left the game.`);
+
+  if (room.players.length < 2) {
+    restartGame(room, "Not enough players left — back to the waiting room.");
+    return;
+  }
+  room.activePlayerIndex %= room.players.length;
+  if (wasActive) {
+    // The next player in line (now at the leaver's old position) takes over a fresh turn.
+    room.combat = null;
+    room.negotiations = [];
+    room.charity = null;
+    if (!room.looting) room.status = "normalTurn";
+    room.currentPhase = 1;
+    room.combatFought = false;
+    room.turnNo++;
+    log(room, `▶ ${room.players[room.activePlayerIndex].name}'s turn.`);
+  }
+  syncCombatGate(room);
+};
+
+/** Same players, fresh game: everyone back to the waiting room at level 1. Settings are kept. */
+export const restartGame = (room: Room, reason: string) => {
+  const fresh = createRoom(room.code);
+  for (const p of room.players) {
+    discardBelongings(room, p);
+    Object.assign(p, {
+      level: 1, isDead: false, effects: [], handCount: 0, backpackCount: 0, combatPower: 1,
+    });
+  }
+  Object.assign(room, {
+    decks: fresh.decks, discards: fresh.discards, activeDungeons: [], table: [],
+    status: "lobby" as AppStatus, activePlayerIndex: 0, currentPhase: 1 as Phase,
+    combat: null, negotiations: [], trades: [], charity: null, looting: null,
+    winnerId: null, combatFought: false, statusBeforeLooting: null,
+    stats: emptyStats(), turnNo: 0, halflingSaleTurn: {},
+  });
+  shout(room, `🔄 ${reason}`);
 };
 
 const advanceTurn = (room: Room) => {

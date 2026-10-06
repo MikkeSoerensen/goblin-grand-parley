@@ -422,13 +422,18 @@ export type ClientToServer =
   | { type: "sacrificeCompanion" }
   | { type: "forceHelp"; targetId: string } // Bruges til de snyde støvler der tvinger til at hjælpe
   | { type: "suddenSwap" } // Bruges til d-swapping dungeon-kortet
-  | { type: "updateSettings"; settings: Partial<RoomSettings> }; // waiting room only
+  | { type: "updateSettings"; settings: Partial<RoomSettings> } // waiting room only
+  | { type: "leaveGame" }                                         // give up your seat for good
+  | { type: "restartGame" }                                       // everyone back to the waiting room
+  | { type: "removePlayer"; playerId: string };                   // waiting room: drop an offline seat
 
 export type GameAction = Exclude<ClientToServer, { type: "join" } | { type: "watch" }>;
 
 export type ServerToClient =
   | { type: "joined"; roomCode: string; playerId: string; token: string }
   | { type: "watching"; roomCode: string }
+  | { type: "seats"; roomCode: string; names: string[] } // a game in progress: seats that are free to take over
+  | { type: "left" }                                     // your seat is gone; back to the lobby
   | { type: "state"; view: ClientView }
   | { type: "error"; message: string }
   | { type: "rolled"; playerId: string; result: number; reason: string }

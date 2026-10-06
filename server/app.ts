@@ -88,6 +88,9 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     maxHttpBufferSize: 32 * 1024,
+    // Notice a phone whose browser was closed within ~20 s (default ~45 s), so its seat frees up sooner.
+    pingInterval: 10_000,
+    pingTimeout: 10_000,
     ...(opts.corsOrigins?.length ? { cors: { origin: opts.corsOrigins } } : {}),
   });
 
@@ -159,7 +162,14 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
           unbind(socket.id);
           watchers.delete(socket.id);
           const res = joinRoom(rooms, msg);
-          if (!res.ok) { emit(socket.id, { type: "error", message: res.error }); return; }
+          if (!res.ok) {
+            // Free seats explain themselves in the lobby; only send the error text when there is
+            // nothing to pick, or when it adds something (a name that's still online).
+            const seats = res.freeSeats ?? [];
+            if (seats.length === 0 || res.error.includes("still connected")) emit(socket.id, { type: "error", message: res.error });
+            if (seats.length) emit(socket.id, { type: "seats", roomCode: msg.roomCode.toUpperCase(), names: seats });
+            return;
+          }
 
           // Same player opened elsewhere (other tab/device): the newest connection wins.
           const previous = playerSocket.get(res.playerId);
@@ -183,6 +193,12 @@ export const startGameServer = (opts: GameServerOptions): Promise<GameServer> =>
         if (!room) { emit(socket.id, { type: "error", message: "Room not found." }); return; }
 
         const { error, events } = handleAction(room, b.playerId, msg);
+        if (msg.type === "leaveGame" && !error) {
+          // The seat is gone: release this socket and send the player back to the lobby.
+          bindings.delete(socket.id);
+          playerSocket.delete(b.playerId);
+          emit(socket.id, { type: "left" });
+        }
         if (error) emit(socket.id, { type: "error", message: error });
         for (const ev of events) {
           for (const p of room.players) {
